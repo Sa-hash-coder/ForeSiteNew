@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { getTasksApi, updateTaskStatusApi } from "@/app/lib/api";
+import { getStoredUser } from "@/app/lib/auth";
 import {
   Wrench,
   AlertTriangle,
@@ -172,9 +173,13 @@ export default function MaintenancePage() {
   const [orderFilter, setOrderFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [clearanceNote, setClearanceNote] = useState<string>("");
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Sync tab with layout events & load live tasks from DB
   useEffect(() => {
+    const u = getStoredUser();
+    if (u) setCurrentUser(u);
+
     const handleTab = (e: Event) => {
       const customEvent = e as CustomEvent<string>;
       if (customEvent.detail) {
@@ -878,14 +883,18 @@ export default function MaintenancePage() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderRadius: 6, backgroundColor: "var(--surface-subtle)", fontSize: 12 }}>
                   <div>
                     <strong>WO-9035</strong> · Flare Stack Pressure Relief Valve Calibration
-                    <div style={{ fontSize: 11, color: "var(--text-light)", marginTop: 2 }}>Certified by Devon Vance · PTW-0850</div>
+                    <div style={{ fontSize: 11, color: "var(--text-light)", marginTop: 2 }}>
+                      Certified by {currentUser?.name || "Maintenance Lead"} · PTW-0850
+                    </div>
                   </div>
                   <span style={{ fontSize: 11, color: "#15803D", fontWeight: 700 }}>OSHA Signed</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderRadius: 6, backgroundColor: "var(--surface-subtle)", fontSize: 12 }}>
                   <div>
                     <strong>WO-9032</strong> · Crude Transfer Line Safety Eyewash Station Flush
-                    <div style={{ fontSize: 11, color: "var(--text-light)", marginTop: 2 }}>Certified by Devon Vance · PTW-0842</div>
+                    <div style={{ fontSize: 11, color: "var(--text-light)", marginTop: 2 }}>
+                      Certified by {currentUser?.name || "Maintenance Lead"} · PTW-0842
+                    </div>
                   </div>
                   <span style={{ fontSize: 11, color: "#15803D", fontWeight: 700 }}>OSHA Signed</span>
                 </div>

@@ -1,14 +1,22 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { MOCK_REPORTS } from "@/app/lib/mockData";
 import { useLanguage } from "@/app/lib/LanguageContext";
 import StatusBadge from "@/app/components/StatusBadge";
 import DangerBadge from "@/app/components/DangerBadge";
+import { getStoredUser } from "@/app/lib/auth";
 
 export default function WorkerDashboard() {
   const { lang, t } = useLanguage();
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  useEffect(() => {
+    const u = getStoredUser();
+    if (u) setCurrentUser(u);
+  }, []);
+
   const reports = MOCK_REPORTS;
 
   const total = reports.length || 12;
@@ -20,11 +28,15 @@ export default function WorkerDashboard() {
 
   const recent = reports.slice(0, 3);
 
+  const greetingTitle = currentUser?.name
+    ? (lang === "hi" ? `नमस्ते, ${currentUser.name.split(" ")[0]}!` : `Welcome, ${currentUser.name.split(" ")[0]}!`)
+    : t.greeting;
+
   return (
     <div style={styles.container}>
       {/* ── Mobile Greeting Header ───────────────────────────────────── */}
       <div className="mobile-greeting-header animate-apple-fade-down" style={styles.mobileGreeting}>
-        <h1 style={styles.mobileGreetingTitle}>{t.greeting}</h1>
+        <h1 style={styles.mobileGreetingTitle}>{greetingTitle}</h1>
         <p style={styles.mobileGreetingSub}>{t.greetingSub}</p>
       </div>
 

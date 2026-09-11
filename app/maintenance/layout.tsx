@@ -19,6 +19,7 @@ import {
   X
 } from "lucide-react";
 import LanguageSwitchButton from "@/app/components/LanguageSwitchButton";
+import { getStoredUser, logout } from "@/app/lib/auth";
 
 export default function MaintenanceLayout({
   children,
@@ -29,12 +30,16 @@ export default function MaintenanceLayout({
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("desk");
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("foresite_theme") as "light" | "dark" | null;
     const initialTheme = saved || "light";
     setTheme(initialTheme);
     document.documentElement.setAttribute("data-theme", initialTheme);
+
+    const u = getStoredUser();
+    if (u) setCurrentUser(u);
 
     const handleTabChange = (e: Event) => {
       const customEvent = e as CustomEvent<string>;
@@ -306,12 +311,37 @@ export default function MaintenanceLayout({
                   fontSize: 12,
                 }}
               >
-                DV
+                {currentUser?.name
+                  ? currentUser.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
+                  : "MT"}
               </div>
               <div className="maintenance-tech-info">
-                <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text)", lineHeight: 1.1 }}>Devon Vance</div>
-                <div style={{ fontSize: 10, color: "var(--text-light)" }}>Lead Reliability Tech</div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text)", lineHeight: 1.1 }}>
+                  {currentUser?.name || "Maintenance Tech"}
+                </div>
+                <div style={{ fontSize: 10, color: "var(--text-light)" }}>
+                  {currentUser?.role === "maintenance" ? "Lead Reliability Tech" : (currentUser?.role || "Reliability Tech")}
+                </div>
               </div>
+              <button
+                onClick={() => {
+                  logout();
+                  window.location.href = "/";
+                }}
+                title="Sign Out"
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--text-muted)",
+                  padding: "4px 6px",
+                  display: "flex",
+                  alignItems: "center",
+                  borderRadius: 4,
+                }}
+              >
+                <LogOut size={16} />
+              </button>
             </div>
           </div>
         </header>

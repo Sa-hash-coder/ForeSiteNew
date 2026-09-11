@@ -174,7 +174,11 @@ function WorkerAppContent({ children }: { children: React.ReactNode }) {
 
             {/* Desktop Header Subtitle */}
             <div className="worker-desktop-header-title" style={s.desktopHeaderTitle}>
-              <span style={s.greetingTitle}>{t.greeting}</span>
+              <span style={s.greetingTitle}>
+                {currentUser?.name
+                  ? `${lang === "hi" ? "नमस्ते" : "Welcome"}, ${currentUser.name.split(" ")[0]}!`
+                  : t.greeting}
+              </span>
               <span style={s.greetingSub}>{t.greetingSub}</span>
             </div>
           </div>
@@ -218,10 +222,10 @@ function WorkerAppContent({ children }: { children: React.ReactNode }) {
               <div style={s.userAvatar}>
                 {currentUser?.name
                   ? currentUser.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
-                  : "RM"}
+                  : "SW"}
               </div>
               <span className="worker-desktop-username" style={s.userName}>
-                {currentUser?.name || "Rajan Mehta"}
+                {currentUser?.name || (lang === "hi" ? "कार्यकर्ता" : "Worker")}
               </span>
             </Link>
           </div>

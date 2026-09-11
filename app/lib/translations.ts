@@ -118,7 +118,7 @@ export interface Translations {
 export const translations: Record<Language, Translations> = {
   en: {
     appTitle: "ForeSite",
-    workerName: "Aniket",
+    workerName: "Worker",
     home: "Home",
     dashboard: "Dashboard",
     reportIssue: "Submit Report",
@@ -146,7 +146,7 @@ export const translations: Record<Language, Translations> = {
       closed: "Closed",
     },
 
-    greeting: "Good Morning, Aniket!",
+    greeting: "Welcome Back!",
     greetingSub: "Thanks for keeping your community safe.",
     reportBtnTitle: "Report a Hazard / Danger",
     reportBtnSub: "Upload a photo, let AI analyze it, and help make your city safer.",
@@ -237,7 +237,7 @@ export const translations: Record<Language, Translations> = {
 
   hi: {
     appTitle: "फ़ोरसाइट (ForeSite)",
-    workerName: "अनिकेत",
+    workerName: "कार्यकर्ता",
     home: "मुख्य पृष्ठ",
     dashboard: "डैशबोर्ड",
     reportIssue: "रिपोर्ट दर्ज करें",
@@ -265,7 +265,7 @@ export const translations: Record<Language, Translations> = {
       closed: "बंद",
     },
 
-    greeting: "शुभ प्रभात, अनिकेत!",
+    greeting: "स्वागत है!",
     greetingSub: "अपने समुदाय को सुरक्षित रखने के लिए धन्यवाद।",
     reportBtnTitle: "ख़तरा / समस्या दर्ज करें",
     reportBtnSub: "फ़ोटो अपलोड करें, AI जांच करेगा और शहर को सुरक्षित बनाएगा।",

@@ -1,22 +1,44 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/app/lib/LanguageContext";
+import { getStoredUser, logout } from "@/app/lib/auth";
 
 export default function WorkerProfilePage() {
   const { lang, t } = useLanguage();
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  useEffect(() => {
+    const u = getStoredUser();
+    if (u) setCurrentUser(u);
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    window.location.href = "/";
+  };
+
+  const displayName = currentUser?.name || (lang === "hi" ? "फ़ील्ड कार्यकर्ता" : "Field Worker");
+  const displayInitials = currentUser?.name
+    ? currentUser.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
+    : "SW";
+  const displayRole = currentUser?.role
+    ? (currentUser.role === "worker" ? (lang === "hi" ? "सुरक्षा कार्यकर्ता" : "Field Safety Worker") : currentUser.role.toUpperCase())
+    : (lang === "hi" ? "समुदाय कार्यकर्ता" : "Community Worker");
 
   return (
     <div style={styles.container}>
       {/* Profile Header Card */}
       <div style={styles.card}>
         <div style={styles.avatarWrap}>
-          <div style={styles.avatar}>AT</div>
+          <div style={styles.avatar}>{displayInitials}</div>
         </div>
-        <h1 style={styles.name}>{lang === "hi" ? "अनिकेत तिवारी" : "Aniket Tiwari"}</h1>
-        <p style={styles.role}>{lang === "hi" ? "समुदाय कार्यकर्ता" : "Community Worker"}</p>
-        <p style={styles.memberSince}>{lang === "hi" ? "सितंबर 2026 से सदस्य" : "Member since Sept 2026"}</p>
+        <h1 style={styles.name}>{displayName}</h1>
+        <p style={styles.role}>{displayRole}</p>
+        <p style={styles.memberSince}>
+          {currentUser?.email ? currentUser.email : (lang === "hi" ? "सितंबर 2026 से सदस्य" : "Member since Sept 2026")}
+        </p>
 
         {/* Stats Grid */}
         <div style={styles.statsRow}>
@@ -70,7 +92,7 @@ export default function WorkerProfilePage() {
           <span style={styles.arrow}>›</span>
         </button>
 
-        <button style={{ ...styles.menuItem, borderBottom: "none" }}>
+        <button onClick={handleLogout} style={{ ...styles.menuItem, borderBottom: "none" }}>
           <div style={styles.menuLeft}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

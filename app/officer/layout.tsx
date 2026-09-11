@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { ACTIVE_ALERTS } from '@/app/lib/officerMockData';
 import { LanguageProvider, useLanguage } from '@/app/lib/LanguageContext';
 import LanguageSwitchButton from '@/app/components/LanguageSwitchButton';
+import { getStoredUser, logout } from '@/app/lib/auth';
 
 // Replaced emojis with clean, strict SVG icons
 const NAV_ITEMS = [
@@ -48,12 +49,16 @@ function OfficerLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('foresite_theme') as 'light' | 'dark' | null;
     const initialTheme = saved || 'light';
     setTheme(initialTheme);
     document.documentElement.setAttribute('data-theme', initialTheme);
+
+    const u = getStoredUser();
+    if (u) setCurrentUser(u);
   }, []);
 
   const toggleTheme = () => {
@@ -202,16 +207,24 @@ function OfficerLayoutContent({ children }: { children: React.ReactNode }) {
                 flexShrink: 0,
               }}
             >
-              KS
+              {currentUser?.name
+                ? currentUser.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+                : 'SO'}
             </div>
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                Kavita Sharma
+                {currentUser?.name || 'Safety Officer'}
               </div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Lead Safety Inspector</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                {currentUser?.role === 'officer' ? 'Lead Safety Inspector' : (currentUser?.role || 'Safety Officer')}
+              </div>
             </div>
           </div>
           <button
+            onClick={() => {
+              logout();
+              window.location.href = '/';
+            }}
             style={{
               width: '100%',
               padding: '8px',
@@ -222,6 +235,7 @@ function OfficerLayoutContent({ children }: { children: React.ReactNode }) {
               fontWeight: 600,
               color: 'var(--text-muted)',
               transition: 'all 0.15s ease',
+              cursor: 'pointer',
             }}
           >
             Sign Out
