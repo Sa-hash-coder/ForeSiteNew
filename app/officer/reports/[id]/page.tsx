@@ -156,8 +156,6 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       showToast("Report marked as resolved.");
     }
   };
-  const tasks = MAINTENANCE_TASKS.filter(t => t.reportId === report._id);
-
   const card: CSSProperties = {
     background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)',
     boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 24px', marginBottom: 16,
@@ -168,7 +166,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
     setTimeout(() => setToast(''), 2400);
   };
 
-  if (loading) {
+  if (loading || !report) {
     return (
       <div>
         <div className="skeleton" style={{ height: 20, width: 200, marginBottom: 20, borderRadius: 10 }} />
@@ -179,6 +177,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
     );
   }
 
+  const tasks = MAINTENANCE_TASKS.filter(t => t.reportId === report?._id);
   const cat = catBg(report.category);
 
   return (
