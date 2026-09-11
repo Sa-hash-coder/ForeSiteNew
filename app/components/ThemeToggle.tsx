@@ -19,18 +19,32 @@ export default function ThemeToggle() {
     setTheme(newTheme);
     document.documentElement.setAttribute("data-theme", newTheme);
     localStorage.setItem("foresite_theme", newTheme);
+    window.dispatchEvent(new Event("themechange"));
   };
 
   return (
     <button
       onClick={toggleTheme}
-      className="p-2 rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 transition-colors"
+      style={{
+        width: 38,
+        height: 38,
+        borderRadius: 8,
+        backgroundColor: "var(--surface-subtle)",
+        border: "1px solid var(--border)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        color: "var(--text)",
+        transition: "all 0.15s ease",
+      }}
+      title={theme === "dark" ? "Switch to Light Theme" : "Switch to Dark Theme"}
       aria-label="Toggle theme"
     >
       {theme === "light" ? (
-        <Moon className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+        <Moon style={{ width: 18, height: 18, color: "var(--text)" }} />
       ) : (
-        <Sun className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+        <Sun style={{ width: 18, height: 18, color: "#F59E0B" }} />
       )}
     </button>
   );

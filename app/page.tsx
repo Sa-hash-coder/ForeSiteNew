@@ -178,10 +178,10 @@ export default function ForeSiteLanding() {
   ];
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#F8FAFC", color: "#111827", fontFamily: "system-ui, -apple-system, sans-serif", overflowX: "hidden" }}>
+    <div style={{ minHeight: "100vh", backgroundColor: "var(--bg)", color: "var(--text)", fontFamily: "system-ui, -apple-system, sans-serif", overflowX: "hidden" }}>
 
       {/* ─── NAVBAR ─────────────────────────────────────────────────────── */}
-      <header style={{ position: "sticky", top: 0, zIndex: 40, backgroundColor: "rgba(255,255,255,0.97)", backdropFilter: "blur(8px)", borderBottom: "1px solid #E2E8F0", width: "100%" }}>
+      <header style={{ position: "sticky", top: 0, zIndex: 40, backgroundColor: "var(--surface)", backdropFilter: "blur(8px)", borderBottom: "1px solid var(--border)", width: "100%" }}>
         <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 32px", height: 72, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
 
           {/* Logo + Nav */}
@@ -191,7 +191,7 @@ export default function ForeSiteLanding() {
                 <ShieldCheck style={{ width: 20, height: 20, color: "white" }} strokeWidth={2.4} />
               </div>
               <div>
-                <span style={{ fontSize: 22, fontWeight: 800, color: "#0F172A", display: "block", lineHeight: 1.1, letterSpacing: "-0.5px" }}>ForeSite</span>
+                <span style={{ fontSize: 22, fontWeight: 800, color: "var(--text)", display: "block", lineHeight: 1.1, letterSpacing: "-0.5px" }}>ForeSite</span>
                 <span style={{ fontSize: 9, fontWeight: 700, color: "#64748B", letterSpacing: "0.16em", textTransform: "uppercase", display: "block", marginTop: 3 }}>SAFER OPERATIONS. BRIGHTER TOMORROW.</span>
               </div>
             </a>
@@ -208,7 +208,7 @@ export default function ForeSiteLanding() {
                     style={{
                       fontSize: 15,
                       fontWeight: isActive ? 700 : 500,
-                      color: isActive ? "#0F172A" : "#475569",
+                      color: isActive ? "var(--text)" : "var(--text-muted)",
                       textDecoration: "none",
                       position: "relative",
                       paddingBottom: 4,
@@ -230,7 +230,7 @@ export default function ForeSiteLanding() {
             <ThemeToggle />
             <button
               onClick={() => openAuth("login")}
-              style={{ padding: "9px 20px", fontSize: 14, fontWeight: 600, borderRadius: 6, color: "#0F172A", backgroundColor: "white", border: "1.5px solid #D9DEE7", cursor: "pointer" }}
+              style={{ padding: "9px 20px", fontSize: 14, fontWeight: 600, borderRadius: 6, color: "var(--text)", backgroundColor: "var(--surface)", border: "1.5px solid var(--border)", cursor: "pointer" }}
               className="hide-mobile-sm"
             >
               Sign In
@@ -254,7 +254,7 @@ export default function ForeSiteLanding() {
 
         {/* Mobile Menu */}
         {mobileNavOpen && (
-          <div style={{ borderTop: "1px solid #E2E8F0", backgroundColor: "white", padding: "12px 20px 24px" }}>
+          <div style={{ borderTop: "1px solid var(--border)", backgroundColor: "var(--surface)", padding: "12px 20px 24px" }}>
             {navLinks.map((item) => (
               <a
                 key={item.label}
@@ -278,8 +278,8 @@ export default function ForeSiteLanding() {
                 {item.label}
               </a>
             ))}
-            <div style={{ display: "flex", gap: 10, marginTop: 12, paddingTop: 12, borderTop: "1px solid #F1F5F9" }}>
-              <button onClick={() => { setMobileNavOpen(false); openAuth("login"); }} style={{ flex: 1, padding: "10px", fontSize: 14, fontWeight: 600, border: "1px solid #D9DEE7", borderRadius: 6, cursor: "pointer", backgroundColor: "white" }}>Sign In</button>
+            <div style={{ display: "flex", gap: 10, marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border-subtle)" }}>
+              <button onClick={() => { setMobileNavOpen(false); openAuth("login"); }} style={{ flex: 1, padding: "10px", fontSize: 14, fontWeight: 600, border: "1px solid var(--border)", borderRadius: 6, cursor: "pointer", backgroundColor: "var(--surface)", color: "var(--text)" }}>Sign In</button>
               <button onClick={() => { setMobileNavOpen(false); openAuth("signup"); }} style={{ flex: 1, padding: "10px", fontSize: 14, fontWeight: 700, border: "none", borderRadius: 6, cursor: "pointer", backgroundColor: "#0A192F", color: "white" }}>Get Started</button>
             </div>
           </div>
@@ -287,7 +287,7 @@ export default function ForeSiteLanding() {
       </header>
 
       {/* ─── 1. HERO SECTION (#hero) ────────────────────────────────────── */}
-      <section id="hero" className="scroll-target" style={{ position: "relative", width: "100%", backgroundColor: "#F8FAFC", borderBottom: "1px solid #E2E8F0", overflow: "hidden" }}>
+      <section id="hero" className="scroll-target" style={{ position: "relative", width: "100%", backgroundColor: "var(--bg)", borderBottom: "1px solid var(--border)", overflow: "hidden" }}>
 
         {/* Refinery Background — covers full right 60%, very subtle */}
         <div
@@ -356,23 +356,23 @@ export default function ForeSiteLanding() {
               </h1>
 
               {/* Subtext */}
-              <p style={{ fontSize: "clamp(15px, 1.1vw, 17px)", color: "#475569", lineHeight: 1.7, maxWidth: 520, marginBottom: 36 }}>
+              <p style={{ fontSize: "clamp(15px, 1.1vw, 17px)", color: "var(--text-muted)", lineHeight: 1.7, maxWidth: 520, marginBottom: 36 }}>
                 ForeSite uses AI and NLP to analyze unsafe-act, unsafe-condition and near-miss reports, helping identify Serious Injury &amp; Fatality (SIF) precursors before they escalate.
               </p>
 
               {/* Value Pillars */}
               <div style={{ display: "flex", flexWrap: "wrap", gap: "20px 36px", marginBottom: 40 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <Shield style={{ width: 22, height: 22, color: "#0F172A", flexShrink: 0 }} strokeWidth={2.2} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "#1E293B", lineHeight: 1.3 }}>Proactive Risk<br />Detection</span>
+                  <Shield style={{ width: 22, height: 22, color: "var(--text)", flexShrink: 0 }} strokeWidth={2.2} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", lineHeight: 1.3 }}>Proactive Risk<br />Detection</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <BarChart2 style={{ width: 22, height: 22, color: "#0F172A", flexShrink: 0 }} strokeWidth={2.2} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "#1E293B", lineHeight: 1.3 }}>Data-Driven<br />Safety Insights</span>
+                  <BarChart2 style={{ width: 22, height: 22, color: "var(--text)", flexShrink: 0 }} strokeWidth={2.2} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", lineHeight: 1.3 }}>Data-Driven<br />Safety Insights</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <Users style={{ width: 22, height: 22, color: "#0F172A", flexShrink: 0 }} strokeWidth={2.2} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "#1E293B", lineHeight: 1.3 }}>Safer People.<br />Stronger Operations.</span>
+                  <Users style={{ width: 22, height: 22, color: "var(--text)", flexShrink: 0 }} strokeWidth={2.2} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", lineHeight: 1.3 }}>Safer People.<br />Stronger Operations.</span>
                 </div>
               </div>
 
@@ -386,7 +386,7 @@ export default function ForeSiteLanding() {
                 </button>
                 <a
                   href="#portals"
-                  style={{ padding: "14px 28px", borderRadius: 8, backgroundColor: "white", color: "#0F172A", fontWeight: 700, fontSize: 16, border: "1.5px solid #D9DEE7", cursor: "pointer", textDecoration: "none", display: "inline-flex", alignItems: "center" }}
+                  style={{ padding: "14px 28px", borderRadius: 8, backgroundColor: "var(--surface)", color: "var(--text)", fontWeight: 700, fontSize: 16, border: "1.5px solid var(--border)", cursor: "pointer", textDecoration: "none", display: "inline-flex", alignItems: "center" }}
                 >
                   Explore Platform
                 </a>
@@ -527,11 +527,11 @@ export default function ForeSiteLanding() {
       </section>
 
       {/* ─── 2. PLATFORM SECTION (#portals) ────────────────────────────── */}
-      <section id="portals" className="scroll-target" style={{ padding: "88px 0", backgroundColor: "#F8FAFC" }}>
+      <section id="portals" className="scroll-target" style={{ padding: "88px 0", backgroundColor: "var(--bg)" }}>
         <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 32px" }}>
           <div style={{ marginBottom: 48 }}>
             <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", color: "#1D4ED8", display: "block", marginBottom: 10 }}>OPERATIONAL ACCESS TIERS</span>
-            <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.6rem)", fontWeight: 900, color: "#0F172A", letterSpacing: "-0.5px" }}>Three Portals, One Unified Platform</h2>
+            <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.6rem)", fontWeight: 900, color: "var(--text)", letterSpacing: "-0.5px" }}>Three Portals, One Unified Platform</h2>
             <p style={{ fontSize: 16, color: "#64748B", marginTop: 8, maxWidth: 640 }}>Dedicated interfaces tailored for frontline workers, safety leadership, and technical maintenance teams.</p>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 28 }} className="portal-grid">
@@ -541,27 +541,27 @@ export default function ForeSiteLanding() {
                 <div
                   key={card.role}
                   onClick={() => openAuth("login", card.role)}
-                  style={{ backgroundColor: "white", border: "1px solid #D9DEE7", borderRadius: 14, padding: "36px 32px", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", cursor: "pointer", display: "flex", flexDirection: "column", transition: "box-shadow 0.15s, border-color 0.15s" }}
+                  style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: "36px 32px", boxShadow: "var(--shadow-sm)", cursor: "pointer", display: "flex", flexDirection: "column", transition: "box-shadow 0.15s, border-color 0.15s" }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "#94A3B8"; (e.currentTarget as HTMLDivElement).style.boxShadow = "0 4px 16px rgba(0,0,0,0.09)"; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "#D9DEE7"; (e.currentTarget as HTMLDivElement).style.boxShadow = "0 1px 4px rgba(0,0,0,0.04)"; }}
                 >
                   <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#64748B", marginBottom: 16 }}>{card.category}</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <Icon style={{ width: 22, height: 22, color: "#0F172A" }} strokeWidth={2} />
+                    <div style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: "var(--surface-subtle)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Icon style={{ width: 22, height: 22, color: "var(--text)" }} strokeWidth={2} />
                     </div>
-                    <h3 style={{ fontSize: 20, fontWeight: 800, color: "#0F172A" }}>{card.title}</h3>
+                    <h3 style={{ fontSize: 20, fontWeight: 800, color: "var(--text)" }}>{card.title}</h3>
                   </div>
-                  <p style={{ fontSize: 15, color: "#475569", lineHeight: 1.65, marginBottom: 24 }}>{card.description}</p>
+                  <p style={{ fontSize: 15, color: "var(--text-muted)", lineHeight: 1.65, marginBottom: 24 }}>{card.description}</p>
                   <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column", gap: 10 }}>
                     {card.capabilities.map((cap) => (
-                      <li key={cap} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "#475569" }}>
+                      <li key={cap} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "var(--text-muted)" }}>
                         <Check style={{ width: 16, height: 16, color: "#1D4ED8", flexShrink: 0 }} />
                         <span>{cap}</span>
                       </li>
                     ))}
                   </ul>
-                  <div style={{ marginTop: "auto", paddingTop: 16, borderTop: "1px solid #F1F5F9", fontSize: 14, fontWeight: 700, color: "#1D4ED8" }}>
+                  <div style={{ marginTop: "auto", paddingTop: 16, borderTop: "1px solid var(--border-subtle)", fontSize: 14, fontWeight: 700, color: "var(--primary)" }}>
                     {card.linkText}
                   </div>
                 </div>
@@ -572,11 +572,11 @@ export default function ForeSiteLanding() {
       </section>
 
       {/* ─── 3. FEATURES SECTION (#features) ─────────────────────────────── */}
-      <section id="features" className="scroll-target" style={{ backgroundColor: "white", borderTop: "1px solid #E2E8F0", borderBottom: "1px solid #E2E8F0", padding: "88px 0" }}>
+      <section id="features" className="scroll-target" style={{ backgroundColor: "var(--surface)", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", padding: "88px 0" }}>
         <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 32px" }}>
           <div style={{ marginBottom: 48 }}>
             <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", color: "#1D4ED8", display: "block", marginBottom: 10 }}>CORE SYSTEM CAPABILITIES</span>
-            <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.6rem)", fontWeight: 900, color: "#0F172A", letterSpacing: "-0.5px" }}>Industrial Intelligence Engineered for Zero Incidents</h2>
+            <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.6rem)", fontWeight: 900, color: "var(--text)", letterSpacing: "-0.5px" }}>Industrial Intelligence Engineered for Zero Incidents</h2>
             <p style={{ fontSize: 16, color: "#64748B", marginTop: 8, maxWidth: 640 }}>Purpose-built for harsh plant operations, bridging physical equipment telemetry with cognitive safety triage.</p>
           </div>
 
@@ -587,12 +587,12 @@ export default function ForeSiteLanding() {
               { icon: TrendingUp, title: "Actionable Risk Triage", desc: "Automated scoring aligns work orders directly with OSHA 1910 benchmarks to eradicate latent process hazards.", tag: "PROCESS SAFETY" },
               { icon: Users, title: "Built for Heavy Industry", desc: "Hardened for refineries, chemical complexes, and upstream energy plants with full offline capability.", tag: "RELIABILITY" },
             ].map(({ icon: Icon, title, desc, tag }) => (
-              <div key={title} style={{ backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 12, padding: "28px 24px", display: "flex", flexDirection: "column" }}>
+              <div key={title} style={{ backgroundColor: "var(--bg)", border: "1px solid var(--border)", borderRadius: 12, padding: "28px 24px", display: "flex", flexDirection: "column" }}>
                 <span style={{ fontSize: 10, fontWeight: 800, color: "#1D4ED8", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 16 }}>{tag}</span>
-                <div style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: "white", border: "1px solid #E2E8F0", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
-                  <Icon style={{ width: 22, height: 22, color: "#0F172A" }} />
+                <div style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: "var(--surface)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+                  <Icon style={{ width: 22, height: 22, color: "var(--text)" }} />
                 </div>
-                <h4 style={{ fontSize: 16, fontWeight: 700, color: "#0F172A", marginBottom: 8 }}>{title}</h4>
+                <h4 style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", marginBottom: 8 }}>{title}</h4>
                 <p style={{ fontSize: 14, color: "#64748B", lineHeight: 1.6 }}>{desc}</p>
               </div>
             ))}
@@ -601,11 +601,11 @@ export default function ForeSiteLanding() {
       </section>
 
       {/* ─── 4. SOLUTIONS SECTION (#solutions) ───────────────────────────── */}
-      <section id="solutions" className="scroll-target" style={{ padding: "88px 0", backgroundColor: "#F8FAFC" }}>
+      <section id="solutions" className="scroll-target" style={{ padding: "88px 0", backgroundColor: "var(--bg)" }}>
         <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 32px" }}>
           <div style={{ marginBottom: 48 }}>
             <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", color: "#1D4ED8", display: "block", marginBottom: 10 }}>ENTERPRISE RISK MITIGATION</span>
-            <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.6rem)", fontWeight: 900, color: "#0F172A", letterSpacing: "-0.5px" }}>Solutions by Operational Environment</h2>
+            <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.6rem)", fontWeight: 900, color: "var(--text)", letterSpacing: "-0.5px" }}>Solutions by Operational Environment</h2>
             <p style={{ fontSize: 16, color: "#64748B", marginTop: 8, maxWidth: 640 }}>Targeted safety automation tailored to the distinct mechanical, chemical, and environmental risks of high-hazard plants.</p>
           </div>
 
@@ -739,16 +739,16 @@ export default function ForeSiteLanding() {
                     <span style={{ fontSize: 10, fontWeight: 800, color: "#1D4ED8", letterSpacing: "0.1em", textTransform: "uppercase" }}>{category}</span>
                     <span style={{ fontSize: 10, fontWeight: 700, color: "#64748B", backgroundColor: "#E2E8F0", padding: "2px 6px", borderRadius: 4 }}>{format}</span>
                   </div>
-                  <h4 style={{ fontSize: 16, fontWeight: 800, color: "#0F172A", marginBottom: 10, lineHeight: 1.3 }}>{title}</h4>
+                  <h4 style={{ fontSize: 16, fontWeight: 800, color: "var(--text)", marginBottom: 10, lineHeight: 1.3 }}>{title}</h4>
                   <p style={{ fontSize: 13, color: "#64748B", lineHeight: 1.6, marginBottom: 16 }}>{desc}</p>
                 </div>
 
-                <div style={{ paddingTop: 14, borderTop: "1px solid #E2E8F0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ paddingTop: 14, borderTop: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <span style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600 }}>{pages}</span>
                   <a
                     href="#hero"
                     onClick={(e) => { e.preventDefault(); openAuth("signup"); }}
-                    style={{ fontSize: 13, fontWeight: 700, color: "#0F172A", display: "inline-flex", alignItems: "center", gap: 5, textDecoration: "none" }}
+                    style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", display: "inline-flex", alignItems: "center", gap: 5, textDecoration: "none" }}
                   >
                     Download <Download style={{ width: 14, height: 14, color: "#1D4ED8" }} />
                   </a>
@@ -760,16 +760,16 @@ export default function ForeSiteLanding() {
       </section>
 
       {/* ─── 6. ABOUT SECTION (#about) ──────────────────────────────────── */}
-      <section id="about" className="scroll-target" style={{ padding: "88px 0 96px", backgroundColor: "#F8FAFC" }}>
+      <section id="about" className="scroll-target" style={{ padding: "88px 0 96px", backgroundColor: "var(--bg)" }}>
         <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 32px" }}>
           
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center", marginBottom: 64 }} className="about-grid">
             <div>
               <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", color: "#1D4ED8", display: "block", marginBottom: 10 }}>MISSION &amp; RELIABILITY</span>
-              <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.6rem)", fontWeight: 900, color: "#0F172A", letterSpacing: "-0.5px", lineHeight: 1.15, marginBottom: 20 }}>
+              <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.6rem)", fontWeight: 900, color: "var(--text)", letterSpacing: "-0.5px", lineHeight: 1.15, marginBottom: 20 }}>
                 Protecting Frontline Workforce with Zero Compromise
               </h2>
-              <p style={{ fontSize: 16, color: "#475569", lineHeight: 1.7, marginBottom: 16 }}>
+              <p style={{ fontSize: 16, color: "var(--text-muted)", lineHeight: 1.7, marginBottom: 16 }}>
                 ForeSite was founded by industrial process safety engineers, data scientists, and former refinery operations managers. Our technology transforms passive hazard reporting into an active, automated defense layer that predicts and eliminates catastrophic risks.
               </p>
               <p style={{ fontSize: 15, color: "#64748B", lineHeight: 1.7 }}>
@@ -799,7 +799,7 @@ export default function ForeSiteLanding() {
           </div>
 
           {/* Stats strip */}
-          <div style={{ backgroundColor: "white", border: "1px solid #D9DEE7", borderRadius: 14, padding: "56px 48px", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+          <div style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: "56px 48px", boxShadow: "var(--shadow-sm)" }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 32, textAlign: "center" }} className="stats-grid">
               {[
                 { to: 2, suffix: "s", label: "Alert Latency" },
@@ -808,7 +808,7 @@ export default function ForeSiteLanding() {
                 { to: 10, suffix: "+", label: "Speech Languages" },
               ].map(({ to, suffix, label }) => (
                 <div key={label}>
-                  <div style={{ fontSize: "clamp(2.5rem, 4vw, 3.8rem)", fontWeight: 900, color: "#0F172A", marginBottom: 8, letterSpacing: "-2px", lineHeight: 1 }}>
+                  <div style={{ fontSize: "clamp(2.5rem, 4vw, 3.8rem)", fontWeight: 900, color: "var(--text)", marginBottom: 8, letterSpacing: "-2px", lineHeight: 1 }}>
                     <Counter to={to} suffix={suffix} />
                   </div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.12em" }}>{label}</div>
@@ -821,11 +821,11 @@ export default function ForeSiteLanding() {
       </section>
 
       {/* ─── FOOTER ──────────────────────────────────────────────────── */}
-      <footer style={{ borderTop: "1px solid #E2E8F0", backgroundColor: "white", padding: "28px 0" }}>
+      <footer style={{ borderTop: "1px solid var(--border)", backgroundColor: "var(--surface)", padding: "28px 0" }}>
         <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14 }}>
-            <ShieldCheck style={{ width: 20, height: 20, color: "#0F172A" }} />
-            <span style={{ fontWeight: 700, color: "#0F172A" }}>ForeSite Safety Systems</span>
+            <ShieldCheck style={{ width: 20, height: 20, color: "var(--text)" }} />
+            <span style={{ fontWeight: 700, color: "var(--text)" }}>ForeSite Safety Systems</span>
             <span style={{ color: "#64748B" }}>· Safer Operations. Brighter Tomorrow.</span>
           </div>
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
@@ -846,9 +846,9 @@ export default function ForeSiteLanding() {
       {/* ─── AUTH MODAL ──────────────────────────────────────────────── */}
       {authOpen && (
         <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, backgroundColor: "rgba(11,20,38,0.6)", backdropFilter: "blur(4px)" }}>
-          <div style={{ width: "100%", maxWidth: 440, backgroundColor: "white", borderRadius: 14, border: "1px solid #D9DEE7", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", padding: "32px" }}>
+          <div style={{ width: "100%", maxWidth: 440, backgroundColor: "var(--surface)", borderRadius: 14, border: "1px solid var(--border)", boxShadow: "0 20px 60px rgba(0,0,0,0.5)", padding: "32px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-              <h3 style={{ fontSize: 20, fontWeight: 800, color: "#0F172A" }}>
+              <h3 style={{ fontSize: 20, fontWeight: 800, color: "var(--text)" }}>
                 {activeTab === "login" ? "Operational Sign In" : "Register Site Credentials"}
               </h3>
               <button onClick={() => setAuthOpen(false)} style={{ padding: 4, borderRadius: 6, border: "none", backgroundColor: "transparent", cursor: "pointer", color: "#64748B" }}>
@@ -857,12 +857,12 @@ export default function ForeSiteLanding() {
             </div>
 
             {/* Tabs */}
-            <div style={{ display: "flex", backgroundColor: "#F1F5F9", borderRadius: 8, padding: 4, marginBottom: 24 }}>
+            <div style={{ display: "flex", backgroundColor: "var(--surface-subtle)", borderRadius: 8, padding: 4, marginBottom: 24 }}>
               {(["login", "signup"] as Tab[]).map((t) => (
                 <button
                   key={t}
                   onClick={() => setActiveTab(t)}
-                  style={{ flex: 1, padding: "8px", borderRadius: 6, fontSize: 13, fontWeight: activeTab === t ? 700 : 500, color: activeTab === t ? "#0F172A" : "#64748B", backgroundColor: activeTab === t ? "white" : "transparent", border: "none", cursor: "pointer", boxShadow: activeTab === t ? "0 1px 3px rgba(0,0,0,0.08)" : "none" }}
+                  style={{ flex: 1, padding: "8px", borderRadius: 6, fontSize: 13, fontWeight: activeTab === t ? 700 : 500, color: activeTab === t ? "var(--text)" : "var(--text-muted)", backgroundColor: activeTab === t ? "var(--surface)" : "transparent", border: "none", cursor: "pointer", boxShadow: activeTab === t ? "0 1px 3px rgba(0,0,0,0.08)" : "none" }}
                 >
                   {t === "login" ? "Sign In" : "Create Account"}
                 </button>
@@ -896,29 +896,29 @@ export default function ForeSiteLanding() {
             )}
 
             {/* Quick Demo Autofill Bar */}
-            <div style={{ marginBottom: 16, padding: "8px 10px", borderRadius: 6, backgroundColor: "#F8FAFC", border: "1px dashed #CBD5E1", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11 }}>
+            <div style={{ marginBottom: 16, padding: "8px 10px", borderRadius: 6, backgroundColor: "var(--surface-subtle)", border: "1px dashed var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11 }}>
               <span style={{ color: "#64748B", fontWeight: 600 }}>Demo Quick-Fill:</span>
               <div style={{ display: "flex", gap: 6 }}>
-                <button type="button" onClick={() => fillDemoAccount("worker")} style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid #E2E8F0", background: "white", fontSize: 10, fontWeight: 700, cursor: "pointer", color: "#0F172A" }}>Worker</button>
-                <button type="button" onClick={() => fillDemoAccount("officer")} style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid #E2E8F0", background: "white", fontSize: 10, fontWeight: 700, cursor: "pointer", color: "#0F172A" }}>Officer</button>
-                <button type="button" onClick={() => fillDemoAccount("maintenance")} style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid #E2E8F0", background: "white", fontSize: 10, fontWeight: 700, cursor: "pointer", color: "#0F172A" }}>Maintain</button>
+                <button type="button" onClick={() => fillDemoAccount("worker")} style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid var(--border)", background: "var(--surface)", fontSize: 10, fontWeight: 700, cursor: "pointer", color: "var(--text)" }}>Worker</button>
+                <button type="button" onClick={() => fillDemoAccount("officer")} style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid var(--border)", background: "var(--surface)", fontSize: 10, fontWeight: 700, cursor: "pointer", color: "var(--text)" }}>Officer</button>
+                <button type="button" onClick={() => fillDemoAccount("maintenance")} style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid var(--border)", background: "var(--surface)", fontSize: 10, fontWeight: 700, cursor: "pointer", color: "var(--text)" }}>Maintain</button>
               </div>
             </div>
 
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {activeTab === "signup" && (
                 <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Full Name</label>
-                  <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter full name" style={{ width: "100%", padding: "10px 14px", fontSize: 14, borderRadius: 8, border: "1.5px solid #D9DEE7", outline: "none", boxSizing: "border-box" }} />
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-muted)", marginBottom: 6 }}>Full Name</label>
+                  <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter full name" style={{ width: "100%", padding: "10px 14px", fontSize: 14, borderRadius: 8, border: "1.5px solid var(--border)", outline: "none", boxSizing: "border-box", backgroundColor: "var(--surface-subtle)", color: "var(--text)" }} />
                 </div>
               )}
               <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Corporate Site Email</label>
-                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="operator@refinery.com" style={{ width: "100%", padding: "10px 14px", fontSize: 14, borderRadius: 8, border: "1.5px solid #D9DEE7", outline: "none", boxSizing: "border-box" }} />
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-muted)", marginBottom: 6 }}>Corporate Site Email</label>
+                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="operator@refinery.com" style={{ width: "100%", padding: "10px 14px", fontSize: 14, borderRadius: 8, border: "1.5px solid var(--border)", outline: "none", boxSizing: "border-box", backgroundColor: "var(--surface-subtle)", color: "var(--text)" }} />
               </div>
               <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Password</label>
-                <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" style={{ width: "100%", padding: "10px 14px", fontSize: 14, borderRadius: 8, border: "1.5px solid #D9DEE7", outline: "none", boxSizing: "border-box" }} />
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-muted)", marginBottom: 6 }}>Password</label>
+                <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" style={{ width: "100%", padding: "10px 14px", fontSize: 14, borderRadius: 8, border: "1.5px solid var(--border)", outline: "none", boxSizing: "border-box", backgroundColor: "var(--surface-subtle)", color: "var(--text)" }} />
               </div>
               <button
                 type="submit"
