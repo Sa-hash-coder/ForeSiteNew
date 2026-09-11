@@ -63,6 +63,37 @@
   ],
   "reports": [
     {
+      "title": "Loose scaffolding planks at Unit 3",
+      "description": "Worker observed third-floor scaffolding platform missing middle guardrail and multiple wooden planks are unsecured",
+      "location": "Sector 2 Elevation Deck",
+      "category": "unsafe_condition",
+      "severity": "critical",
+      "risk_score": 79,
+      "risk_level": "CRITICAL",
+      "sif_probability": 0.79,
+      "precursors": [
+        "Unsecured or Damaged Scaffolding"
+      ],
+      "hazards": [
+        "Structural Collapse",
+        "Fall from Height"
+      ],
+      "explanation": "Report indicates Unsecured or Damaged Scaffolding associated with Structural Collapse, Fall from Height. Recommended action: Red-tag scaffold as 'DO NOT USE' until re-inspected by a certified competent person. Identified 1 SIF precursors with 79% SIF probability. Immediate mitigation required.",
+      "recommendations": [
+        "Red-tag scaffold as 'DO NOT USE' until re-inspected by a certified competent person."
+      ],
+      "status": "under_review",
+      "submittedBy": {
+        "_id": "usr_guest",
+        "name": "Site Worker",
+        "role": "worker",
+        "department": "Plant Operations"
+      },
+      "_id": "rep_d5gh7mcr",
+      "createdAt": "2026-09-11T22:25:18.014Z",
+      "updatedAt": "2026-09-11T22:25:18.014Z"
+    },
+    {
       "title": "Corroded flange line steam leak",
       "description": "High pressure steam leak observed on flange line TK-80. Fire and burn risk.",
       "location": "Sector 4 North, Tank Farm",
@@ -179,6 +210,17 @@
     }
   ],
   "alerts": [
+    {
+      "reportId": "rep_d5gh7mcr",
+      "reportTitle": "Loose scaffolding planks at Unit 3",
+      "riskLevel": "CRITICAL",
+      "riskScore": 79,
+      "sifProbability": 0.79,
+      "message": "CRITICAL SIF HAZARD: Loose scaffolding planks at Unit 3 at Sector 2 Elevation Deck",
+      "isAcknowledged": false,
+      "_id": "alt_w41h9p28",
+      "createdAt": "2026-09-11T22:25:18.016Z"
+    },
     {
       "reportId": "rep_vjq4hcm6",
       "reportTitle": "Corroded flange line steam leak",

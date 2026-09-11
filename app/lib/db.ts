@@ -42,6 +42,7 @@ export interface StoredReport {
   precursors: string[];
   hazards: string[];
   explanation: string;
+  recommendations?: string[];
   imageUrl?: string;
   audioUrl?: string;
   status: "pending_analysis" | "analysis_complete" | "under_review" | "action_assigned" | "resolved" | "closed";

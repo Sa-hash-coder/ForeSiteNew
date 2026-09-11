@@ -50,6 +50,9 @@ __pycache__/
 .venv/
 venv/
 env/
+*.safetensors
+*.bin
+ai-service/models/
 
 # keep example env files
 !.env.example
