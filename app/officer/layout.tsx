@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { ACTIVE_ALERTS } from '@/app/lib/officerMockData';
 import { LanguageProvider, useLanguage } from '@/app/lib/LanguageContext';
-import LanguageSwitchButton from '@/app/components/LanguageSwitchButton';
 import { getStoredUser, logout } from '@/app/lib/auth';
 
 // Replaced emojis with clean, strict SVG icons
@@ -314,10 +313,8 @@ function OfficerLayoutContent({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          {/* Right Action Controls: Language Switcher, Theme Switcher & Alerts */}
+          {/* Right Action Controls: Theme Switcher & Alerts */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {/* Universal Hindi / English Language Switcher */}
-            <LanguageSwitchButton variant="header" />
 
             {/* Theme Toggle Button: Moon for dark mode, Sun for light mode */}
             <button
