@@ -7,17 +7,29 @@ import { useLanguage } from "@/app/lib/LanguageContext";
 import StatusBadge from "@/app/components/StatusBadge";
 import DangerBadge from "@/app/components/DangerBadge";
 import { getStoredUser } from "@/app/lib/auth";
+import { getMyReportsApi } from "@/app/lib/api";
 
 export default function WorkerDashboard() {
   const { lang, t } = useLanguage();
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [reports, setReports] = useState<any[]>(MOCK_REPORTS);
 
   useEffect(() => {
     const u = getStoredUser();
     if (u) setCurrentUser(u);
+    // Fetch live reports and merge with mock
+    async function load() {
+      try {
+        const res = await getMyReportsApi();
+        if (res.data && res.data.length > 0) {
+          const mockIds = new Set(MOCK_REPORTS.map((r) => r._id));
+          const liveOnly = res.data.filter((r: any) => !mockIds.has(r._id));
+          setReports([...liveOnly, ...MOCK_REPORTS]);
+        }
+      } catch {}
+    }
+    load();
   }, []);
-
-  const reports = MOCK_REPORTS;
 
   const total = reports.length || 12;
   const underReview = reports.filter((r) =>

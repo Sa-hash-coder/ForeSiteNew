@@ -17,7 +17,10 @@ export default function MyReportsPage() {
       try {
         const res = await getMyReportsApi();
         if (res.data && res.data.length > 0) {
-          setReports(res.data);
+          // Merge live reports on top, then mock reports
+          const mockIds = new Set(MOCK_REPORTS.map((r) => r._id));
+          const liveOnly = res.data.filter((r: any) => !mockIds.has(r._id));
+          setReports([...liveOnly, ...MOCK_REPORTS]);
         }
       } catch (err) {
         console.warn("Using cached reports:", err);
@@ -145,7 +148,7 @@ const s: Record<string, React.CSSProperties> = {
   },
   filterChipActive: {
     backgroundColor: "#0A192F",
-    borderColor: "#0A192F",
+    border: "1.5px solid #0A192F",
     color: "#ffffff",
     fontWeight: 700,
   },
