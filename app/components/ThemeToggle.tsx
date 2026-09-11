@@ -7,19 +7,18 @@ export default function ThemeToggle() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
-    // Check local storage or system preference on mount
-    const savedTheme = localStorage.getItem("theme");
-    if (savedTheme === "dark" || (!savedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
-      setTheme("dark");
-      document.documentElement.setAttribute("data-theme", "dark");
-    }
+    // Check local storage on mount (default to clean light industrial theme)
+    const savedTheme = localStorage.getItem("foresite_theme") as "light" | "dark" | null;
+    const initial = savedTheme || "light";
+    setTheme(initial);
+    document.documentElement.setAttribute("data-theme", initial);
   }, []);
 
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
     setTheme(newTheme);
     document.documentElement.setAttribute("data-theme", newTheme);
-    localStorage.setItem("theme", newTheme);
+    localStorage.setItem("foresite_theme", newTheme);
   };
 
   return (

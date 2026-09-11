@@ -51,7 +51,7 @@ function OfficerLayoutContent({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const saved = localStorage.getItem('foresite_theme') as 'light' | 'dark' | null;
-    const initialTheme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    const initialTheme = saved || 'light';
     setTheme(initialTheme);
     document.documentElement.setAttribute('data-theme', initialTheme);
   }, []);

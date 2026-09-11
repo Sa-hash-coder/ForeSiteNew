@@ -1,15 +1,36 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { LanguageProvider, useLanguage } from "@/app/lib/LanguageContext";
 import LanguageSwitchButton from "@/app/components/LanguageSwitchButton";
+import { Sun, Moon } from "lucide-react";
+import { getStoredUser } from "@/app/lib/auth";
 
 function WorkerAppContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { lang, t } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  useEffect(() => {
+    // Default to clean industrial light theme
+    const saved = (localStorage.getItem("foresite_theme") as "light" | "dark" | null) || "light";
+    setTheme(saved);
+    document.documentElement.setAttribute("data-theme", saved);
+
+    const u = getStoredUser();
+    if (u) setCurrentUser(u);
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === "light" ? "dark" : "light";
+    setTheme(next);
+    document.documentElement.setAttribute("data-theme", next);
+    localStorage.setItem("foresite_theme", next);
+  };
 
   const isHome = pathname === "/worker";
   const isSubmit = pathname === "/worker/submit";
@@ -162,6 +183,27 @@ function WorkerAppContent({ children }: { children: React.ReactNode }) {
             {/* Language Switch Button */}
             <LanguageSwitchButton variant="header" />
 
+            {/* Dark / Light Industrial Theme Switcher */}
+            <button
+              onClick={toggleTheme}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                backgroundColor: "var(--surface-subtle)",
+                border: "1px solid var(--border)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                color: "var(--text)",
+              }}
+              title={theme === "dark" ? "Switch to Light Theme" : "Switch to Dark Theme"}
+              aria-label="Toggle Theme"
+            >
+              {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+            </button>
+
             {/* Notification Bell Icon */}
             <button className="apple-btn" style={s.iconBtn} title="Notifications">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -173,8 +215,14 @@ function WorkerAppContent({ children }: { children: React.ReactNode }) {
 
             {/* User Profile Avatar */}
             <Link href="/worker/profile" className="apple-btn" style={s.userAvatarBtn}>
-              <div style={s.userAvatar}>AT</div>
-              <span className="worker-desktop-username" style={s.userName}>Aniket Tiwari</span>
+              <div style={s.userAvatar}>
+                {currentUser?.name
+                  ? currentUser.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
+                  : "RM"}
+              </div>
+              <span className="worker-desktop-username" style={s.userName}>
+                {currentUser?.name || "Rajan Mehta"}
+              </span>
             </Link>
           </div>
         </header>

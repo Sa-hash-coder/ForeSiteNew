@@ -49,6 +49,16 @@
       "badgeId": "WRK-9847",
       "_id": "usr_59433wdk",
       "createdAt": "2026-09-11T20:54:50.998Z"
+    },
+    {
+      "name": "Saurabh",
+      "email": "worker@plant2.com",
+      "password": "0206be5c31b92a71e7d432ab9e718084:ca2b89dc362e89fa75d81780e6d6037436198ad05943310002262d268863e3665499e37fe0cbc77dadf26bd930f157ea3eda19e7cf5fd6729c3e1998fec241dd",
+      "role": "worker",
+      "department": "Operations Unit",
+      "badgeId": "WRK-4525",
+      "_id": "usr_26g3edqx",
+      "createdAt": "2026-09-11T21:01:23.844Z"
     }
   ],
   "reports": [
