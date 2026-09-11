@@ -1,17 +1,46 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
 import { useLanguage } from "@/app/lib/LanguageContext";
-import { getStoredUser, logout } from "@/app/lib/auth";
+import { getStoredUser, logout, saveAuth } from "@/app/lib/auth";
+import { getToken } from "@/app/lib/auth";
+import { MOCK_REPORTS } from "@/app/lib/mockData";
+import { getMyReportsApi } from "@/app/lib/api";
 
 export default function WorkerProfilePage() {
-  const { lang, t } = useLanguage();
+  const { lang } = useLanguage();
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [editing, setEditing] = useState(false);
+  const [formName, setFormName] = useState("");
+  const [formEmail, setFormEmail] = useState("");
+  const [formDept, setFormDept] = useState("");
+  const [saved, setSaved] = useState(false);
+  const [reportCount, setReportCount] = useState(MOCK_REPORTS.length);
+  const [resolvedCount, setResolvedCount] = useState(
+    MOCK_REPORTS.filter((r) => ["resolved", "closed"].includes(r.status)).length
+  );
 
   useEffect(() => {
     const u = getStoredUser();
-    if (u) setCurrentUser(u);
+    if (u) {
+      setCurrentUser(u);
+      setFormName(u.name || "");
+      setFormEmail(u.email || "");
+      setFormDept(u.department || "");
+    }
+    async function loadStats() {
+      try {
+        const res = await getMyReportsApi();
+        if (res.data && res.data.length > 0) {
+          const mockIds = new Set(MOCK_REPORTS.map((r) => r._id));
+          const liveOnly = res.data.filter((r: any) => !mockIds.has(r._id));
+          const all = [...liveOnly, ...MOCK_REPORTS];
+          setReportCount(all.length);
+          setResolvedCount(all.filter((r: any) => ["resolved", "closed"].includes(r.status)).length);
+        }
+      } catch {}
+    }
+    loadStats();
   }, []);
 
   const handleLogout = () => {
@@ -19,16 +48,40 @@ export default function WorkerProfilePage() {
     window.location.href = "/";
   };
 
+  const handleSave = () => {
+    const token = getToken() || "";
+    const updated = {
+      ...currentUser,
+      name: formName,
+      email: formEmail,
+      department: formDept,
+    };
+    saveAuth(token, updated);
+    setCurrentUser(updated);
+    setEditing(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
   const displayName = currentUser?.name || (lang === "hi" ? "फ़ील्ड कार्यकर्ता" : "Field Worker");
   const displayInitials = currentUser?.name
     ? currentUser.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
-    : "SW";
+    : "FW";
   const displayRole = currentUser?.role
-    ? (currentUser.role === "worker" ? (lang === "hi" ? "सुरक्षा कार्यकर्ता" : "Field Safety Worker") : currentUser.role.toUpperCase())
-    : (lang === "hi" ? "समुदाय कार्यकर्ता" : "Community Worker");
+    ? currentUser.role === "worker"
+      ? lang === "hi" ? "सुरक्षा कार्यकर्ता" : "Field Safety Worker"
+      : currentUser.role.toUpperCase()
+    : lang === "hi" ? "प्लांट कार्यकर्ता" : "Plant Worker";
 
   return (
     <div style={styles.container}>
+      {/* Success toast */}
+      {saved && (
+        <div style={styles.toast}>
+          ✓ {lang === "hi" ? "प्रोफ़ाइल अपडेट हो गई" : "Profile updated successfully"}
+        </div>
+      )}
+
       {/* Profile Header Card */}
       <div style={styles.card}>
         <div style={styles.avatarWrap}>
@@ -37,61 +90,84 @@ export default function WorkerProfilePage() {
         <h1 style={styles.name}>{displayName}</h1>
         <p style={styles.role}>{displayRole}</p>
         <p style={styles.memberSince}>
-          {currentUser?.email ? currentUser.email : (lang === "hi" ? "सितंबर 2026 से सदस्य" : "Member since Sept 2026")}
+          {currentUser?.department
+            ? `${lang === "hi" ? "विभाग" : "Dept"}: ${currentUser.department}`
+            : ""}
+          {currentUser?.email ? ` • ${currentUser.email}` : ""}
         </p>
 
         {/* Stats Grid */}
         <div style={styles.statsRow}>
           <div style={styles.statBox}>
-            <div style={styles.statNum}>12</div>
+            <div style={styles.statNum}>{reportCount}</div>
             <div style={styles.statLabel}>{lang === "hi" ? "रिपोर्ट्स" : "Reports"}</div>
           </div>
           <div style={styles.statBox}>
-            <div style={styles.statNum}>6</div>
+            <div style={styles.statNum}>{resolvedCount}</div>
             <div style={styles.statLabel}>{lang === "hi" ? "हल किया" : "Resolved"}</div>
           </div>
           <div style={styles.statBox}>
-            <div style={styles.statNum}>4.8 ★</div>
-            <div style={styles.statLabel}>{lang === "hi" ? "रेटिंग" : "Rating"}</div>
+            <div style={styles.statNum}>{reportCount - resolvedCount}</div>
+            <div style={styles.statLabel}>{lang === "hi" ? "लंबित" : "Pending"}</div>
           </div>
         </div>
       </div>
 
-      {/* Profile Options List */}
+      {/* Edit Profile Section */}
       <div style={styles.menuCard}>
-        <button style={styles.menuItem}>
-          <div style={styles.menuLeft}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-            </svg>
-            <span style={styles.menuText}>{lang === "hi" ? "प्रोफ़ाइल संपादित करें" : "Edit Profile"}</span>
-          </div>
-          <span style={styles.arrow}>›</span>
-        </button>
+        {!editing ? (
+          <button onClick={() => setEditing(true)} style={styles.menuItem}>
+            <div style={styles.menuLeft}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+              <span style={styles.menuText}>{lang === "hi" ? "प्रोफ़ाइल संपादित करें" : "Edit Profile"}</span>
+            </div>
+            <span style={styles.arrow}>›</span>
+          </button>
+        ) : (
+          <div style={styles.editForm}>
+            <h3 style={styles.editTitle}>
+              {lang === "hi" ? "प्रोफ़ाइल संपादित करें" : "Edit Profile"}
+            </h3>
 
-        <button style={styles.menuItem}>
-          <div style={styles.menuLeft}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-            </svg>
-            <span style={styles.menuText}>{lang === "hi" ? "उपलब्धियां" : "Achievements"}</span>
-          </div>
-          <span style={styles.arrow}>›</span>
-        </button>
+            <label style={styles.label}>{lang === "hi" ? "नाम" : "Name"}</label>
+            <input
+              style={styles.input}
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+              placeholder={lang === "hi" ? "पूरा नाम" : "Full name"}
+            />
 
-        <button style={styles.menuItem}>
-          <div style={styles.menuLeft}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-              <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
-            <span style={styles.menuText}>{lang === "hi" ? "सहायता एवं समर्थन" : "Help & Support"}</span>
-          </div>
-          <span style={styles.arrow}>›</span>
-        </button>
+            <label style={styles.label}>{lang === "hi" ? "ईमेल" : "Email"}</label>
+            <input
+              style={styles.input}
+              value={formEmail}
+              onChange={(e) => setFormEmail(e.target.value)}
+              placeholder="email@example.com"
+            />
 
+            <label style={styles.label}>{lang === "hi" ? "विभाग" : "Department"}</label>
+            <input
+              style={styles.input}
+              value={formDept}
+              onChange={(e) => setFormDept(e.target.value)}
+              placeholder={lang === "hi" ? "विभाग का नाम" : "e.g. Boiler Room B"}
+            />
+
+            <div style={styles.editBtns}>
+              <button onClick={handleSave} style={styles.saveBtn}>
+                {lang === "hi" ? "सहेजें" : "Save Changes"}
+              </button>
+              <button onClick={() => setEditing(false)} style={styles.cancelBtn}>
+                {lang === "hi" ? "रद्द करें" : "Cancel"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Logout */}
         <button onClick={handleLogout} style={{ ...styles.menuItem, borderBottom: "none" }}>
           <div style={styles.menuLeft}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -115,6 +191,15 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: 16,
+  },
+  toast: {
+    backgroundColor: "#10b981",
+    color: "#fff",
+    padding: "10px 16px",
+    borderRadius: 10,
+    fontSize: 14,
+    fontWeight: 600,
+    textAlign: "center",
   },
   card: {
     backgroundColor: "var(--surface)",
@@ -216,5 +301,63 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 20,
     color: "var(--text-light)",
     fontWeight: 400,
+  },
+  editForm: {
+    padding: "20px",
+    borderBottom: "1px solid var(--border)",
+  },
+  editTitle: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: "var(--text)",
+    marginBottom: 16,
+    marginTop: 0,
+  },
+  label: {
+    display: "block",
+    fontSize: 13,
+    fontWeight: 600,
+    color: "var(--text-muted)",
+    marginBottom: 4,
+    marginTop: 12,
+  },
+  input: {
+    width: "100%",
+    padding: "10px 12px",
+    borderRadius: 8,
+    border: "1.5px solid var(--border)",
+    fontSize: 14,
+    fontWeight: 500,
+    color: "var(--text)",
+    backgroundColor: "var(--surface-subtle)",
+    outline: "none",
+    boxSizing: "border-box",
+  },
+  editBtns: {
+    display: "flex",
+    gap: 10,
+    marginTop: 18,
+  },
+  saveBtn: {
+    flex: 1,
+    padding: "10px 16px",
+    borderRadius: 8,
+    border: "none",
+    backgroundColor: "#0A192F",
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  cancelBtn: {
+    flex: 1,
+    padding: "10px 16px",
+    borderRadius: 8,
+    border: "1.5px solid var(--border)",
+    backgroundColor: "transparent",
+    color: "var(--text-muted)",
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
   },
 };
