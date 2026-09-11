@@ -4,6 +4,7 @@ import { useEffect, useState, CSSProperties } from 'react';
 import Link from 'next/link';
 import { MOCK_REPORTS, OfficerReport, ReportStatus, Severity } from '@/app/lib/officerMockData';
 import { exportToCSV, exportToExcel, ExportColumn } from '@/app/lib/exportUtils';
+import { getAllReportsApi } from '@/app/lib/api';
 
 const REPORT_EXPORT_COLUMNS: ExportColumn<OfficerReport>[] = [
   { header: 'Report ID', accessor: r => r._id },
@@ -108,13 +109,52 @@ export default function ReportsPage() {
   const [page, setPage] = useState(1);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [reportsList, setReportsList] = useState<OfficerReport[]>(MOCK_REPORTS);
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(t);
+    let isMounted = true;
+    async function loadReports() {
+      try {
+        const res = await getAllReportsApi();
+        if (res.data && res.data.length > 0 && isMounted) {
+          const mapped: OfficerReport[] = res.data.map((r: any) => ({
+            _id: r._id,
+            title: r.title,
+            category: (r.category || "machinery") as any,
+            severity: (r.severity?.toLowerCase() || "high") as any,
+            status: (r.status || "analysis_complete") as any,
+            riskScore: r.riskAssessment?.riskScore ?? (r.risk_score || 75),
+            zone: "Sector 4",
+            location: r.location || "Sector 4 North",
+            submittedBy: r.submittedBy?.name || "Site Worker",
+            department: r.submittedBy?.department || "Plant Operations",
+            createdAt: r.createdAt || new Date().toISOString(),
+            description: r.description || "",
+            immediateActions: r.recommendations?.slice(0, 2) || ["Perimeter isolation"],
+            recommendations: r.recommendations || ["Supervisor review"],
+            hasImage: Boolean(r.imageUrl),
+            hasAudio: Boolean(r.audioUrl),
+          }));
+
+          const liveIds = new Set(mapped.map(m => m._id));
+          const rest = MOCK_REPORTS.filter(m => !liveIds.has(m._id));
+          setReportsList([...mapped, ...rest]);
+        }
+      } catch (err) {
+        console.warn("Using fallback reports list:", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+    loadReports();
+    const interval = setInterval(loadReports, 4000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
-  const filtered = MOCK_REPORTS.filter(r => {
+  const filtered = reportsList.filter(r => {
     const q = search.toLowerCase();
     const matchSearch = !q || r.title.toLowerCase().includes(q) || r.location.toLowerCase().includes(q) || r.zone.toLowerCase().includes(q);
     const matchStatus = statusFilter === 'all' || r.status === statusFilter;
@@ -131,7 +171,7 @@ export default function ReportsPage() {
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const handleExportCSV = (scope: 'filtered' | 'all') => {
-    const data = scope === 'filtered' ? filtered : MOCK_REPORTS;
+    const data = scope === 'filtered' ? filtered : reportsList;
     const dateStr = new Date().toISOString().split('T')[0];
     const filename = `ForeSite_Reports_${scope === 'filtered' ? 'Filtered_' : 'All_'}${dateStr}`;
     exportToCSV(filename, REPORT_EXPORT_COLUMNS, data);
@@ -141,7 +181,7 @@ export default function ReportsPage() {
   };
 
   const handleExportExcel = (scope: 'filtered' | 'all') => {
-    const data = scope === 'filtered' ? filtered : MOCK_REPORTS;
+    const data = scope === 'filtered' ? filtered : reportsList;
     const dateStr = new Date().toISOString().split('T')[0];
     const filename = `ForeSite_Reports_${scope === 'filtered' ? 'Filtered_' : 'All_'}${dateStr}`;
     exportToExcel(filename, 'Safety Reports', REPORT_EXPORT_COLUMNS, data);

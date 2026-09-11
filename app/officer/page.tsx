@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, CSSProperties } from 'react';
-import { getDashboardStatsApi, getAllReportsApi } from '@/app/lib/api';
+import { getDashboardStatsApi, getAllReportsApi, getAlertsApi } from '@/app/lib/api';
 import Link from 'next/link';
 import {
   MOCK_REPORTS,
@@ -75,23 +75,34 @@ export default function OfficerOverview() {
   const [loading, setLoading] = useState(true);
   const [liveStats, setLiveStats] = useState<any>(null);
   const [liveReports, setLiveReports] = useState<any[]>([]);
+  const [liveAlerts, setLiveAlerts] = useState<any[]>([]);
 
   useEffect(() => {
+    let isMounted = true;
     async function loadData() {
       try {
-        const [statsRes, reportsRes] = await Promise.all([
+        const [statsRes, reportsRes, alertsRes] = await Promise.all([
           getDashboardStatsApi().catch(() => null),
           getAllReportsApi({ limit: 10 }).catch(() => null),
+          getAlertsApi(false).catch(() => null),
         ]);
-        if (statsRes?.data) setLiveStats(statsRes.data);
-        if (reportsRes?.data && reportsRes.data.length > 0) setLiveReports(reportsRes.data);
+        if (isMounted) {
+          if (statsRes?.data) setLiveStats(statsRes.data);
+          if (reportsRes?.data && reportsRes.data.length > 0) setLiveReports(reportsRes.data);
+          if (alertsRes?.data && alertsRes.data.length > 0) setLiveAlerts(alertsRes.data);
+        }
       } catch (err) {
         console.warn("Using offline mock data:", err);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     }
     loadData();
+    const interval = setInterval(loadData, 4000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   if (loading) {
@@ -127,7 +138,25 @@ export default function OfficerOverview() {
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       ).slice(0, 5);
 
-  const topAlerts = ACTIVE_ALERTS.filter(a => !a.acknowledged).slice(0, 3);
+  const topAlerts = liveAlerts.length > 0
+    ? liveAlerts
+        .filter((a) => !a.isAcknowledged)
+        .slice(0, 3)
+        .map((a) => ({
+          _id: a._id,
+          reportId: a.reportId,
+          title: a.reportTitle || a.message,
+          riskScore: a.riskScore || 85,
+          severity: (a.riskLevel?.toLowerCase() === "critical" ? "critical" : "high") as any,
+          zone: "Sector 4",
+          timeAgo: a.createdAt ? timeAgo(a.createdAt) : "Live",
+          recommendations: a.recommendations || [],
+        }))
+    : ACTIVE_ALERTS.filter(a => !a.acknowledged).slice(0, 3).map((a: any) => ({
+        ...a,
+        reportId: a._id.replace("alt-", "rpt-0"),
+        recommendations: ["Immediate perimeter isolation & zero-energy verification", "Conduct certified OSHA inspection"],
+      }));
 
   const maxTrend = Math.max(...WEEKLY_TREND.map(w => w.total));
   const chartWeeks = WEEKLY_TREND.slice(-8);
@@ -311,7 +340,7 @@ export default function OfficerOverview() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {topAlerts.map(alert => (
-              <div key={alert._id} className="apple-card" style={{
+              <Link key={alert._id} href="/officer/alerts" className="apple-card" style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 16,
@@ -319,6 +348,7 @@ export default function OfficerOverview() {
                 borderRadius: 14,
                 background: alert.severity === 'critical' ? 'var(--danger-light)' : 'var(--warning-light)',
                 border: `1px solid ${alert.severity === 'critical' ? 'var(--danger)' : 'var(--warning)'}`,
+                textDecoration: 'none',
               }}>
                 <div style={{
                   fontSize: 28,
@@ -333,8 +363,26 @@ export default function OfficerOverview() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{alert.title}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{alert.zone} · {alert.timeAgo}</div>
+                  {alert.recommendations && alert.recommendations.length > 0 && (
+                    <div style={{
+                      marginTop: 4,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: '#0A192F',
+                      backgroundColor: 'rgba(255,255,255,0.7)',
+                      padding: '2px 8px',
+                      borderRadius: 4,
+                      display: 'inline-block',
+                      maxWidth: '100%',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      💡 AI: {alert.recommendations[0]}
+                    </div>
+                  )}
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

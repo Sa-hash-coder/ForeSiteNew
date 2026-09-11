@@ -176,6 +176,12 @@ export async function POST(req: NextRequest) {
         riskScore: newReport.risk_score,
         sifProbability: newReport.sif_probability,
         message: `${riskLevel} SIF HAZARD: ${newReport.title} at ${newReport.location}`,
+        precursors: newReport.precursors,
+        hazards: newReport.hazards,
+        recommendations: newReport.recommendations,
+        explanation: newReport.explanation,
+        location: newReport.location,
+        submittedBy: user.name,
         isAcknowledged: false,
       });
     }

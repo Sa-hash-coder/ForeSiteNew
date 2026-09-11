@@ -273,6 +273,12 @@ export interface AlertItem {
   isAcknowledged: boolean;
   acknowledgedBy?: string;
   acknowledgedAt?: string;
+  precursors?: string[];
+  hazards?: string[];
+  recommendations?: string[];
+  explanation?: string;
+  location?: string;
+  submittedBy?: string;
   createdAt: string;
 }
 
