@@ -138,17 +138,21 @@ function WorkerAppContent({ children }: { children: React.ReactNode }) {
         <div style={s.sidebarFooter}>
           <div style={s.citySvgWrap}>
             <svg width="100%" height="40" viewBox="0 0 200 40" fill="none" style={{ opacity: 0.25 }}>
-              <rect x="10" y="15" width="15" height="25" fill="var(--primary)" />
-              <rect x="30" y="5" width="20" height="35" fill="var(--primary)" />
-              <rect x="55" y="20" width="12" height="20" fill="var(--primary)" />
-              <rect x="72" y="10" width="25" height="30" fill="var(--primary)" />
-              <rect x="102" y="18" width="18" height="22" fill="var(--primary)" />
-              <rect x="125" y="8" width="22" height="32" fill="var(--primary)" />
-              <rect x="152" y="14" width="15" height="26" fill="var(--primary)" />
-              <rect x="172" y="22" width="18" height="18" fill="var(--primary)" />
+              {/* Industrial facility silhouette: tanks, smokestacks, crane */}
+              <rect x="5" y="20" width="20" height="20" rx="10" fill="var(--primary)" />
+              <rect x="30" y="10" width="8" height="30" fill="var(--primary)" />
+              <rect x="32" y="5" width="4" height="5" fill="var(--primary)" />
+              <rect x="45" y="15" width="25" height="25" fill="var(--primary)" />
+              <rect x="75" y="22" width="20" height="18" rx="10" fill="var(--primary)" />
+              <rect x="100" y="8" width="6" height="32" fill="var(--primary)" />
+              <rect x="102" y="3" width="2" height="5" fill="var(--primary)" />
+              <rect x="115" y="18" width="30" height="22" fill="var(--primary)" />
+              <rect x="150" y="12" width="6" height="28" fill="var(--primary)" />
+              <rect x="160" y="25" width="20" height="15" rx="8" fill="var(--primary)" />
+              <line x1="152" y1="12" x2="185" y2="5" stroke="var(--primary)" strokeWidth="1.5" />
             </svg>
           </div>
-          <div style={s.footerMotto}>Safer Cities. Stronger Communities.</div>
+          <div style={s.footerMotto}>Safer Plants. Stronger Workforce.</div>
         </div>
       </aside>
 

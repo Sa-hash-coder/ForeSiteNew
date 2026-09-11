@@ -110,8 +110,8 @@ export default function WorkerDashboard() {
             <h2 style={styles.bannerTitle}>{lang === "hi" ? "कोई ख़तरा देखा? अभी रिपोर्ट करें।" : "See a hazard? Report it now."}</h2>
             <p style={styles.bannerSub}>
               {lang === "hi"
-                ? "फ़ोटो अपलोड करें, AI को जांचने दें और अपने शहर को सुरक्षित बनाएं।"
-                : "Upload a photo, let AI analyze it, and help make your city safer."}
+                ? "फ़ोटो अपलोड करें, AI को जांचने दें और अपने कार्यस्थल को सुरक्षित बनाएं।"
+                : "Upload a photo, let AI analyze it, and help make your workplace safer."}
             </p>
             <Link href="/worker/submit" className="apple-btn" style={styles.bannerBtn}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -142,13 +142,13 @@ export default function WorkerDashboard() {
         {/* Right: Your Impact Card */}
         <div className="apple-card animate-apple-fade-up delay-3" style={styles.impactCard}>
           <div style={styles.impactHeader}>
-            <div style={styles.impactIconWrap}>🌱</div>
+            <div style={styles.impactIconWrap}>🛡️</div>
             <div>
               <h3 style={styles.impactTitle}>{lang === "hi" ? "आपका प्रभाव" : "Your Impact"}</h3>
               <p style={styles.impactSub}>
                 {lang === "hi"
-                  ? "आपकी रिपोर्ट स्वच्छ, सुरक्षित और बेहतर शहर बनाने में मदद करती हैं।"
-                  : "Your reports help create cleaner, safer, and smarter cities."}
+                  ? "आपकी रिपोर्ट सुरक्षित और बेहतर कार्यस्थल बनाने में मदद करती हैं।"
+                  : "Your reports help create safer and more compliant workplaces."}
               </p>
             </div>
           </div>
@@ -164,7 +164,7 @@ export default function WorkerDashboard() {
             </div>
             <div style={styles.impactItem}>
               <span style={styles.checkIcon}>✓</span>
-              <span>{lang === "hi" ? "सुरक्षित समुदाय" : "Safer communities"}</span>
+              <span>{lang === "hi" ? "सुरक्षित कार्यस्थल" : "Safer workplaces"}</span>
             </div>
           </div>
         </div>
@@ -236,16 +236,16 @@ export default function WorkerDashboard() {
           <div style={styles.donutContainer}>
             <svg width="150" height="150" viewBox="0 0 42 42">
               <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#f1f5f9" strokeWidth="4" />
-              {/* Road Damage 42% */}
-              <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#2563eb" strokeWidth="4" strokeDasharray="42 58" strokeDashoffset="25" />
-              {/* Streetlights 25% */}
-              <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#f59e0b" strokeWidth="4" strokeDasharray="25 75" strokeDashoffset="83" />
-              {/* Garbage 17% */}
-              <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#10b981" strokeWidth="4" strokeDasharray="17 83" strokeDashoffset="58" />
-              {/* Water Leakage 8% */}
-              <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#06b6d4" strokeWidth="4" strokeDasharray="8 92" strokeDashoffset="41" />
-              {/* Others 8% */}
-              <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#94a3b8" strokeWidth="4" strokeDasharray="8 92" strokeDashoffset="33" />
+              {/* Electrical Hazards 35% */}
+              <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#ef4444" strokeWidth="4" strokeDasharray="35 65" strokeDashoffset="25" />
+              {/* Fall from Height 25% */}
+              <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#f59e0b" strokeWidth="4" strokeDasharray="25 75" strokeDashoffset="90" />
+              {/* Machine Guarding 18% */}
+              <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#2563eb" strokeWidth="4" strokeDasharray="18 82" strokeDashoffset="65" />
+              {/* Chemical Exposure 12% */}
+              <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#10b981" strokeWidth="4" strokeDasharray="12 88" strokeDashoffset="47" />
+              {/* Fire & Pressure 10% */}
+              <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#8b5cf6" strokeWidth="4" strokeDasharray="10 90" strokeDashoffset="35" />
             </svg>
             <div style={styles.donutCenter}>
               <div style={styles.donutNum}>{total}</div>
@@ -256,29 +256,29 @@ export default function WorkerDashboard() {
           {/* Legend breakdown */}
           <div style={styles.legendGrid}>
             <div style={styles.legendItem}>
-              <span style={{ ...styles.dot, backgroundColor: "#2563eb" }} />
-              <span style={styles.legendName}>{lang === "hi" ? "सड़क क्षति" : "Road Damage"}</span>
-              <span style={styles.legendPct}>42%</span>
+              <span style={{ ...styles.dot, backgroundColor: "#ef4444" }} />
+              <span style={styles.legendName}>{lang === "hi" ? "विद्युत खतरे" : "Electrical"}</span>
+              <span style={styles.legendPct}>35%</span>
             </div>
             <div style={styles.legendItem}>
               <span style={{ ...styles.dot, backgroundColor: "#f59e0b" }} />
-              <span style={styles.legendName}>{lang === "hi" ? "स्ट्रीटलाइट्स" : "Streetlights"}</span>
+              <span style={styles.legendName}>{lang === "hi" ? "ऊंचाई से गिरना" : "Fall Hazards"}</span>
               <span style={styles.legendPct}>25%</span>
             </div>
             <div style={styles.legendItem}>
+              <span style={{ ...styles.dot, backgroundColor: "#2563eb" }} />
+              <span style={styles.legendName}>{lang === "hi" ? "मशीन सुरक्षा" : "Machine Guard"}</span>
+              <span style={styles.legendPct}>18%</span>
+            </div>
+            <div style={styles.legendItem}>
               <span style={{ ...styles.dot, backgroundColor: "#10b981" }} />
-              <span style={styles.legendName}>{lang === "hi" ? "कचरा" : "Garbage"}</span>
-              <span style={styles.legendPct}>17%</span>
+              <span style={styles.legendName}>{lang === "hi" ? "रासायनिक जोखिम" : "Chemical"}</span>
+              <span style={styles.legendPct}>12%</span>
             </div>
             <div style={styles.legendItem}>
-              <span style={{ ...styles.dot, backgroundColor: "#06b6d4" }} />
-              <span style={styles.legendName}>{lang === "hi" ? "जल रिसाव" : "Water Leakage"}</span>
-              <span style={styles.legendPct}>8%</span>
-            </div>
-            <div style={styles.legendItem}>
-              <span style={{ ...styles.dot, backgroundColor: "#94a3b8" }} />
-              <span style={styles.legendName}>{lang === "hi" ? "अन्य" : "Others"}</span>
-              <span style={styles.legendPct}>8%</span>
+              <span style={{ ...styles.dot, backgroundColor: "#8b5cf6" }} />
+              <span style={styles.legendName}>{lang === "hi" ? "अग्नि और दबाव" : "Fire & Pressure"}</span>
+              <span style={styles.legendPct}>10%</span>
             </div>
           </div>
         </div>
