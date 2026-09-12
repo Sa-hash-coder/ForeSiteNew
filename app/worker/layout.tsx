@@ -103,7 +103,7 @@ function WorkerAppContent({ children }: { children: React.ReactNode }) {
               items.push({
                 id: `rep_act_${rep._id}`,
                 title: lang === "hi" ? "मेंटेनेंस टीम भेजी गई" : "Maintenance Team Dispatched",
-                message: `${lang === "hi" ? "कार्य आदेश जारी:" : "Work order assigned for:"} ${rep.title}`,
+                message: `${lang === "hi" ? "कार्य दल सौंपा गया:" : "Crew task assigned for:"} ${rep.title}`,
                 timestamp: rep.createdAt || new Date().toISOString(),
                 type: "action",
                 link: `/worker/reports/${rep._id}`,

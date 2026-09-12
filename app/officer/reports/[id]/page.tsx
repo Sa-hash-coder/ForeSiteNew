@@ -130,7 +130,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             recommendations: d.recommendations && d.recommendations.length > 0 ? d.recommendations : [
               "Conduct on-site supervisor inspection and log incident in daily hazard register.",
               "Verify area is cordoned off if active risk persists.",
-              "Schedule preventive maintenance work order review."
+              "Schedule preventive maintenance task review."
             ],
             precursors: d.precursors || [],
             explanation: d.explanation || "Automated SIF classification calculated by fine-tuned model under OSHA 1910 standards.",
@@ -172,7 +172,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   const handleCreateTaskForRec = async (recText: string) => {
     try {
       const res = await createTaskApi({
-        title: `Work Order: ${report.title.slice(0, 45)}`,
+        title: `Task: ${report.title.slice(0, 45)}`,
         description: `${recText}\n\nGenerated from fine-tuned SIF precursor assessment for ${report.location}.`,
         equipmentId: "EQ-" + Math.floor(100 + Math.random() * 900),
         equipmentName: report.title,
@@ -188,9 +188,9 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       }
       await updateReportStatusApi(report._id, "action_assigned");
       setReport((prev: any) => ({ ...prev, status: "action_assigned" }));
-      showToast("Dispatched maintenance work order to Rotating Machinery Team M-4!");
+      showToast("Assigned maintenance task to Rotating Machinery Team M-4!");
     } catch {
-      showToast("Work order logged to maintenance queue.");
+      showToast("Task logged to maintenance queue.");
     }
   };
 
@@ -199,8 +199,8 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
     setIsDispatching(true);
     try {
       const res = await createTaskApi({
-        title: `Work Order: ${report.title.slice(0, 45)}`,
-        description: dispatchInstructions || report.description || "Corrective maintenance dispatched from officer command.",
+        title: `Task: ${report.title.slice(0, 45)}`,
+        description: dispatchInstructions || report.description || "Corrective maintenance task dispatched from officer command.",
         equipmentId: "EQ-" + Math.floor(100 + Math.random() * 900),
         equipmentName: report.title,
         location: report.location,
@@ -215,12 +215,12 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       }
       await updateReportStatusApi(report._id, "action_assigned");
       setReport((prev: any) => ({ ...prev, status: "action_assigned" }));
-      showToast(`Work order successfully dispatched to ${dispatchCrew}!`);
+      showToast(`Task successfully assigned to ${dispatchCrew}!`);
       setShowDispatchModal(false);
       setDispatchInstructions('');
     } catch (err) {
       console.warn("Failed to dispatch task:", err);
-      showToast("Work order created in local dispatch queue.");
+      showToast("Task created in local dispatch queue.");
       setShowDispatchModal(false);
     } finally {
       setIsDispatching(false);
@@ -392,7 +392,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
 
         {/* AI Recommendations with Instant Dispatch Buttons */}
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>
-          Recommended Corrective Work Orders:
+          Recommended Corrective Tasks:
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {report.recommendations.map((rec: string, i: number) => (
@@ -419,9 +419,9 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                   border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
                   display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
                 }}
-                title="Create Maintenance Work Order from this recommendation"
+                title="Assign Maintenance Task from this recommendation"
               >
-                <Zap size={12} /> Dispatch WO
+                <Zap size={12} /> Assign Task
               </button>
             </div>
           ))}
@@ -432,7 +432,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       <div style={card}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Wrench size={16} /> Dispatched Maintenance Work Orders ({tasksToDisplay.length})
+            <Wrench size={16} /> Assigned Maintenance Tasks ({tasksToDisplay.length})
           </div>
           <button
             onClick={() => setShowDispatchModal(true)}
@@ -523,7 +523,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
         </div>
       </div>
 
-      {/* ─── Dispatch Work Order to Maintenance Modal ─── */}
+      {/* ─── Assign Maintenance Task Modal ─── */}
       {showDispatchModal && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 2500,
@@ -543,7 +543,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Wrench size={18} style={{ color: '#0A192F' }} />
                 <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>
-                  Dispatch Work Order to Maintenance Team
+                  Assign Maintenance Task to Crew
                 </span>
               </div>
               <button

@@ -302,8 +302,8 @@ export default function HeatmapPage() {
     setIsSubmittingDispatch(true);
     try {
       await createTaskApi({
-        title: `Work Order: ${dispatchModalUnit.code} Urgent Remediation`,
-        description: dispatchInstructions || `Field corrective maintenance for ${dispatchModalUnit.name}`,
+        title: `Task: ${dispatchModalUnit.code} Urgent Remediation`,
+        description: dispatchInstructions || `Field corrective maintenance task for ${dispatchModalUnit.name}`,
         equipmentId: dispatchModalUnit.code,
         equipmentName: dispatchModalUnit.name,
         location: dispatchModalUnit.name,
@@ -312,13 +312,13 @@ export default function HeatmapPage() {
         lotoRequired: dispatchLoto,
       });
 
-      setToast(`Work order successfully dispatched to ${dispatchCrew}!`);
+      setToast(`Task successfully assigned to ${dispatchCrew}!`);
       setDispatchModalUnit(null);
       setTimeout(() => setToast(""), 3500);
       syncLiveData();
     } catch (err) {
       console.warn("Dispatch failed:", err);
-      setToast("Work order logged to dispatch queue.");
+      setToast("Task logged to dispatch queue.");
       setDispatchModalUnit(null);
     } finally {
       setIsSubmittingDispatch(false);
@@ -879,7 +879,7 @@ export default function HeatmapPage() {
                     }}
                   >
                     <Wrench style={{ width: 15, height: 15 }} />
-                    Dispatch Maintenance Work Order
+                    Assign Maintenance Task
                   </button>
                   <Link
                     href="/officer/alerts"
@@ -899,21 +899,47 @@ export default function HeatmapPage() {
               <>
                 {/* Overall Score */}
                 <div style={{ backgroundColor: "#FFFFFF", borderRadius: 14, border: "1px solid #D9DEE7", padding: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>
-                    PLANT OVERALL SIF RISK INDEX
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                     <div>
-                      <div style={{ fontSize: 36, fontWeight: 900, color: getUnitRiskColor(averageRisk), lineHeight: 1 }}>
-                        {averageRisk}<span style={{ fontSize: 16, color: "#64748B", fontWeight: 600 }}>/100</span>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                        FACILITY OVERALL SIF RISK
                       </div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#0F172A", marginTop: 4 }}>
-                        {averageRisk >= 80 ? "Critical Facility Hazard Level" : averageRisk >= 60 ? "Elevated Risk Precursor Alert" : "Operational Safety Baseline Nominal"}
+                      <div style={{ fontSize: 32, fontWeight: 900, color: "#DC2626", lineHeight: 1.1, marginTop: 4 }}>
+                        {averageRisk}/100
                       </div>
                     </div>
-                    <div style={{ width: 52, height: 52, borderRadius: "50%", backgroundColor: averageRisk >= 60 ? "#FEF2F2" : "#F0FDF4", border: `2px solid ${getUnitRiskColor(averageRisk)}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <AlertTriangle style={{ width: 24, height: 24, color: getUnitRiskColor(averageRisk) }} />
-                    </div>
+                    <span style={{ backgroundColor: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA", padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 800 }}>
+                      CRITICAL RISK
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
+                    3 Units in Critical SIF Precursor threshold. Process Area 2 and Sector 4 require active supervision.
+                  </div>
+                </div>
+
+                {/* Top Critical Precursors List */}
+                <div style={{ backgroundColor: "#FFFFFF", borderRadius: 14, border: "1px solid #D9DEE7", padding: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>
+                    TOP SIF PRECURSORS ACTIVE
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {[
+                      { name: "Heavy Machinery Vibration & Bearing Failure", count: 4, level: "CRITICAL" },
+                      { name: "Exposed 480V Energized Line & Conduit Breach", count: 2, level: "CRITICAL" },
+                      { name: "Scaffolding Unstable Toe-Board & Tie-Off Defect", count: 2, level: "HIGH" },
+                      { name: "Hydrocarbon Flange Micro-Leak Detection", count: 1, level: "HIGH" },
+                    ].map((p, idx) => (
+                      <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
+                        <span style={{ color: "#1E293B", fontWeight: 600, flex: 1, paddingRight: 8 }}>{p.name}</span>
+                        <span style={{
+                          backgroundColor: p.level === "CRITICAL" ? "#FEF2F2" : "#FFF7ED",
+                          color: p.level === "CRITICAL" ? "#DC2626" : "#EA580C",
+                          fontWeight: 800, fontSize: 10, padding: "2px 6px", borderRadius: 4,
+                        }}>
+                          {p.count} active
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
@@ -966,7 +992,7 @@ export default function HeatmapPage() {
                   <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#475569", display: "flex", flexDirection: "column", gap: 8, lineHeight: 1.5 }}>
                     <li>Review Tank Farm scaffolding guardrails and enforce 100% harness tie-off.</li>
                     <li>Conduct vibration spectrum FFT analysis on Hydrocracker feed pumps.</li>
-                    <li>Verify zero-energy LOTO isolation on active maintenance work orders.</li>
+                    <li>Verify zero-energy LOTO isolation on active maintenance tasks.</li>
                   </ul>
                 </div>
               </>
@@ -997,7 +1023,7 @@ export default function HeatmapPage() {
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Zap size={18} style={{ color: "#0A192F" }} />
                 <span style={{ fontSize: 16, fontWeight: 800, color: "var(--text)" }}>
-                  Dispatch Work Order for {dispatchModalUnit.code}
+                  Assign Maintenance Task for {dispatchModalUnit.code}
                 </span>
               </div>
               <button
@@ -1045,7 +1071,7 @@ export default function HeatmapPage() {
                   style={{ width: 16, height: 16, accentColor: "#dc2626" }}
                 />
                 <label htmlFor="heatmapLoto" style={{ fontSize: 12, fontWeight: 700, color: dispatchLoto ? "#dc2626" : "var(--text)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-                  <Lock size={13} /> LOTO Isolation Mandated for this Work Order
+                  <Lock size={13} /> LOTO Isolation Mandated for this Task
                 </label>
               </div>
 
@@ -1091,7 +1117,7 @@ export default function HeatmapPage() {
                   display: "flex", alignItems: "center", gap: 6,
                 }}
               >
-                <span>{isSubmittingDispatch ? "Dispatching..." : "Dispatch Work Order"}</span>
+                <span>{isSubmittingDispatch ? "Dispatching..." : "Assign Task & Dispatch"}</span>
               </button>
             </div>
           </form>

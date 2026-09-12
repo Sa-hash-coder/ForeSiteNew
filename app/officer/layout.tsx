@@ -43,7 +43,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/officer/heatmap':    'Refinery Facility Heatmap',
   '/officer/analytics':  'Risk Analytics & Trends',
   '/officer/alerts':     'Active Hazard Alerts',
-  '/officer/tasks':      'Maintenance Work Orders',
+  '/officer/tasks':      'Assigned Maintenance Tasks',
 };
 
 function OfficerLayoutContent({ children }: { children: React.ReactNode }) {

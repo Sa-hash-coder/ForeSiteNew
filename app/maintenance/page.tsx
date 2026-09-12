@@ -27,13 +27,21 @@ import {
   AlertCircle,
   Gauge,
   Zap,
-  Flame,
-  ShieldAlert,
   Layers,
   HardHat,
   RefreshCw,
-  Cpu
+  Cpu,
+  Bot,
+  Printer,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react";
+import {
+  openPrintableAIMaintenanceReport,
+  downloadAIMaintenanceHtmlReport,
+  downloadAIMaintenanceExcelReport,
+  ReportTaskItem,
+} from "@/app/lib/aiReportGenerator";
 
 // ─── Types & Models ─────────────────────────────────────────────────────────
 
@@ -226,7 +234,7 @@ export default function MaintenancePage() {
             safetyPermitId: t.safetyPermitId || "PTW-2026-0881",
             assignedCrew: t.assignedCrew || "Maintenance Crew M-4",
             dispatchedAt: t.createdAt ? new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Recently",
-            description: t.description || "Field safety repair work order.",
+            description: t.description || "Field safety repair task.",
             lotoRequired: t.lotoRequired ?? true,
             clearanceNote: t.clearanceNote,
           }));
@@ -244,6 +252,51 @@ export default function MaintenancePage() {
       clearInterval(interval);
     };
   }, []);
+
+  const [showMaintAiMenu, setShowMaintAiMenu] = useState(false);
+
+  const toMaintenanceReportTasks = (ordersList: DispatchedOrder[]): ReportTaskItem[] => {
+    return ordersList.map((o) => ({
+      id: o.id,
+      orderNumber: o.orderNumber,
+      title: o.title,
+      equipmentId: o.equipmentId,
+      equipmentName: o.equipmentName,
+      location: o.location,
+      zone: o.zone,
+      severity: o.severity,
+      status: o.status,
+      assignedCrew: o.assignedCrew,
+      lotoRequired: o.lotoRequired,
+      clearanceNote: o.clearanceNote,
+      dueDate: "Immediate Shift",
+      riskScore: o.severity === "critical" ? 91 : o.severity === "high" ? 74 : 45,
+    }));
+  };
+
+  const handlePrintAiReport = () => {
+    const reportTasks = toMaintenanceReportTasks(orders);
+    openPrintableAIMaintenanceReport(reportTasks, {
+      facilityName: "ForeSite PetroChemical Complex - Sector 4 & Plant Main",
+      officerName: currentUser?.fullName || "Maintenance Lead Engineer",
+    });
+    setShowMaintAiMenu(false);
+  };
+
+  const handleDownloadAiHtml = () => {
+    const reportTasks = toMaintenanceReportTasks(orders);
+    downloadAIMaintenanceHtmlReport(reportTasks, {
+      facilityName: "ForeSite PetroChemical Complex - Sector 4 & Plant Main",
+      officerName: currentUser?.fullName || "Maintenance Lead Engineer",
+    });
+    setShowMaintAiMenu(false);
+  };
+
+  const handleDownloadAiExcel = () => {
+    const reportTasks = toMaintenanceReportTasks(orders);
+    downloadAIMaintenanceExcelReport(reportTasks, "ForeSite_AI_Maintenance_Audit");
+    setShowMaintAiMenu(false);
+  };
 
   const changeTab = (tabId: string) => {
     setActiveTab(tabId);
@@ -348,7 +401,101 @@ export default function MaintenancePage() {
               </p>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              {/* AI Report Dropdown */}
+              <div style={{ position: "relative" }}>
+                <button
+                  onClick={() => setShowMaintAiMenu(!showMaintAiMenu)}
+                  style={{
+                    padding: "9px 16px",
+                    borderRadius: 10,
+                    backgroundColor: "#0A192F",
+                    color: "#FFFFFF",
+                    border: "none",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    boxShadow: "0 2px 6px rgba(10,25,47,0.2)",
+                  }}
+                >
+                  <Bot size={16} color="#38bdf8" />
+                  <span>Download AI Maintenance Report</span>
+                  <ChevronDown size={14} style={{ transform: showMaintAiMenu ? "rotate(180deg)" : "none", transition: "transform 0.15s ease" }} />
+                </button>
+
+                {showMaintAiMenu && (
+                  <>
+                    <div
+                      onClick={() => setShowMaintAiMenu(false)}
+                      style={{ position: "fixed", inset: 0, zIndex: 90 }}
+                    />
+                    <div
+                      style={{
+                        position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 100,
+                        backgroundColor: "var(--surface)", border: "1px solid var(--border)",
+                        borderRadius: 12, padding: "8px", minWidth: 260,
+                        boxShadow: "var(--shadow-md)", display: "flex", flexDirection: "column", gap: 4,
+                      }}
+                    >
+                      <div style={{ padding: "6px 10px 4px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                        ForeSite MiniLM AI Report ({orders.length} Tasks)
+                      </div>
+                      <button
+                        onClick={handlePrintAiReport}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8,
+                          border: "none", backgroundColor: "transparent", color: "var(--text)", fontSize: 13,
+                          fontWeight: 600, cursor: "pointer", textAlign: "left", width: "100%",
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = "var(--primary-light)"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; }}
+                      >
+                        <Printer size={17} color="var(--primary)" />
+                        <div>
+                          <div>Print / Save as PDF</div>
+                          <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 400 }}>Official OSHA Audit Layout</div>
+                        </div>
+                      </button>
+                      <button
+                        onClick={handleDownloadAiHtml}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8,
+                          border: "none", backgroundColor: "transparent", color: "var(--text)", fontSize: 13,
+                          fontWeight: 600, cursor: "pointer", textAlign: "left", width: "100%",
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = "var(--primary-light)"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; }}
+                      >
+                        <Download size={17} color="#059669" />
+                        <div>
+                          <div>Download HTML Audit File</div>
+                          <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 400 }}>Self-contained report package</div>
+                        </div>
+                      </button>
+                      <button
+                        onClick={handleDownloadAiExcel}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8,
+                          border: "none", backgroundColor: "transparent", color: "var(--text)", fontSize: 13,
+                          fontWeight: 600, cursor: "pointer", textAlign: "left", width: "100%",
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = "var(--primary-light)"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; }}
+                      >
+                        <FileSpreadsheet size={17} color="#2563eb" />
+                        <div>
+                          <div>Download Excel (.xls) Audit</div>
+                          <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 400 }}>With MiniLM Risk Scores &amp; LOTO</div>
+                        </div>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
               <button
                 onClick={() => changeTab("orders")}
                 className="apple-btn"
@@ -366,7 +513,7 @@ export default function MaintenancePage() {
                   gap: 8,
                 }}
               >
-                <Wrench size={15} /> Open Work Orders Queue ({totalCount}) →
+                <Wrench size={15} /> Open Tasks Queue ({totalCount}) →
               </button>
             </div>
           </div>
@@ -384,7 +531,7 @@ export default function MaintenancePage() {
               }}
             >
               <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span>Active Work Orders</span>
+                <span>Active Maintenance Tasks</span>
                 <Wrench size={17} color="var(--primary)" />
               </div>
               <div style={{ fontSize: 30, fontWeight: 900, color: "var(--text)", marginTop: 8, letterSpacing: "-0.5px", lineHeight: 1.1 }}>
@@ -717,12 +864,12 @@ export default function MaintenancePage() {
       )}
 
       {/* ═══════════════════════════════════════════════════════════════════════
-          MODULE 2: WORK ORDERS QUEUE (Detailed Task Lifecycle Management)
+          MODULE 2: ASSIGNED TASKS QUEUE (Detailed Task Lifecycle Management)
           ═══════════════════════════════════════════════════════════════════════ */}
       {activeTab === "orders" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           
-          {/* Work Orders Intelligence Strip */}
+          {/* Assigned Tasks Intelligence Strip */}
           <div
             className="apple-card"
             style={{
@@ -741,7 +888,7 @@ export default function MaintenancePage() {
                   <span style={{ color: "var(--primary)" }}>{orders.length} Total Assignments</span>
                 </div>
                 <h1 style={{ fontSize: 24, fontWeight: 800, color: "var(--text)", margin: 0, letterSpacing: "-0.5px" }}>
-                  Work Orders Queue &amp; Dispatch
+                  Assigned Tasks Queue &amp; Dispatch
                 </h1>
                 <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "4px 0 0 0" }}>
                   Manage crew assignments, accept urgent SIF mitigations, and submit clearance certification.
@@ -1314,7 +1461,7 @@ export default function MaintenancePage() {
                           }}
                           style={{ background: "none", border: "none", color: "var(--primary)", fontWeight: 700, cursor: "pointer", padding: 0 }}
                         >
-                          View Work Order →
+                          View Task →
                         </button>
                       </div>
                     )}
@@ -1531,7 +1678,7 @@ export default function MaintenancePage() {
                   gap: 8,
                 }}>
                   <CheckCircle2 size={16} color="#16a34a" style={{ flexShrink: 0 }} />
-                  <span>All dispatched work orders have been certified. Pending clearances are awaiting safety officer review.</span>
+                  <span>All dispatched tasks have been certified. Pending clearances are awaiting safety officer review.</span>
                 </div>
               ) : (
                 orders
@@ -1589,7 +1736,7 @@ export default function MaintenancePage() {
             {/* Historical Cleared Ledger */}
             <div style={{ marginTop: 24, paddingTop: 18, borderTop: "1px solid var(--border)" }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 12 }}>
-                Recently Certified &amp; Cleared Work Orders ({orders.filter((o) => o.status === "clearance_submitted" || o.status === "officer_verified").length + 2})
+                Recently Certified &amp; Cleared Tasks ({orders.filter((o) => o.status === "clearance_submitted" || o.status === "officer_verified").length + 2})
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {/* Dynamically Cleared Orders */}

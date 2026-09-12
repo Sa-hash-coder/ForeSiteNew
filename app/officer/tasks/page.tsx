@@ -18,7 +18,17 @@ import {
   X,
   Lock,
   Zap,
+  Bot,
+  Printer,
+  Download,
+  ChevronDown,
 } from 'lucide-react';
+import {
+  openPrintableAIMaintenanceReport,
+  downloadAIMaintenanceHtmlReport,
+  downloadAIMaintenanceExcelReport,
+  ReportTaskItem,
+} from '@/app/lib/aiReportGenerator';
 
 const TASK_EXPORT_COLUMNS: ExportColumn<MaintenanceTask>[] = [
   { header: 'Task ID', accessor: (t: MaintenanceTask) => t._id },
@@ -93,16 +103,24 @@ export default function TasksPage() {
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [isSubmittingAssign, setIsSubmittingAssign] = useState(false);
 
-  // Modal State: Dispatch New Work Order
-  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newDesc, setNewDesc] = useState('');
-  const [newEquipment, setNewEquipment] = useState('TK-80 Crude Storage Tank');
-  const [newLocation, setNewLocation] = useState('Sector 4 North, Tank Farm');
-  const [newCrew, setNewCrew] = useState(MAINTENANCE_CREWS[0]);
-  const [newSeverity, setNewSeverity] = useState('high');
-  const [newLoto, setNewLoto] = useState(false);
-  const [isSubmittingNewOrder, setIsSubmittingNewOrder] = useState(false);
+  // AI Report Menu State
+  const [showAiReportMenu, setShowAiReportMenu] = useState(false);
+
+  const toReportTasks = (taskList: MaintenanceTask[]): ReportTaskItem[] => {
+    return taskList.map((t, idx) => ({
+      id: t._id,
+      orderNumber: t.orderNumber || `TSK-${String(idx + 1).padStart(3, '0')}`,
+      title: t.title,
+      reportId: t.reportId,
+      severity: t.priority,
+      status: t.status,
+      assignedCrew: t.assignedTo,
+      dueDate: t.dueDate,
+      clearanceNote: t.clearanceNote,
+      lotoRequired: t.priority === 'critical' || t.priority === 'high',
+      riskScore: t.priority === 'critical' ? 91 : t.priority === 'high' ? 74 : 42,
+    }));
+  };
 
   const loadTasks = async () => {
     try {
@@ -147,7 +165,7 @@ export default function TasksPage() {
       await updateTaskApi(taskId, {
         status: 'officer_verified',
       });
-      setToast(`Work Order ${task.orderNumber || task.title} verified & cleared! Linked hazard report marked resolved.`);
+      setToast(`Task ${task.orderNumber || task.title} verified & cleared! Linked hazard report marked resolved.`);
     } catch (err) {
       console.warn("Failed to verify task on server:", err);
       setToast(`Task marked as cleared.`);
@@ -240,48 +258,32 @@ export default function TasksPage() {
     }
   };
 
-  const handleDispatchNewOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTitle.trim()) return;
-    setIsSubmittingNewOrder(true);
-    try {
-      const res = await createTaskApi({
-        title: newTitle.trim(),
-        description: newDesc.trim() || 'Urgent repair work order dispatched by Safety Officer command.',
-        equipmentId: newEquipment.split(' ')[0] || 'EQ-GEN',
-        equipmentName: newEquipment,
-        location: newLocation,
-        severity: newSeverity,
-        assignedCrew: newCrew,
-        lotoRequired: newLoto,
-      });
+  const handlePrintAiReport = () => {
+    const reportTasks = toReportTasks(filtered.length > 0 && filter !== 'all' ? filtered : tasks);
+    openPrintableAIMaintenanceReport(reportTasks, {
+      facilityName: 'ForeSite Industrial Facility - Sector 4 & Plant Main',
+      officerName: 'Safety Command Lead',
+    });
+    setShowAiReportMenu(false);
+  };
 
-      if (res.data) {
-        const newTask: MaintenanceTask = {
-          _id: res.data._id,
-          reportId: res.data.reportId || 'rep-officer',
-          reportTitle: newTitle,
-          title: newTitle,
-          assignedTo: newCrew,
-          dueDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-          priority: newSeverity as any,
-          status: 'in_progress',
-        };
-        setTasks(prev => [newTask, ...prev]);
-      }
-      setToast(`Work order successfully dispatched to ${newCrew}!`);
-      setShowNewOrderModal(false);
-      setNewTitle('');
-      setNewDesc('');
-    } catch (err) {
-      console.warn("Failed to create task via API:", err);
-      setToast('Work order created in local dispatch queue.');
-      setShowNewOrderModal(false);
-    } finally {
-      setIsSubmittingNewOrder(false);
-      setTimeout(() => setToast(''), 3500);
-      loadTasks();
-    }
+  const handleDownloadAiReportHtml = () => {
+    const reportTasks = toReportTasks(filtered.length > 0 && filter !== 'all' ? filtered : tasks);
+    downloadAIMaintenanceHtmlReport(reportTasks, {
+      facilityName: 'ForeSite Industrial Facility - Sector 4 & Plant Main',
+      officerName: 'Safety Command Lead',
+    });
+    setShowAiReportMenu(false);
+    setToast('ForeSite MiniLM AI Maintenance Report downloaded (.html)');
+    setTimeout(() => setToast(''), 3500);
+  };
+
+  const handleDownloadAiReportExcel = () => {
+    const reportTasks = toReportTasks(filtered.length > 0 && filter !== 'all' ? filtered : tasks);
+    downloadAIMaintenanceExcelReport(reportTasks, 'ForeSite_AI_Maintenance_Audit');
+    setShowAiReportMenu(false);
+    setToast('ForeSite AI Maintenance Audit spreadsheet downloaded (.xls)');
+    setTimeout(() => setToast(''), 3500);
   };
 
   const card: CSSProperties = {
@@ -326,26 +328,101 @@ export default function TasksPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px 0', color: 'var(--text)' }}>
-            Maintenance Dispatch &amp; Work Orders
+            Assigned Maintenance Tasks
           </h2>
           <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
             Assign, reassign, and track industrial repairs in direct sync with the Maintenance Portal
           </div>
         </div>
 
-        {/* Dispatch New Task Button */}
-        <button
-          onClick={() => setShowNewOrderModal(true)}
-          style={{
-            padding: '10px 18px', background: '#0A192F', color: '#fff', border: 'none',
-            borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 2px 6px rgba(10,25,47,0.2)',
-            transition: 'transform 0.1s ease',
-          }}
-        >
-          <Plus size={16} />
-          <span>Dispatch New Work Order</span>
-        </button>
+        {/* AI Maintenance Report Export Button */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowAiReportMenu(!showAiReportMenu)}
+            style={{
+              padding: '10px 18px', background: '#0A192F', color: '#fff', border: 'none',
+              borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 2px 6px rgba(10,25,47,0.2)',
+              transition: 'transform 0.1s ease',
+            }}
+          >
+            <Bot size={17} color="#38bdf8" />
+            <span>Download AI Maintenance Report</span>
+            <ChevronDown size={14} style={{ transform: showAiReportMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+          </button>
+
+          {showAiReportMenu && (
+            <>
+              <div
+                onClick={() => setShowAiReportMenu(false)}
+                style={{ position: 'fixed', inset: 0, zIndex: 90 }}
+              />
+              <div
+                style={{
+                  position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 100,
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  borderRadius: 12, padding: '8px', minWidth: 260,
+                  boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column', gap: 4,
+                }}
+              >
+                <div style={{ padding: '6px 10px 4px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  ForeSite MiniLM AI Report ({tasks.length} Tasks)
+                </div>
+                <button
+                  onClick={handlePrintAiReport}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8,
+                    border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 13,
+                    fontWeight: 600, cursor: 'pointer', textAlign: 'left', width: '100%',
+                    transition: 'background 0.12s ease',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--primary-light)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                >
+                  <Printer size={17} color="var(--primary)" />
+                  <div>
+                    <div>Print / Save as PDF</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>Official OSHA Audit Layout</div>
+                  </div>
+                </button>
+                <button
+                  onClick={handleDownloadAiReportHtml}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8,
+                    border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 13,
+                    fontWeight: 600, cursor: 'pointer', textAlign: 'left', width: '100%',
+                    transition: 'background 0.12s ease',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--primary-light)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                >
+                  <Download size={17} color="#059669" />
+                  <div>
+                    <div>Download HTML Audit File</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>Self-contained report package</div>
+                  </div>
+                </button>
+                <button
+                  onClick={handleDownloadAiReportExcel}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8,
+                    border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 13,
+                    fontWeight: 600, cursor: 'pointer', textAlign: 'left', width: '100%',
+                    transition: 'background 0.12s ease',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--primary-light)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                >
+                  <FileSpreadsheet size={17} color="#2563eb" />
+                  <div>
+                    <div>Download Excel (.xls) Audit</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>With MiniLM Risk Scores &amp; LOTO</div>
+                  </div>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Summary stats */}
@@ -689,7 +766,7 @@ export default function TasksPage() {
                 padding: '12px 14px',
               }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                  Work Order Title
+                  Task Title
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginTop: 2 }}>
                   {assignModalTask.title}
@@ -718,7 +795,7 @@ export default function TasksPage() {
                   ))}
                 </select>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                  This crew will receive live work order dispatch and digital LOTO authorization in their portal.
+                  This crew will receive live task assignment and digital LOTO authorization in their portal.
                 </div>
               </div>
 
@@ -807,196 +884,10 @@ export default function TasksPage() {
                   display: 'flex', alignItems: 'center', gap: 6,
                 }}
               >
-                <span>{isSubmittingAssign ? 'Dispatching...' : 'Confirm Assignment & Dispath'}</span>
+                <span>{isSubmittingAssign ? 'Dispatching...' : 'Confirm Assignment & Dispatch'}</span>
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* ─── MODAL 2: Dispatch New Work Order Modal ─── */}
-      {showNewOrderModal && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 1500,
-          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: 16, backdropFilter: 'blur(2px)',
-        }}>
-          <form onSubmit={handleDispatchNewOrder} style={{
-            background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.2)', width: '100%', maxWidth: 540,
-            overflow: 'hidden', display: 'flex', flexDirection: 'column',
-          }}>
-            <div style={{
-              padding: '16px 20px', borderBottom: '1px solid var(--border)',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              background: 'var(--surface-subtle)',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Zap size={18} style={{ color: '#0A192F' }} />
-                <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>
-                  Dispatch New Maintenance Work Order
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowNewOrderModal(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-                  Work Order Title: *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newTitle}
-                  onChange={e => setNewTitle(e.target.value)}
-                  placeholder="e.g. Inspect & retorque lower flange bolts on Heat Exchanger EX-12"
-                  style={{
-                    width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid var(--border)',
-                    background: 'var(--surface)', color: 'var(--text)', fontSize: 13,
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-                    Equipment Tag:
-                  </label>
-                  <input
-                    type="text"
-                    value={newEquipment}
-                    onChange={e => setNewEquipment(e.target.value)}
-                    placeholder="e.g. V-204 Hydrocracker"
-                    style={{
-                      width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)',
-                      background: 'var(--surface)', color: 'var(--text)', fontSize: 12,
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-                    Location:
-                  </label>
-                  <input
-                    type="text"
-                    value={newLocation}
-                    onChange={e => setNewLocation(e.target.value)}
-                    placeholder="e.g. Process Area 2"
-                    style={{
-                      width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)',
-                      background: 'var(--surface)', color: 'var(--text)', fontSize: 12,
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-                  Assign Maintenance Crew: *
-                </label>
-                <select
-                  value={newCrew}
-                  onChange={e => setNewCrew(e.target.value)}
-                  style={{
-                    width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid var(--border)',
-                    background: 'var(--surface)', color: 'var(--text)', fontSize: 13, fontWeight: 600,
-                  }}
-                >
-                  {MAINTENANCE_CREWS.map(crew => (
-                    <option key={crew} value={crew}>{crew}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-                    Priority:
-                  </label>
-                  <select
-                    value={newSeverity}
-                    onChange={e => setNewSeverity(e.target.value)}
-                    style={{
-                      width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)',
-                      background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontWeight: 600,
-                    }}
-                  >
-                    <option value="critical">CRITICAL (Immediate)</option>
-                    <option value="high">HIGH (Next shift)</option>
-                    <option value="medium">MEDIUM (Standard)</option>
-                    <option value="low">LOW (Routine inspection)</option>
-                  </select>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 16 }}>
-                    <input
-                      type="checkbox"
-                      checked={newLoto}
-                      onChange={e => setNewLoto(e.target.checked)}
-                      style={{ width: 16, height: 16, accentColor: '#dc2626' }}
-                    />
-                    <span style={{ fontSize: 12, fontWeight: 700, color: newLoto ? '#dc2626' : 'var(--text)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                      <Lock size={13} /> LOTO Isolation Required
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-                  Description &amp; Work Scope:
-                </label>
-                <textarea
-                  value={newDesc}
-                  onChange={e => setNewDesc(e.target.value)}
-                  placeholder="Describe repair scope, replacement parts needed, and safety permit requirements..."
-                  rows={2}
-                  style={{
-                    width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)',
-                    background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit',
-                  }}
-                />
-              </div>
-            </div>
-
-            <div style={{
-              padding: '14px 20px', borderTop: '1px solid var(--border)',
-              display: 'flex', justifyContent: 'flex-end', gap: 10,
-              background: 'var(--surface-subtle)',
-            }}>
-              <button
-                type="button"
-                onClick={() => setShowNewOrderModal(false)}
-                style={{
-                  padding: '9px 16px', borderRadius: 8, border: '1px solid var(--border)',
-                  background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmittingNewOrder}
-                style={{
-                  padding: '9px 20px', borderRadius: 8, border: 'none',
-                  background: '#0A192F', color: '#fff', fontSize: 12, fontWeight: 700,
-                  cursor: isSubmittingNewOrder ? 'wait' : 'pointer',
-                  display: 'flex', alignItems: 'center', gap: 6,
-                }}
-              >
-                <span>{isSubmittingNewOrder ? 'Dispatching...' : 'Dispatch Work Order'}</span>
-              </button>
-            </div>
-          </form>
         </div>
       )}
     </div>

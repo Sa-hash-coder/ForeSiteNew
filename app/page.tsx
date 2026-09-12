@@ -152,10 +152,10 @@ export default function ForeSiteLanding() {
       category: "SAFETY SUPERVISION",
       icon: ShieldCheck,
       title: "Safety Officer Desk",
-      description: "Central command intelligence. Automated AI severity triage, SIF precursor detection, and work order dispatch.",
+      description: "Central command intelligence. Automated AI severity triage, SIF precursor detection, and crew task assignment.",
       capabilities: [
         "Site hazard density heatmap",
-        "Direct work order dispatch",
+        "Direct crew task assignment",
         "OSHA compliance audit exports"
       ],
       linkText: "Open Safety Officer Desk →",
@@ -167,7 +167,7 @@ export default function ForeSiteLanding() {
       title: "Maintenance Queue",
       description: "Direct repair execution queue. Log telemetry, assign technical crews, and certify hazard clearance.",
       capabilities: [
-        "Prioritized repair work orders",
+        "Prioritized repair tasks",
         "Equipment telemetry logs",
         "Verified hazard closure sign-off"
       ],
@@ -581,7 +581,7 @@ export default function ForeSiteLanding() {
             {[
               { icon: FileText, title: "Unified Safety Data", desc: "Ingest and structure multi-format hazard logs, speech recordings, and sensor alerts across distributed operations.", tag: "DATA INGESTION" },
               { icon: Cpu, title: "AI-Powered NLP Insights", desc: "Proprietary industrial LLM pipeline detects SIF precursors, root causal trends, and recurrence patterns instantly.", tag: "COGNITIVE MODEL" },
-              { icon: TrendingUp, title: "Actionable Risk Triage", desc: "Automated scoring aligns work orders directly with OSHA 1910 benchmarks to eradicate latent process hazards.", tag: "PROCESS SAFETY" },
+              { icon: TrendingUp, title: "Actionable Risk Triage", desc: "Automated scoring aligns assigned maintenance tasks directly with OSHA 1910 benchmarks to eradicate latent process hazards.", tag: "PROCESS SAFETY" },
               { icon: Users, title: "Built for Heavy Industry", desc: "Hardened for refineries, chemical complexes, and upstream energy plants with full offline capability.", tag: "RELIABILITY" },
             ].map(({ icon: Icon, title, desc, tag }) => (
               <div key={title} style={{ backgroundColor: "var(--bg)", border: "1px solid var(--border)", borderRadius: 12, padding: "28px 24px", display: "flex", flexDirection: "column" }}>

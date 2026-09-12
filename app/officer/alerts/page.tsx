@@ -138,7 +138,7 @@ function resolveRecommendations(alert: LiveAlertItem): string[] {
   return [
     "Conduct immediate frontline supervisor hazard walkthrough and isolate active work zone.",
     "Log incident in plant EHS register and verify operational PPE compliance.",
-    "Schedule formal job safety analysis (JSA) and dispatch maintenance work order."
+    "Schedule formal job safety analysis (JSA) and assign maintenance task."
   ];
 }
 
@@ -218,11 +218,11 @@ export default function AlertsPage() {
         reportId: alert.reportId,
       });
 
-      setToast(`Work Order dispatched to Maintenance: "${primaryRec.slice(0, 45)}..."`);
+      setToast(`Maintenance task assigned: "${primaryRec.slice(0, 45)}..."`);
       setTimeout(() => setToast(null), 4000);
     } catch (err) {
       console.warn("Failed to dispatch task:", err);
-      setToast("Work order logged to dispatch queue.");
+      setToast("Maintenance task logged to dispatch queue.");
       setTimeout(() => setToast(null), 3000);
     }
   };
@@ -489,9 +489,9 @@ export default function AlertsPage() {
                         transition: 'all 0.15s ease', whiteSpace: 'nowrap' as const, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                       }}
-                      title="Dispatch maintenance work order based on AI suggestions"
+                      title="Assign maintenance task based on AI suggestions"
                     >
-                      <Zap size={13} /> Dispatch Task
+                      <Zap size={13} /> Assign Task
                     </button>
                     <button
                       onClick={() => toggle(alert._id)}

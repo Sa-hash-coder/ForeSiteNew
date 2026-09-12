@@ -350,6 +350,52 @@
   ],
   "tasks": [
     {
+      "title": "Work Order: The wiring is open near the water pool.",
+      "description": "Conduct on-site supervisor inspection and log incident in daily hazard register.\n\nGenerated from fine-tuned SIF precursor assessment for Electrical Panel Room.",
+      "equipmentId": "EQ-603",
+      "equipmentName": "The wiring is open near the water pool.",
+      "location": "Electrical Panel Room",
+      "zone": "Zone 4",
+      "severity": "critical",
+      "status": "dispatched",
+      "assignedCrew": "Rotating Machinery Team M-4",
+      "dispatchedBy": {
+        "name": "Officer Command",
+        "role": "Safety Supervisor",
+        "badgeId": "SAF-4019"
+      },
+      "safetyPermitId": "PTW-5776",
+      "lotoRequired": true,
+      "reportId": "6aa503d40d078a0e237fb5b3",
+      "orderNumber": "WO-9087",
+      "_id": "tsk_6j6n1qa8",
+      "createdAt": "2026-09-12T23:26:38.388Z",
+      "updatedAt": "2026-09-12T23:26:38.388Z"
+    },
+    {
+      "title": "Work Order: The wiring is open near the water pool.",
+      "description": "Conduct on-site supervisor inspection and log incident in daily hazard register.\n\nGenerated from fine-tuned SIF precursor assessment for Electrical Panel Room.",
+      "equipmentId": "EQ-221",
+      "equipmentName": "The wiring is open near the water pool.",
+      "location": "Electrical Panel Room",
+      "zone": "Zone 4",
+      "severity": "critical",
+      "status": "dispatched",
+      "assignedCrew": "Rotating Machinery Team M-4",
+      "dispatchedBy": {
+        "name": "Officer Command",
+        "role": "Safety Supervisor",
+        "badgeId": "SAF-4019"
+      },
+      "safetyPermitId": "PTW-5323",
+      "lotoRequired": true,
+      "reportId": "6aa503d40d078a0e237fb5b3",
+      "orderNumber": "WO-9088",
+      "_id": "tsk_x5n5grgb",
+      "createdAt": "2026-09-12T23:26:35.095Z",
+      "updatedAt": "2026-09-12T23:26:35.095Z"
+    },
+    {
       "title": "Work Order: TK-80 Scaffolding – Missing handrail & perime",
       "description": "Frontline walkdown noticed 3 meters of perimeter kickboards and outer handrail absent on Tier 3 scaffolding. High fall hazard (SIF Precursor).",
       "equipmentId": "EQ-481",

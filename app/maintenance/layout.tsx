@@ -92,7 +92,7 @@ export default function MaintenanceLayout({
             if (r.status === "action_assigned") {
               list.push({
                 id: `wo_${r._id}`,
-                title: "Work Order Pending Action",
+                title: "Maintenance Task Pending Action",
                 desc: `${r.title} (${r.location || "Refinery"})`,
                 tab: "orders",
                 time: r.createdAt || new Date().toISOString(),
@@ -168,7 +168,7 @@ export default function MaintenanceLayout({
 
   const navItems = [
     { label: "Operations Desk", id: "desk", icon: Activity, tag: "LIVE" },
-    { label: "Work Orders Queue", id: "orders", icon: Wrench, count: 4 },
+    { label: "Assigned Tasks Queue", id: "orders", icon: Wrench, count: 4 },
     { label: "Fleet Telemetry", id: "telemetry", icon: Radio, count: 6 },
     { label: "LOTO Safety Permits", id: "loto", icon: Lock, count: 3 },
     { label: "Clearance Sign-Off", id: "clearance", icon: CheckCircle2, tag: "OSHA" },
@@ -496,7 +496,7 @@ export default function MaintenanceLayout({
                   <div style={{ maxHeight: 320, overflowY: "auto" }}>
                     {notifications.length === 0 ? (
                       <div style={{ padding: "28px 16px", textAlign: "center", color: "var(--text-muted)", fontSize: 12 }}>
-                        No pending work order alerts.
+                        No pending maintenance task alerts.
                       </div>
                     ) : (
                       notifications.map((n) => {
