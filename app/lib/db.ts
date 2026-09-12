@@ -342,40 +342,210 @@ function saveLocalStore(db: LocalDatabase): void {
   }
 }
 
-// ─── Unified Database Connection ───────────────────────────────────────────
+// ─── Mongoose Schemas & Models ─────────────────────────────────────────────
 
-export async function connectToDatabase() {
-  if (MONGO_URI) {
-    try {
-      if (cached.conn) return cached.conn;
-      if (!cached.promise) {
-        cached.promise = mongoose.connect(MONGO_URI, {
-          bufferCommands: false,
-          serverSelectionTimeoutMS: 2000,
-        });
-      }
-      cached.conn = await cached.promise;
-      cached.isFallback = false;
-      return cached.conn;
-    } catch (err) {
-      console.warn("MongoDB connection unavailable. Using resilient local store.", err);
-      cached.isFallback = true;
+const UserSchema = new mongoose.Schema(
+  {
+    _id: { type: String, required: true },
+    name: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    role: { type: String, required: true },
+    department: { type: String },
+    badgeId: { type: String },
+    createdAt: { type: String },
+  },
+  { _id: false, timestamps: false, strict: false }
+);
+
+const ReportSchema = new mongoose.Schema(
+  {
+    _id: { type: String, required: true },
+    title: { type: String, required: true },
+    description: { type: String, required: true },
+    location: { type: String, required: true },
+    category: { type: String, required: true },
+    severity: { type: String, required: true },
+    risk_score: { type: Number, default: 0 },
+    risk_level: { type: String, default: "LOW" },
+    sif_probability: { type: Number, default: 0 },
+    precursors: [String],
+    hazards: [String],
+    explanation: { type: String, default: "" },
+    recommendations: [String],
+    imageUrl: { type: String },
+    audioUrl: { type: String },
+    status: { type: String, default: "pending_analysis" },
+    submittedBy: {
+      _id: String,
+      name: String,
+      role: String,
+      department: String,
+    },
+    createdAt: { type: String },
+    updatedAt: { type: String },
+  },
+  { _id: false, timestamps: false, strict: false }
+);
+
+const AlertSchema = new mongoose.Schema(
+  {
+    _id: { type: String, required: true },
+    reportId: { type: String, required: true },
+    reportTitle: { type: String, required: true },
+    riskLevel: { type: String, required: true },
+    riskScore: { type: Number, required: true },
+    sifProbability: { type: Number, required: true },
+    message: { type: String, required: true },
+    isAcknowledged: { type: Boolean, default: false },
+    acknowledgedBy: { type: String },
+    acknowledgedAt: { type: String },
+    precursors: [String],
+    hazards: [String],
+    recommendations: [String],
+    explanation: { type: String },
+    location: { type: String },
+    category: { type: String },
+    zone: { type: String },
+    submittedBy: { type: String },
+    createdAt: { type: String },
+  },
+  { _id: false, timestamps: false, strict: false }
+);
+
+const TaskSchema = new mongoose.Schema(
+  {
+    _id: { type: String, required: true },
+    orderNumber: { type: String, required: true },
+    reportId: { type: String },
+    title: { type: String, required: true },
+    description: { type: String, required: true },
+    equipmentId: { type: String, required: true },
+    equipmentName: { type: String, required: true },
+    location: { type: String, required: true },
+    zone: { type: String, required: true },
+    severity: { type: String, required: true },
+    status: { type: String, required: true },
+    assignedCrew: { type: String, required: true },
+    dispatchedBy: {
+      name: String,
+      role: String,
+      badgeId: String,
+    },
+    safetyPermitId: { type: String, required: true },
+    lotoRequired: { type: Boolean, default: false },
+    clearanceNote: { type: String },
+    createdAt: { type: String },
+    updatedAt: { type: String },
+  },
+  { _id: false, timestamps: false, strict: false }
+);
+
+export const UserModel = mongoose.models.ForesiteUser || mongoose.model("ForesiteUser", UserSchema, "users");
+export const ReportModel = mongoose.models.ForesiteReport || mongoose.model("ForesiteReport", ReportSchema, "reports");
+export const AlertModel = mongoose.models.ForesiteAlert || mongoose.model("ForesiteAlert", AlertSchema, "alerts");
+export const TaskModel = mongoose.models.ForesiteTask || mongoose.model("ForesiteTask", TaskSchema, "tasks");
+
+let initialSyncDone = false;
+async function syncLocalToMongo() {
+  if (initialSyncDone) return;
+  try {
+    const local = loadLocalStore();
+    const userCount = await UserModel.countDocuments();
+    if (userCount === 0 && local.users.length > 0) {
+      console.log(`[DB] Seeding ${local.users.length} users to MongoDB...`);
+      await UserModel.insertMany(local.users);
     }
-  } else {
-    cached.isFallback = true;
+    const reportCount = await ReportModel.countDocuments();
+    if (reportCount === 0 && local.reports.length > 0) {
+      console.log(`[DB] Seeding ${local.reports.length} reports to MongoDB...`);
+      await ReportModel.insertMany(local.reports);
+    }
+    const alertCount = await AlertModel.countDocuments();
+    if (alertCount === 0 && local.alerts.length > 0) {
+      console.log(`[DB] Seeding ${local.alerts.length} alerts to MongoDB...`);
+      await AlertModel.insertMany(local.alerts);
+    }
+    const taskCount = await TaskModel.countDocuments();
+    if (taskCount === 0 && local.tasks.length > 0) {
+      console.log(`[DB] Seeding ${local.tasks.length} tasks to MongoDB...`);
+      await TaskModel.insertMany(local.tasks);
+    }
+    initialSyncDone = true;
+    console.log("[DB] MongoDB synchronization verified.");
+  } catch (err) {
+    console.warn("[DB] Initial sync to MongoDB encountered an error:", err);
   }
-  return null;
 }
 
-// ─── Data Access Helpers (Zero-Crash Across Mongo & Local Store) ────────────
+// ─── Unified Database Connection ───────────────────────────────────────────
+
+let lastFailedAttempt = 0;
+const RETRY_INTERVAL_MS = 30000;
+
+export async function connectToDatabase() {
+  if (!MONGO_URI) {
+    cached.isFallback = true;
+    return null;
+  }
+
+  if (cached.conn && mongoose.connection.readyState === 1) {
+    return cached.conn;
+  }
+
+  // If recently failed, skip waiting to avoid blocking requests
+  if (cached.isFallback && Date.now() - lastFailedAttempt < RETRY_INTERVAL_MS) {
+    return null;
+  }
+
+  try {
+    if (!cached.promise) {
+      cached.promise = mongoose.connect(MONGO_URI, {
+        bufferCommands: false,
+        serverSelectionTimeoutMS: 2000,
+      });
+    }
+    cached.conn = await cached.promise;
+    cached.isFallback = false;
+    await syncLocalToMongo();
+    return cached.conn;
+  } catch (err) {
+    console.warn("[DB] MongoDB connection unavailable. Falling back to resilient local JSON store.");
+    cached.isFallback = true;
+    cached.promise = null;
+    cached.conn = null;
+    lastFailedAttempt = Date.now();
+    return null;
+  }
+}
+
+// ─── Data Access Helpers (Dual-Persistence Across Mongo & Local Store) ─────
 
 export const dbUsers = {
   async findByEmail(email: string): Promise<StoredUser | null> {
+    try {
+      const conn = await connectToDatabase();
+      if (conn) {
+        const u = await UserModel.findOne({ email: new RegExp(`^${email.trim()}$`, "i") }).lean();
+        if (u) return u as StoredUser;
+      }
+    } catch {
+      // Gracefully fall back to local JSON store
+    }
     const db = loadLocalStore();
     return db.users.find((u) => u.email.toLowerCase() === email.toLowerCase().trim()) || null;
   },
 
   async findById(id: string): Promise<StoredUser | null> {
+    try {
+      const conn = await connectToDatabase();
+      if (conn) {
+        const u = await UserModel.findOne({ _id: id }).lean();
+        if (u) return u as StoredUser;
+      }
+    } catch {
+      // Gracefully fall back to local JSON store
+    }
     const db = loadLocalStore();
     return db.users.find((u) => u._id === id) || null;
   },
@@ -389,10 +559,28 @@ export const dbUsers = {
     };
     db.users.push(newUser);
     saveLocalStore(db);
+
+    try {
+      const conn = await connectToDatabase();
+      if (conn) {
+        await UserModel.create(newUser);
+      }
+    } catch (e) {
+      console.warn("[DB] User persisted locally (MongoDB write bypassed):", e);
+    }
     return newUser;
   },
 
   async list(): Promise<StoredUser[]> {
+    try {
+      const conn = await connectToDatabase();
+      if (conn) {
+        const users = await UserModel.find().lean();
+        if (users && users.length > 0) return users as StoredUser[];
+      }
+    } catch {
+      // Fallback
+    }
     const db = loadLocalStore();
     return db.users;
   },
@@ -400,6 +588,33 @@ export const dbUsers = {
 
 export const dbReports = {
   async list(filters?: { status?: string; riskLevel?: string; category?: string; limit?: number; page?: number }) {
+    try {
+      const conn = await connectToDatabase();
+      if (conn) {
+        const query: any = {};
+        if (filters?.status) query.status = filters.status;
+        if (filters?.riskLevel) query.risk_level = filters.riskLevel;
+        if (filters?.category) query.category = filters.category;
+
+        const page = filters?.page || 1;
+        const limit = filters?.limit || 50;
+        const skip = (page - 1) * limit;
+
+        const total = await ReportModel.countDocuments(query);
+        const reports = await ReportModel.find(query)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean();
+
+        if (reports && reports.length > 0) {
+          return { reports: reports as StoredReport[], total, page, limit, totalPages: Math.ceil(total / limit) || 1 };
+        }
+      }
+    } catch {
+      // Gracefully fall back to local JSON store
+    }
+
     const db = loadLocalStore();
     let result = [...db.reports];
 
@@ -425,6 +640,15 @@ export const dbReports = {
   },
 
   async findById(id: string): Promise<StoredReport | null> {
+    try {
+      const conn = await connectToDatabase();
+      if (conn) {
+        const r = await ReportModel.findOne({ _id: id }).lean();
+        if (r) return r as StoredReport;
+      }
+    } catch {
+      // Gracefully fall back to local JSON store
+    }
     const db = loadLocalStore();
     return db.reports.find((r) => r._id === id) || null;
   },
@@ -440,25 +664,57 @@ export const dbReports = {
     };
     db.reports.unshift(newReport);
     saveLocalStore(db);
+
+    try {
+      const conn = await connectToDatabase();
+      if (conn) {
+        await ReportModel.create(newReport);
+      }
+    } catch (e) {
+      console.warn("[DB] Report persisted locally (MongoDB write bypassed):", e);
+    }
     return newReport;
   },
 
   async updateById(id: string, updates: Partial<StoredReport>): Promise<StoredReport | null> {
     const db = loadLocalStore();
     const idx = db.reports.findIndex((r) => r._id === id);
-    if (idx === -1) return null;
-    db.reports[idx] = {
-      ...db.reports[idx],
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
-    saveLocalStore(db);
-    return db.reports[idx];
+    if (idx !== -1) {
+      db.reports[idx] = {
+        ...db.reports[idx],
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      };
+      saveLocalStore(db);
+    }
+
+    try {
+      const conn = await connectToDatabase();
+      if (conn) {
+        await ReportModel.updateOne(
+          { _id: id },
+          { $set: { ...updates, updatedAt: new Date().toISOString() } }
+        );
+      }
+    } catch (e) {
+      console.warn("[DB] Could not update report in MongoDB:", e);
+    }
+    return idx !== -1 ? db.reports[idx] : null;
   },
 };
 
 export const dbAlerts = {
   async list(unacknowledgedOnly = false): Promise<StoredAlert[]> {
+    try {
+      const conn = await connectToDatabase();
+      if (conn) {
+        const query = unacknowledgedOnly ? { isAcknowledged: false } : {};
+        const alerts = await AlertModel.find(query).sort({ createdAt: -1 }).lean();
+        if (alerts && alerts.length > 0) return alerts as StoredAlert[];
+      }
+    } catch {
+      // Gracefully fall back
+    }
     const db = loadLocalStore();
     let list = [...db.alerts];
     if (unacknowledgedOnly) {
@@ -476,26 +732,65 @@ export const dbAlerts = {
     };
     db.alerts.unshift(newAlert);
     saveLocalStore(db);
+
+    try {
+      const conn = await connectToDatabase();
+      if (conn) {
+        await AlertModel.create(newAlert);
+      }
+    } catch (e) {
+      console.warn("[DB] Alert persisted locally (MongoDB write bypassed):", e);
+    }
     return newAlert;
   },
 
   async acknowledge(id: string, officerName: string, state = true): Promise<StoredAlert | null> {
     const db = loadLocalStore();
     const idx = db.alerts.findIndex((a) => a._id === id);
-    if (idx === -1) return null;
-    db.alerts[idx] = {
-      ...db.alerts[idx],
-      isAcknowledged: state,
-      acknowledgedBy: state ? officerName : undefined,
-      acknowledgedAt: state ? new Date().toISOString() : undefined,
-    };
-    saveLocalStore(db);
-    return db.alerts[idx];
+    const now = new Date().toISOString();
+    if (idx !== -1) {
+      db.alerts[idx] = {
+        ...db.alerts[idx],
+        isAcknowledged: state,
+        acknowledgedBy: state ? officerName : undefined,
+        acknowledgedAt: state ? now : undefined,
+      };
+      saveLocalStore(db);
+    }
+
+    try {
+      const conn = await connectToDatabase();
+      if (conn) {
+        await AlertModel.updateOne(
+          { _id: id },
+          {
+            $set: {
+              isAcknowledged: state,
+              acknowledgedBy: state ? officerName : null,
+              acknowledgedAt: state ? now : null,
+            },
+          }
+        );
+      }
+    } catch (e) {
+      console.warn("[DB] Could not update alert in MongoDB:", e);
+    }
+    return idx !== -1 ? db.alerts[idx] : null;
   },
 };
 
 export const dbTasks = {
   async list(filter?: { status?: string }): Promise<StoredTask[]> {
+    try {
+      const conn = await connectToDatabase();
+      if (conn) {
+        const query = filter?.status ? { status: filter.status } : {};
+        const tasks = await TaskModel.find(query).sort({ createdAt: -1 }).lean();
+        if (tasks && tasks.length > 0) return tasks as StoredTask[];
+      }
+    } catch {
+      // Gracefully fall back
+    }
     const db = loadLocalStore();
     let list = [...db.tasks];
     if (filter?.status) {
@@ -505,6 +800,15 @@ export const dbTasks = {
   },
 
   async findById(id: string): Promise<StoredTask | null> {
+    try {
+      const conn = await connectToDatabase();
+      if (conn) {
+        const task = await TaskModel.findOne({ $or: [{ _id: id }, { orderNumber: id }] }).lean();
+        if (task) return task as StoredTask;
+      }
+    } catch {
+      // Gracefully fall back
+    }
     const db = loadLocalStore();
     return db.tasks.find((t) => t._id === id || t.orderNumber === id) || null;
   },
@@ -522,21 +826,50 @@ export const dbTasks = {
     };
     db.tasks.unshift(newTask);
     saveLocalStore(db);
+
+    try {
+      const conn = await connectToDatabase();
+      if (conn) {
+        await TaskModel.create(newTask);
+      }
+    } catch (e) {
+      console.warn("[DB] Task persisted locally (MongoDB write bypassed):", e);
+    }
     return newTask;
   },
 
   async updateStatus(id: string, status: StoredTask["status"], clearanceNote?: string): Promise<StoredTask | null> {
     const db = loadLocalStore();
     const idx = db.tasks.findIndex((t) => t._id === id || t.orderNumber === id);
-    if (idx === -1) return null;
-    db.tasks[idx] = {
-      ...db.tasks[idx],
-      status,
-      ...(clearanceNote ? { clearanceNote } : {}),
-      updatedAt: new Date().toISOString(),
-    };
-    saveLocalStore(db);
-    return db.tasks[idx];
+    const now = new Date().toISOString();
+    if (idx !== -1) {
+      db.tasks[idx] = {
+        ...db.tasks[idx],
+        status,
+        ...(clearanceNote ? { clearanceNote } : {}),
+        updatedAt: now,
+      };
+      saveLocalStore(db);
+    }
+
+    try {
+      const conn = await connectToDatabase();
+      if (conn) {
+        await TaskModel.updateOne(
+          { $or: [{ _id: id }, { orderNumber: id }] },
+          {
+            $set: {
+              status,
+              ...(clearanceNote ? { clearanceNote } : {}),
+              updatedAt: now,
+            },
+          }
+        );
+      }
+    } catch (e) {
+      console.warn("[DB] Could not update task in MongoDB:", e);
+    }
+    return idx !== -1 ? db.tasks[idx] : null;
   },
 };
 
@@ -568,3 +901,4 @@ export const dbStats = {
     };
   },
 };
+
