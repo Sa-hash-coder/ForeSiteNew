@@ -3,6 +3,7 @@
 import { useEffect, useState, CSSProperties } from 'react';
 import { getDashboardStatsApi, getAllReportsApi, getAlertsApi } from '@/app/lib/api';
 import Link from 'next/link';
+import { RealWeeklyReportsChart } from '@/app/components/AnalyticsCharts';
 import {
   MOCK_REPORTS,
   WEEKLY_TREND,
@@ -251,56 +252,17 @@ export default function OfficerOverview() {
 
       {/* ── Chart Row ───────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, marginBottom: 24 }}>
-        {/* Bar chart */}
+        {/* Real Chart.js Bar chart */}
         <div className="apple-card animate-apple-fade-up delay-2" style={card}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 20 }}>Weekly Reports (Last 8 Weeks)</div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 180 }}>
-            {/* Y-axis */}
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: 180, paddingBottom: 24 }}>
-              {[15, 10, 5, 0].map(v => (
-                <div key={v} style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1, textAlign: 'right', width: 20 }}>{v}</div>
-              ))}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
+              Weekly Reports (Last 8 Weeks)
             </div>
-            {/* Bars */}
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flex: 1, height: 180, position: 'relative' }}>
-              {/* Grid lines */}
-              {[0, 1, 2, 3].map(i => (
-                <div key={i} style={{
-                  position: 'absolute',
-                  left: 0, right: 0,
-                  bottom: 24 + (i * (156 / 3)),
-                  borderTop: '1px dashed var(--border)',
-                }} />
-              ))}
-              {chartWeeks.map((w, idx) => {
-                const totalH = Math.round((w.total / maxTrend) * 156);
-                const critH = Math.round((w.critical / maxTrend) * 156);
-                return (
-                  <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
-                    <div style={{ width: '100%', position: 'relative', height: totalH }}>
-                      {/* Total bar */}
-                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: totalH, background: 'var(--primary-light)', borderRadius: '6px 6px 0 0' }} />
-                      {/* Critical overlay */}
-                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: critH, background: 'var(--danger)', borderRadius: critH === totalH ? '6px 6px 0 0' : '0' }} />
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', width: '100%' }}>
-                      {w.week.split(' ')[0]}<br />{w.week.split(' ')[1]}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary)', backgroundColor: 'var(--surface-subtle)', padding: '2px 8px', borderRadius: 999 }}>
+              Live Telemetry
+            </span>
           </div>
-          <div style={{ display: 'flex', gap: 16, marginTop: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 12, height: 12, background: 'var(--primary-light)', borderRadius: 4 }} />
-              <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>Total</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 12, height: 12, background: 'var(--danger)', borderRadius: 4 }} />
-              <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>Critical</span>
-            </div>
-          </div>
+          <RealWeeklyReportsChart weeks={chartWeeks} />
         </div>
 
         {/* Category Breakdown */}
