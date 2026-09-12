@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:ai": "python ai-service/main.py",
+    "dev:all": "concurrently -n \"WEB,AI\" -c \"blue,green\" \"next dev\" \"python ai-service/main.py\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
@@ -26,6 +28,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^10.0.5",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",
