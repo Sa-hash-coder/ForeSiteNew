@@ -838,15 +838,14 @@ export const dbTasks = {
     return newTask;
   },
 
-  async updateStatus(id: string, status: StoredTask["status"], clearanceNote?: string): Promise<StoredTask | null> {
+  async update(id: string, updates: Partial<StoredTask>): Promise<StoredTask | null> {
     const db = loadLocalStore();
     const idx = db.tasks.findIndex((t) => t._id === id || t.orderNumber === id);
     const now = new Date().toISOString();
     if (idx !== -1) {
       db.tasks[idx] = {
         ...db.tasks[idx],
-        status,
-        ...(clearanceNote ? { clearanceNote } : {}),
+        ...updates,
         updatedAt: now,
       };
       saveLocalStore(db);
@@ -859,8 +858,7 @@ export const dbTasks = {
           { $or: [{ _id: id }, { orderNumber: id }] },
           {
             $set: {
-              status,
-              ...(clearanceNote ? { clearanceNote } : {}),
+              ...updates,
               updatedAt: now,
             },
           }
@@ -870,6 +868,14 @@ export const dbTasks = {
       console.warn("[DB] Could not update task in MongoDB:", e);
     }
     return idx !== -1 ? db.tasks[idx] : null;
+  },
+
+  async updateStatus(id: string, status: StoredTask["status"], clearanceNote?: string, assignedCrew?: string): Promise<StoredTask | null> {
+    return this.update(id, {
+      status,
+      ...(clearanceNote ? { clearanceNote } : {}),
+      ...(assignedCrew ? { assignedCrew } : {}),
+    });
   },
 };
 

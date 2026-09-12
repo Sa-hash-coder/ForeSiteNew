@@ -166,14 +166,34 @@ export async function createTaskApi(payload: {
   });
 }
 
-export async function updateTaskStatusApi(
+export async function updateTaskApi(
   id: string,
-  status: "dispatched" | "in_progress" | "clearance_submitted" | "officer_verified",
-  clearanceNote?: string
+  updates: {
+    status?: "dispatched" | "in_progress" | "clearance_submitted" | "officer_verified";
+    assignedCrew?: string;
+    clearanceNote?: string;
+    severity?: string;
+    title?: string;
+    description?: string;
+    lotoRequired?: boolean;
+  }
 ) {
   return request<{ success: true; data: TaskItem }>(`/tasks/${id}`, {
     method: "PATCH",
-    body: JSON.stringify({ status, clearanceNote }),
+    body: JSON.stringify(updates),
+  });
+}
+
+export async function updateTaskStatusApi(
+  id: string,
+  status: "dispatched" | "in_progress" | "clearance_submitted" | "officer_verified",
+  clearanceNote?: string,
+  assignedCrew?: string
+) {
+  return updateTaskApi(id, {
+    status,
+    clearanceNote,
+    ...(assignedCrew ? { assignedCrew } : {}),
   });
 }
 

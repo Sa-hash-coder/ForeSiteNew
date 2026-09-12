@@ -8,16 +8,33 @@ export async function PATCH(
   try {
     const { id } = await context.params;
     const body = await req.json();
-    const { status, clearanceNote } = body;
+    const {
+      status,
+      clearanceNote,
+      assignedCrew,
+      severity,
+      title,
+      description,
+      lotoRequired,
+    } = body;
 
-    if (!status) {
+    const updates: any = {};
+    if (status !== undefined) updates.status = status;
+    if (clearanceNote !== undefined) updates.clearanceNote = clearanceNote;
+    if (assignedCrew !== undefined) updates.assignedCrew = assignedCrew;
+    if (severity !== undefined) updates.severity = severity;
+    if (title !== undefined) updates.title = title;
+    if (description !== undefined) updates.description = description;
+    if (lotoRequired !== undefined) updates.lotoRequired = lotoRequired;
+
+    if (Object.keys(updates).length === 0) {
       return NextResponse.json(
-        { success: false, message: "Status is required" },
+        { success: false, message: "No update fields provided" },
         { status: 400 }
       );
     }
 
-    const updated = await dbTasks.updateStatus(id, status, clearanceNote);
+    const updated = await dbTasks.update(id, updates);
     if (!updated) {
       return NextResponse.json(
         { success: false, message: "Task not found" },
@@ -30,7 +47,7 @@ export async function PATCH(
       data: updated,
     });
   } catch (error: any) {
-    console.error("Error updating task status:", error);
+    console.error("Error updating task:", error);
     return NextResponse.json(
       { success: false, message: error.message || "Failed to update task" },
       { status: 500 }

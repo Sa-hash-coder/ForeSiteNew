@@ -355,8 +355,8 @@
       "location": "Sector 4 North",
       "zone": "Zone 4",
       "severity": "critical",
-      "status": "clearance_submitted",
-      "assignedCrew": "Unit M-4 Piping & Valves",
+      "status": "in_progress",
+      "assignedCrew": "Hydraulics & Pressure Valve Crew H-1",
       "dispatchedBy": {
         "name": "Officer Command",
         "role": "Safety Supervisor",
@@ -368,7 +368,7 @@
       "orderNumber": "WO-9072",
       "_id": "tsk_i85qyikh",
       "createdAt": "2026-09-11T20:54:51.080Z",
-      "updatedAt": "2026-09-11T20:54:52.143Z",
+      "updatedAt": "2026-09-12T07:30:40.490Z",
       "clearanceNote": "Replaced steam gasket with spiral-wound 316SS gasket. Hydro-tested to 150 PSI. Safe for operation."
     },
     {

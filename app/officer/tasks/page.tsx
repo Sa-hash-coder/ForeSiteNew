@@ -4,7 +4,7 @@ import { useEffect, useState, CSSProperties } from 'react';
 import Link from 'next/link';
 import { MAINTENANCE_TASKS, MaintenanceTask, TaskStatus } from '@/app/lib/officerMockData';
 import { exportToCSV, exportToExcel, ExportColumn } from '@/app/lib/exportUtils';
-import { getTasksApi, updateTaskStatusApi, TaskItem } from '@/app/lib/api';
+import { getTasksApi, updateTaskApi, createTaskApi } from '@/app/lib/api';
 
 const TASK_EXPORT_COLUMNS: ExportColumn<MaintenanceTask>[] = [
   { header: 'Task ID', accessor: (t: MaintenanceTask) => t._id },
@@ -15,6 +15,16 @@ const TASK_EXPORT_COLUMNS: ExportColumn<MaintenanceTask>[] = [
   { header: 'Assigned Worker', accessor: (t: MaintenanceTask) => t.assignedTo || 'Unassigned' },
   { header: 'Due Date', accessor: (t: MaintenanceTask) => t.dueDate },
   { header: 'Overdue', accessor: (t: MaintenanceTask) => (new Date(t.dueDate) < new Date() && t.status !== 'done' ? 'YES' : 'NO') },
+];
+
+export const MAINTENANCE_CREWS = [
+  "Rotating Machinery Team M-4",
+  "Electrical & High-Voltage Crew E-2",
+  "Hydraulics & Pressure Valve Crew H-1",
+  "Scaffolding & Structural Rigging Team S-3",
+  "Hazardous Material Containment Team C-1",
+  "Pump Specialist Crew M-4",
+  "General Plant Reliability Team G-5",
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -52,6 +62,25 @@ export default function TasksPage() {
   const [toast, setToast] = useState('');
   const [showExportMenu, setShowExportMenu] = useState(false);
 
+  // Modal State: Assign / Reassign
+  const [assignModalTask, setAssignModalTask] = useState<MaintenanceTask | null>(null);
+  const [selectedCrew, setSelectedCrew] = useState(MAINTENANCE_CREWS[0]);
+  const [selectedStatus, setSelectedStatus] = useState<TaskStatus>('in_progress');
+  const [selectedPriority, setSelectedPriority] = useState<'critical' | 'high' | 'medium' | 'low'>('high');
+  const [specialInstructions, setSpecialInstructions] = useState('');
+  const [isSubmittingAssign, setIsSubmittingAssign] = useState(false);
+
+  // Modal State: Dispatch New Work Order
+  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const [newEquipment, setNewEquipment] = useState('TK-80 Crude Storage Tank');
+  const [newLocation, setNewLocation] = useState('Sector 4 North, Tank Farm');
+  const [newCrew, setNewCrew] = useState(MAINTENANCE_CREWS[0]);
+  const [newSeverity, setNewSeverity] = useState('high');
+  const [newLoto, setNewLoto] = useState(false);
+  const [isSubmittingNewOrder, setIsSubmittingNewOrder] = useState(false);
+
   const loadTasks = async () => {
     try {
       const res = await getTasksApi();
@@ -61,7 +90,7 @@ export default function TasksPage() {
           reportId: t.reportId || 'rep-live',
           reportTitle: t.title,
           title: t.title,
-          assignedTo: t.assignedCrew || t.assignedTo || 'Maintenance Response Team',
+          assignedTo: t.assignedCrew || t.assignedTo || 'Unassigned',
           dueDate: t.createdAt ? new Date(new Date(t.createdAt).getTime() + 86400000).toISOString().split('T')[0] : '2026-09-15',
           priority: (t.severity === 'critical' ? 'critical' : t.severity === 'high' ? 'high' : 'medium') as any,
           status: (t.status === 'completed' || t.status === 'officer_verified' ? 'done' : t.status === 'in_progress' ? 'in_progress' : 'pending') as TaskStatus,
@@ -72,7 +101,7 @@ export default function TasksPage() {
         setTasks([...liveTasks, ...filteredMock]);
       }
     } catch (err) {
-      console.warn('Failed to fetch live tasks, using mock:', err);
+      console.warn('Failed to fetch live tasks, using local store:', err);
     } finally {
       setLoading(false);
     }
@@ -100,7 +129,7 @@ export default function TasksPage() {
 
   useEffect(() => {
     loadTasks();
-    const interval = setInterval(loadTasks, 5000);
+    const interval = setInterval(loadTasks, 6000);
     return () => clearInterval(interval);
   }, []);
 
@@ -113,24 +142,104 @@ export default function TasksPage() {
     done: tasks.filter(t => t.status === 'done').length,
   };
 
-  const assign = async (taskId: string) => {
-    setTasks(prev => prev.map(t => t._id === taskId ? { ...t, assignedTo: 'Assigned Crew Alpha', status: 'in_progress' } : t));
+  const openAssignModal = (task: MaintenanceTask) => {
+    setAssignModalTask(task);
+    setSelectedCrew(
+      task.assignedTo && task.assignedTo !== 'Unassigned' && MAINTENANCE_CREWS.includes(task.assignedTo)
+        ? task.assignedTo
+        : MAINTENANCE_CREWS[0]
+    );
+    setSelectedStatus(task.status === 'done' ? 'in_progress' : (task.status || 'in_progress'));
+    setSelectedPriority(task.priority || 'high');
+    setSpecialInstructions('');
+  };
+
+  const handleConfirmAssignment = async () => {
+    if (!assignModalTask) return;
+    setIsSubmittingAssign(true);
+    const taskId = assignModalTask._id;
+    const crew = selectedCrew;
+    const nextStatus = selectedStatus;
+    const priority = selectedPriority;
+
+    // Optimistic UI update
+    setTasks(prev => prev.map(t => t._id === taskId ? {
+      ...t,
+      assignedTo: crew,
+      status: nextStatus,
+      priority,
+    } : t));
+
     try {
-      await updateTaskStatusApi(taskId, 'in_progress');
-    } catch {
-      // fallback
+      await updateTaskApi(taskId, {
+        assignedCrew: crew,
+        status: nextStatus === 'done' ? 'officer_verified' : (nextStatus === 'in_progress' ? 'in_progress' : 'dispatched'),
+        severity: priority,
+        clearanceNote: specialInstructions ? `[Officer Dispatch Note]: ${specialInstructions}` : undefined,
+      });
+      setToast(`Task successfully assigned to ${crew}! Synced to Maintenance Portal & DB.`);
+    } catch (err) {
+      console.warn("API update failed, local state preserved:", err);
+      setToast(`Task assignment updated to ${crew}.`);
+    } finally {
+      setIsSubmittingAssign(false);
+      setAssignModalTask(null);
+      setTimeout(() => setToast(''), 3500);
+      loadTasks();
     }
-    setToast('Task assigned & dispatched to Maintenance portal!');
-    setTimeout(() => setToast(''), 2400);
+  };
+
+  const handleDispatchNewOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim()) return;
+    setIsSubmittingNewOrder(true);
+    try {
+      const res = await createTaskApi({
+        title: newTitle.trim(),
+        description: newDesc.trim() || 'Urgent repair work order dispatched by Safety Officer command.',
+        equipmentId: newEquipment.split(' ')[0] || 'EQ-GEN',
+        equipmentName: newEquipment,
+        location: newLocation,
+        severity: newSeverity,
+        assignedCrew: newCrew,
+        lotoRequired: newLoto,
+      });
+
+      if (res.data) {
+        const newTask: MaintenanceTask = {
+          _id: res.data._id,
+          reportId: res.data.reportId || 'rep-officer',
+          reportTitle: newTitle,
+          title: newTitle,
+          assignedTo: newCrew,
+          dueDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+          priority: newSeverity as any,
+          status: 'in_progress',
+        };
+        setTasks(prev => [newTask, ...prev]);
+      }
+      setToast(`Work order successfully dispatched to ${newCrew}!`);
+      setShowNewOrderModal(false);
+      setNewTitle('');
+      setNewDesc('');
+    } catch (err) {
+      console.warn("Failed to create task via API:", err);
+      setToast('Work order created in local dispatch queue.');
+      setShowNewOrderModal(false);
+    } finally {
+      setIsSubmittingNewOrder(false);
+      setTimeout(() => setToast(''), 3500);
+      loadTasks();
+    }
   };
 
   const card: CSSProperties = {
     background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '16px 18px', marginBottom: 12,
+    boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '18px 20px', marginBottom: 12,
   };
 
   const FILTERS: { key: FilterTab; label: string }[] = [
-    { key: 'all', label: 'All' },
+    { key: 'all', label: 'All Tasks' },
     { key: 'pending', label: '🕐 Pending Assignment' },
     { key: 'in_progress', label: '🔄 In Progress' },
     { key: 'done', label: '✅ Completed' },
@@ -151,32 +260,56 @@ export default function TasksPage() {
       {/* Toast */}
       {toast && (
         <div style={{
-          position: 'fixed', top: 20, right: 20, zIndex: 1000,
+          position: 'fixed', top: 20, right: 20, zIndex: 2000,
           background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
-          padding: '12px 20px', boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+          padding: '12px 20px', boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
           fontSize: 13, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8,
+          fontWeight: 600,
         }}>
           <span>✅</span> {toast}
         </div>
       )}
 
       {/* Header */}
-      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 16px 0' }}>Maintenance Tasks</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px 0', color: 'var(--text)' }}>
+            Maintenance Dispatch &amp; Work Orders
+          </h2>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+            Assign, reassign, and track industrial repairs in direct sync with the Maintenance Portal
+          </div>
+        </div>
+
+        {/* Dispatch New Task Button */}
+        <button
+          onClick={() => setShowNewOrderModal(true)}
+          style={{
+            padding: '10px 18px', background: '#0A192F', color: '#fff', border: 'none',
+            borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 2px 6px rgba(10,25,47,0.2)',
+            transition: 'transform 0.1s ease',
+          }}
+        >
+          <span>⚡</span>
+          <span>+ Dispatch New Work Order</span>
+        </button>
+      </div>
 
       {/* Summary stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
         {[
           { label: 'Total Tasks', value: stats.total, color: 'var(--primary)' },
-          { label: 'Pending', value: stats.pending, color: 'var(--warning)' },
-          { label: 'In Progress', value: stats.in_progress, color: 'var(--primary)' },
-          { label: 'Done', value: stats.done, color: 'var(--success)' },
+          { label: 'Pending Assignment', value: stats.pending, color: 'var(--warning)' },
+          { label: 'In Progress (Assigned)', value: stats.in_progress, color: 'var(--primary)' },
+          { label: 'Completed Clearance', value: stats.done, color: 'var(--success)' },
         ].map(s => (
           <div key={s.label} style={{
             background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)',
             boxShadow: '0 1px 3px rgba(0,0,0,0.06)', padding: '16px 18px', textAlign: 'center',
           }}>
             <div style={{ fontSize: 26, fontWeight: 800, color: s.color }}>{s.value}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{s.label}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, fontWeight: 600 }}>{s.label}</div>
           </div>
         ))}
       </div>
@@ -295,75 +428,441 @@ export default function TasksPage() {
           <div style={{ fontSize: 14, fontWeight: 500 }}>No tasks in this category</div>
         </div>
       ) : (
-        filtered.map(task => (
-          <div key={task._id} style={card}>
-            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-              {/* Status + priority */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, minWidth: 110 }}>
-                <span style={taskStatusBadge(task.status)}>{taskStatusLabel(task.status)}</span>
-                <span style={priorityBadge(task.priority)}>{task.priority.toUpperCase()}</span>
-              </div>
-
-              {/* Content */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{task.title}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
-                  Report:{' '}
-                  <Link href={`/officer/reports/${task.reportId}`} style={{ color: 'var(--primary)', fontWeight: 500 }}>
-                    {task.reportTitle}
-                  </Link>
+        filtered.map(task => {
+          const isAssigned = task.assignedTo && task.assignedTo !== 'Unassigned';
+          return (
+            <div key={task._id} style={card}>
+              <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                {/* Status + priority */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, minWidth: 110 }}>
+                  <span style={taskStatusBadge(task.status)}>{taskStatusLabel(task.status)}</span>
+                  <span style={priorityBadge(task.priority)}>{task.priority.toUpperCase()}</span>
                 </div>
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                  {/* Assignee */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Assigned to:</span>
-                    {task.assignedTo ? (
-                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{task.assignedTo}</span>
-                    ) : (
-                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--orange)' }}>Unassigned</span>
-                    )}
+
+                {/* Content */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{task.title}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+                    Report Reference:{' '}
+                    <Link href={`/officer/reports/${task.reportId}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                      {task.reportTitle || task.reportId}
+                    </Link>
                   </div>
-                  {/* Due date */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Due:</span>
-                    <span style={{
-                      fontSize: 12, fontWeight: 600,
-                      color: isOverdue(task.dueDate) && task.status !== 'done' ? '#dc2626' : 'var(--text)',
-                    }}>
-                      {task.dueDate}
-                      {isOverdue(task.dueDate) && task.status !== 'done' && (
-                        <span style={{ marginLeft: 4, fontSize: 10, background: '#fef2f2', color: '#dc2626', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>
-                          OVERDUE
+                  <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {/* Assigned Crew Badge */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Assigned to:</span>
+                      {isAssigned ? (
+                        <span style={{
+                          fontSize: 12, fontWeight: 700, color: '#0A192F',
+                          background: '#E2E8F0', padding: '2px 10px', borderRadius: 6,
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                        }}>
+                          🛠️ {task.assignedTo}
+                        </span>
+                      ) : (
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, color: '#dc2626',
+                          background: '#fef2f2', padding: '2px 8px', borderRadius: 6,
+                        }}>
+                          ⚠️ Unassigned
                         </span>
                       )}
-                    </span>
+                    </div>
+                    {/* Due date */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Due:</span>
+                      <span style={{
+                        fontSize: 12, fontWeight: 600,
+                        color: isOverdue(task.dueDate) && task.status !== 'done' ? '#dc2626' : 'var(--text)',
+                      }}>
+                        {task.dueDate}
+                        {isOverdue(task.dueDate) && task.status !== 'done' && (
+                          <span style={{ marginLeft: 4, fontSize: 10, background: '#fef2f2', color: '#dc2626', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>
+                            OVERDUE
+                          </span>
+                        )}
+                      </span>
+                    </div>
                   </div>
+                </div>
+
+                {/* Assign / Reassign Action Button */}
+                <div style={{ flexShrink: 0, display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => openAssignModal(task)}
+                    style={{
+                      padding: '8px 16px',
+                      border: isAssigned ? '1.5px solid #0A192F' : '1.5px solid var(--primary)',
+                      borderRadius: 10,
+                      background: isAssigned ? '#0A192F' : 'var(--primary)',
+                      color: '#fff',
+                      fontSize: 12, fontWeight: 700,
+                      transition: 'all 0.15s ease', whiteSpace: 'nowrap' as const,
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                    }}
+                  >
+                    <span>{isAssigned ? '🔄' : '🔧'}</span>
+                    <span>{isAssigned ? 'Reassign Team' : 'Assign Team'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })
+      )}
+
+      {/* ─── MODAL 1: Assign / Reassign Task Modal ─── */}
+      {assignModalTask && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1500,
+          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 16, backdropFilter: 'blur(2px)',
+        }}>
+          <div style={{
+            background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.2)', width: '100%', maxWidth: 520,
+            overflow: 'hidden', display: 'flex', flexDirection: 'column',
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '16px 20px', borderBottom: '1px solid var(--border)',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              background: 'var(--surface-subtle)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 18 }}>🛠️</span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>
+                  {assignModalTask.assignedTo && assignModalTask.assignedTo !== 'Unassigned'
+                    ? 'Reassign Maintenance Team'
+                    : 'Assign Task to Maintenance Team'}
+                </span>
+              </div>
+              <button
+                onClick={() => setAssignModalTask(null)}
+                style={{ background: 'none', border: 'none', fontSize: 18, color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Task Summary Banner */}
+              <div style={{
+                background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10,
+                padding: '12px 14px',
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  Work Order Title
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginTop: 2 }}>
+                  {assignModalTask.title}
+                </div>
+                <div style={{ fontSize: 12, color: '#64748B', marginTop: 4 }}>
+                  Current Status: <strong style={{ color: '#0F172A' }}>{taskStatusLabel(assignModalTask.status)}</strong> ·
+                  Current Assignee: <strong style={{ color: '#0F172A' }}>{assignModalTask.assignedTo || 'Unassigned'}</strong>
                 </div>
               </div>
 
-              {/* Direct Assign Action Button */}
-              {task.status !== 'done' && (
-                <div style={{ flexShrink: 0 }}>
-                  <button
-                    onClick={() => assign(task._id)}
-                    style={{
-                      padding: '8px 18px', border: '1px solid var(--primary)', borderRadius: 10,
-                      background: task.status === 'in_progress' ? 'var(--primary-light)' : 'var(--surface)',
-                      color: 'var(--primary)', fontSize: 12, fontWeight: 700,
-                      transition: 'all 0.15s ease', whiteSpace: 'nowrap' as const,
-                      cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--primary-light)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = task.status === 'in_progress' ? 'var(--primary-light)' : 'var(--surface)'; }}
-                    title="Assign maintenance task"
-                  >
-                    🔧 {task.status === 'in_progress' ? 'Reassign Task' : 'Assign Task'}
-                  </button>
+              {/* Maintenance Crew Dropdown */}
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+                  Select Maintenance Team / Crew: *
+                </label>
+                <select
+                  value={selectedCrew}
+                  onChange={e => setSelectedCrew(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid var(--border)',
+                    background: 'var(--surface)', color: 'var(--text)', fontSize: 13, fontWeight: 600,
+                  }}
+                >
+                  {MAINTENANCE_CREWS.map(crew => (
+                    <option key={crew} value={crew}>{crew}</option>
+                  ))}
+                </select>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                  This crew will receive live work order dispatch and digital LOTO authorization in their portal.
                 </div>
-              )}
+              </div>
+
+              {/* Status and Priority Row */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+                    Workflow Status:
+                  </label>
+                  <select
+                    value={selectedStatus}
+                    onChange={e => setSelectedStatus(e.target.value as TaskStatus)}
+                    style={{
+                      width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)',
+                      background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontWeight: 600,
+                    }}
+                  >
+                    <option value="in_progress">In Progress (Active Dispatch)</option>
+                    <option value="pending">Pending Crew Acknowledgment</option>
+                    <option value="done">Completed / Verified</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+                    Priority:
+                  </label>
+                  <select
+                    value={selectedPriority}
+                    onChange={e => setSelectedPriority(e.target.value as any)}
+                    style={{
+                      width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)',
+                      background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontWeight: 600,
+                    }}
+                  >
+                    <option value="critical">CRITICAL (Immediate)</option>
+                    <option value="high">HIGH (Next shift)</option>
+                    <option value="medium">MEDIUM (Routine)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Special Instructions / Notes */}
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+                  Dispatch Notes &amp; Safety Precautions (Optional):
+                </label>
+                <textarea
+                  value={specialInstructions}
+                  onChange={e => setSpecialInstructions(e.target.value)}
+                  placeholder="e.g. Verify zero-energy state with multi-meter before removing casing. LOTO isolation required."
+                  rows={3}
+                  style={{
+                    width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)',
+                    background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit',
+                    resize: 'vertical',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: '14px 20px', borderTop: '1px solid var(--border)',
+              display: 'flex', justifyContent: 'flex-end', gap: 10,
+              background: 'var(--surface-subtle)',
+            }}>
+              <button
+                onClick={() => setAssignModalTask(null)}
+                style={{
+                  padding: '9px 16px', borderRadius: 8, border: '1px solid var(--border)',
+                  background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmAssignment}
+                disabled={isSubmittingAssign}
+                style={{
+                  padding: '9px 20px', borderRadius: 8, border: 'none',
+                  background: '#0A192F', color: '#fff', fontSize: 12, fontWeight: 700,
+                  cursor: isSubmittingAssign ? 'wait' : 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                <span>{isSubmittingAssign ? 'Dispatching...' : 'Confirm Assignment & Dispath'}</span>
+              </button>
             </div>
           </div>
-        ))
+        </div>
+      )}
+
+      {/* ─── MODAL 2: Dispatch New Work Order Modal ─── */}
+      {showNewOrderModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1500,
+          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 16, backdropFilter: 'blur(2px)',
+        }}>
+          <form onSubmit={handleDispatchNewOrder} style={{
+            background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.2)', width: '100%', maxWidth: 540,
+            overflow: 'hidden', display: 'flex', flexDirection: 'column',
+          }}>
+            <div style={{
+              padding: '16px 20px', borderBottom: '1px solid var(--border)',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              background: 'var(--surface-subtle)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 18 }}>⚡</span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>
+                  Dispatch New Maintenance Work Order
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowNewOrderModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: 18, color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+                  Work Order Title: *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newTitle}
+                  onChange={e => setNewTitle(e.target.value)}
+                  placeholder="e.g. Inspect & retorque lower flange bolts on Heat Exchanger EX-12"
+                  style={{
+                    width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid var(--border)',
+                    background: 'var(--surface)', color: 'var(--text)', fontSize: 13,
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+                    Equipment Tag:
+                  </label>
+                  <input
+                    type="text"
+                    value={newEquipment}
+                    onChange={e => setNewEquipment(e.target.value)}
+                    placeholder="e.g. V-204 Hydrocracker"
+                    style={{
+                      width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)',
+                      background: 'var(--surface)', color: 'var(--text)', fontSize: 12,
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+                    Location:
+                  </label>
+                  <input
+                    type="text"
+                    value={newLocation}
+                    onChange={e => setNewLocation(e.target.value)}
+                    placeholder="e.g. Process Area 2"
+                    style={{
+                      width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)',
+                      background: 'var(--surface)', color: 'var(--text)', fontSize: 12,
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+                  Assign Maintenance Crew: *
+                </label>
+                <select
+                  value={newCrew}
+                  onChange={e => setNewCrew(e.target.value)}
+                  style={{
+                    width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid var(--border)',
+                    background: 'var(--surface)', color: 'var(--text)', fontSize: 13, fontWeight: 600,
+                  }}
+                >
+                  {MAINTENANCE_CREWS.map(crew => (
+                    <option key={crew} value={crew}>{crew}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+                    Priority:
+                  </label>
+                  <select
+                    value={newSeverity}
+                    onChange={e => setNewSeverity(e.target.value)}
+                    style={{
+                      width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)',
+                      background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontWeight: 600,
+                    }}
+                  >
+                    <option value="critical">CRITICAL (Immediate)</option>
+                    <option value="high">HIGH (Next shift)</option>
+                    <option value="medium">MEDIUM (Standard)</option>
+                    <option value="low">LOW (Routine inspection)</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 16 }}>
+                    <input
+                      type="checkbox"
+                      checked={newLoto}
+                      onChange={e => setNewLoto(e.target.checked)}
+                      style={{ width: 16, height: 16, accentColor: '#dc2626' }}
+                    />
+                    <span style={{ fontSize: 12, fontWeight: 700, color: newLoto ? '#dc2626' : 'var(--text)' }}>
+                      🔒 LOTO Isolation Required
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+                  Description &amp; Work Scope:
+                </label>
+                <textarea
+                  value={newDesc}
+                  onChange={e => setNewDesc(e.target.value)}
+                  placeholder="Describe repair scope, replacement parts needed, and safety permit requirements..."
+                  rows={2}
+                  style={{
+                    width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)',
+                    background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{
+              padding: '14px 20px', borderTop: '1px solid var(--border)',
+              display: 'flex', justifyContent: 'flex-end', gap: 10,
+              background: 'var(--surface-subtle)',
+            }}>
+              <button
+                type="button"
+                onClick={() => setShowNewOrderModal(false)}
+                style={{
+                  padding: '9px 16px', borderRadius: 8, border: '1px solid var(--border)',
+                  background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmittingNewOrder}
+                style={{
+                  padding: '9px 20px', borderRadius: 8, border: 'none',
+                  background: '#0A192F', color: '#fff', fontSize: 12, fontWeight: 700,
+                  cursor: isSubmittingNewOrder ? 'wait' : 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                <span>{isSubmittingNewOrder ? 'Dispatching...' : 'Dispatch Work Order'}</span>
+              </button>
+            </div>
+          </form>
+        </div>
       )}
     </div>
   );

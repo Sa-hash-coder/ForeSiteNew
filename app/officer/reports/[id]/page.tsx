@@ -3,7 +3,8 @@
 import { use, useEffect, useState, CSSProperties } from 'react';
 import Link from 'next/link';
 import { MOCK_REPORTS, MAINTENANCE_TASKS } from '@/app/lib/officerMockData';
-import { getReportByIdApi, createTaskApi, updateReportStatusApi } from '@/app/lib/api';
+import { getReportByIdApi, createTaskApi, updateReportStatusApi, getTasksApi } from '@/app/lib/api';
+import { MAINTENANCE_CREWS } from '@/app/officer/tasks/page';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -39,7 +40,7 @@ function statusBadgeStyle(status: string): CSSProperties {
 }
 
 function taskStatusStyle(s: string): CSSProperties {
-  if (s === 'done') return { background: 'var(--success-light)', color: 'var(--success)', borderRadius: 999, padding: '2px 9px', fontSize: 11, fontWeight: 600, display: 'inline-block' };
+  if (s === 'done' || s === 'officer_verified') return { background: 'var(--success-light)', color: 'var(--success)', borderRadius: 999, padding: '2px 9px', fontSize: 11, fontWeight: 600, display: 'inline-block' };
   if (s === 'in_progress') return { background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 999, padding: '2px 9px', fontSize: 11, fontWeight: 600, display: 'inline-block' };
   return { background: 'var(--warning-light)', color: 'var(--warning)', borderRadius: 999, padding: '2px 9px', fontSize: 11, fontWeight: 600, display: 'inline-block' };
 }
@@ -77,14 +78,24 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
   const [report, setReport] = useState<any>(null);
+  const [reportTasks, setReportTasks] = useState<any[]>([]);
+
+  // Dispatch Modal State
+  const [showDispatchModal, setShowDispatchModal] = useState(false);
+  const [dispatchCrew, setDispatchCrew] = useState(MAINTENANCE_CREWS[0]);
+  const [dispatchInstructions, setDispatchInstructions] = useState('');
+  const [dispatchSeverity, setDispatchSeverity] = useState('high');
+  const [dispatchLoto, setDispatchLoto] = useState(false);
+  const [isDispatching, setIsDispatching] = useState(false);
 
   useEffect(() => {
-    async function loadReport() {
+    async function loadReportAndTasks() {
       try {
         const res = await getReportByIdApi(id);
+        let loadedReport: any = null;
         if (res.data) {
           const d: any = res.data;
-          setReport({
+          loadedReport = {
             _id: d._id,
             title: d.title,
             category: d.category || "machinery",
@@ -111,10 +122,27 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             explanation: d.explanation || "Automated SIF classification calculated by fine-tuned model under OSHA 1910 standards.",
             hasImage: Boolean(d.imageUrl),
             imageUrl: d.imageUrl,
-          });
+          };
+          setReport(loadedReport);
+          setDispatchSeverity(loadedReport.severity || "high");
+          setDispatchLoto(loadedReport.severity === "critical");
         } else {
           const fallback = MOCK_REPORTS.find(r => r._id === id) || { ...MOCK_REPORTS[0], _id: id };
           setReport(fallback);
+          loadedReport = fallback;
+        }
+
+        // Fetch live tasks for this report
+        try {
+          const tRes = await getTasksApi();
+          if (tRes.success && Array.isArray(tRes.data)) {
+            const matched = tRes.data.filter(
+              (t: any) => t.reportId === id || (loadedReport && t.reportId === loadedReport._id)
+            );
+            setReportTasks(matched);
+          }
+        } catch (tErr) {
+          console.warn("Could not fetch live tasks:", tErr);
         }
       } catch (err) {
         console.warn("Using fallback mock report:", err);
@@ -124,25 +152,64 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
         setLoading(false);
       }
     }
-    loadReport();
+    loadReportAndTasks();
   }, [id]);
 
   const handleCreateTaskForRec = async (recText: string) => {
     try {
-      await createTaskApi({
+      const res = await createTaskApi({
         title: `Work Order: ${report.title.slice(0, 45)}`,
         description: `${recText}\n\nGenerated from fine-tuned SIF precursor assessment for ${report.location}.`,
         equipmentId: "EQ-" + Math.floor(100 + Math.random() * 900),
         equipmentName: report.title,
         location: report.location,
         severity: report.severity,
-        assignedCrew: "Maintenance Response Team M-4",
+        assignedCrew: "Rotating Machinery Team M-4",
         lotoRequired: report.severity === "critical",
         reportId: report._id,
       });
-      showToast("Dispatched maintenance work order for this suggestion!");
+
+      if (res.data) {
+        setReportTasks(prev => [res.data, ...prev]);
+      }
+      await updateReportStatusApi(report._id, "action_assigned");
+      setReport((prev: any) => ({ ...prev, status: "action_assigned" }));
+      showToast("Dispatched maintenance work order to Rotating Machinery Team M-4!");
     } catch {
       showToast("Work order logged to maintenance queue.");
+    }
+  };
+
+  const handleDispatchFromModal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsDispatching(true);
+    try {
+      const res = await createTaskApi({
+        title: `Work Order: ${report.title.slice(0, 45)}`,
+        description: dispatchInstructions || report.description || "Corrective maintenance dispatched from officer command.",
+        equipmentId: "EQ-" + Math.floor(100 + Math.random() * 900),
+        equipmentName: report.title,
+        location: report.location,
+        severity: dispatchSeverity,
+        assignedCrew: dispatchCrew,
+        lotoRequired: dispatchLoto,
+        reportId: report._id,
+      });
+
+      if (res.data) {
+        setReportTasks(prev => [res.data, ...prev]);
+      }
+      await updateReportStatusApi(report._id, "action_assigned");
+      setReport((prev: any) => ({ ...prev, status: "action_assigned" }));
+      showToast(`Work order successfully dispatched to ${dispatchCrew}!`);
+      setShowDispatchModal(false);
+      setDispatchInstructions('');
+    } catch (err) {
+      console.warn("Failed to dispatch task:", err);
+      showToast("Work order created in local dispatch queue.");
+      setShowDispatchModal(false);
+    } finally {
+      setIsDispatching(false);
     }
   };
 
@@ -156,6 +223,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       showToast("Report marked as resolved.");
     }
   };
+
   const card: CSSProperties = {
     background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)',
     boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 24px', marginBottom: 16,
@@ -163,7 +231,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
 
   const showToast = (msg: string) => {
     setToast(msg);
-    setTimeout(() => setToast(''), 2400);
+    setTimeout(() => setToast(''), 3000);
   };
 
   if (loading || !report) {
@@ -177,7 +245,8 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  const tasks = MAINTENANCE_TASKS.filter(t => t.reportId === report?._id);
+  const fallbackTasks = MAINTENANCE_TASKS.filter(t => t.reportId === report?._id);
+  const tasksToDisplay = reportTasks.length > 0 ? reportTasks : fallbackTasks;
   const cat = catBg(report.category);
 
   return (
@@ -185,10 +254,11 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       {/* Toast */}
       {toast && (
         <div style={{
-          position: 'fixed', top: 20, right: 20, zIndex: 1000,
+          position: 'fixed', top: 20, right: 20, zIndex: 2000,
           background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
-          padding: '12px 20px', boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+          padding: '12px 20px', boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
           fontSize: 13, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8,
+          fontWeight: 600,
         }}>
           <span>✅</span> {toast}
         </div>
@@ -262,40 +332,35 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               🤖
             </div>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>AI Hazard Assessment &amp; SIF Modeling</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Powered by Fine-Tuned all-MiniLM-L6-v2 · OSHA 1910</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+                Fine-Tuned AI Precursor Classification
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                OSHA 1910 Metric Contrastive Learning Evaluation
+              </div>
             </div>
           </div>
-          {report.sifProbability && (
+          {report.sifProbability !== undefined && (
             <span style={{
-              backgroundColor: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA',
-              borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 700,
+              backgroundColor: '#F1F5F9', color: '#0F172A',
+              borderRadius: 999, padding: '3px 12px', fontSize: 12, fontWeight: 700,
+              border: '1px solid #E2E8F0',
             }}>
               SIF Probability: {Math.round(report.sifProbability * 100)}%
             </span>
           )}
         </div>
 
-        {/* Observation */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>
-            Worker Observation
-          </div>
-          <p style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6, margin: 0, backgroundColor: 'var(--surface-subtle)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)' }}>
-            {report.description}
-          </p>
-        </div>
-
-        {/* Precursor Tags */}
+        {/* Precursors */}
         {report.precursors && report.precursors.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>
-              Detected SIF Precursors
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+              Detected SIF Precursors:
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {report.precursors.map((p: string, idx: number) => (
-                <span key={idx} style={{
-                  fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 6,
+              {report.precursors.map((p: string, i: number) => (
+                <span key={i} style={{
+                  padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700,
                   backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A',
                 }}>
                   ⚠️ {p}
@@ -305,95 +370,16 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
           </div>
         )}
 
-        {/* Model Reasoning Explanation */}
-        {report.explanation && (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>
-              AI Model Explanation &amp; OSHA Audit Trace
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.6, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', padding: '10px 14px', borderRadius: 8 }}>
-              {report.explanation}
-            </div>
-          </div>
-        )}
-
-        {/* Danger level bar */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
-              Danger Level &amp; Risk Score
-            </span>
-            <span style={{ fontSize: 13, fontWeight: 800, color: riskColor(report.riskScore) }}>
-              {report.riskScore} / 100 ({report.severity?.toUpperCase()})
-            </span>
-          </div>
-          <div style={{ height: 10, background: '#f3f4f6', borderRadius: 6, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%', width: `${report.riskScore}%`,
-              background: riskColor(report.riskScore), borderRadius: 6,
-              transition: 'width 0.8s ease',
-            }} />
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-            <span style={{ fontSize: 10, color: '#16a34a' }}>Very Low</span>
-            <span style={{ fontSize: 10, color: '#dc2626' }}>Critical</span>
-          </div>
+        {/* AI Explanation */}
+        <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.6, marginBottom: 16 }}>
+          {report.explanation}
         </div>
 
-        {/* Immediate actions */}
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 8 }}>
-            Immediate Frontline Actions Required
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {report.immediateActions.map((action: string, i: number) => (
-              <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                <div style={{
-                  width: 22, height: 22, borderRadius: '50%', background: '#fef2f2',
-                  border: '2px solid #fca5a5', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 10, fontWeight: 700, color: '#dc2626', flexShrink: 0, marginTop: 1,
-                }}>
-                  {i + 1}
-                </div>
-                <span style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>{action}</span>
-              </div>
-            ))}
-          </div>
+        {/* AI Recommendations with Instant Dispatch Buttons */}
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>
+          Recommended Corrective Work Orders:
         </div>
-      </div>
-
-      {/* Evidence */}
-      {report.hasImage && (
-        <div style={card}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 14 }}>📷 Photographic Evidence</div>
-          {report.imageUrl ? (
-            <img
-              src={report.imageUrl}
-              alt="Hazard Evidence"
-              style={{ maxWidth: '100%', maxHeight: 320, borderRadius: 8, objectFit: 'cover' }}
-            />
-          ) : (
-            <div style={{
-              background: '#f9fafb', border: '2px dashed var(--border)', borderRadius: 8,
-              height: 140, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              color: 'var(--text-muted)', fontSize: 13,
-            }}>
-              <div style={{ fontSize: 32, marginBottom: 6 }}>🖼️</div>
-              <div style={{ fontWeight: 500 }}>Evidence photo attached to SIF audit log</div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Safety Recommendations with 1-Click Work Order Dispatch */}
-      <div style={card}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>
-            📋 AI Safety Recommendations &amp; Corrective Work Orders
-          </div>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>OSHA 1910 Compliant</span>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {report.recommendations.map((rec: string, i: number) => (
             <div key={i} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
@@ -427,31 +413,50 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
         </div>
       </div>
 
-      {/* Maintenance Tasks */}
+      {/* Maintenance Tasks Assigned to this Report */}
       <div style={card}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 14 }}>
-          🔧 Maintenance Tasks
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>
+            🔧 Dispatched Maintenance Work Orders ({tasksToDisplay.length})
+          </div>
+          <button
+            onClick={() => setShowDispatchModal(true)}
+            style={{
+              padding: '6px 14px', background: '#0A192F', color: '#fff', border: 'none',
+              borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            <span>+ Assign Task</span>
+          </button>
         </div>
-        {tasks.length === 0 ? (
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '16px 0', textAlign: 'center' }}>
-            No maintenance tasks assigned yet.
+
+        {tasksToDisplay.length === 0 ? (
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '24px 0', textAlign: 'center' }}>
+            No maintenance tasks dispatched for this hazard yet. Click "Assign Task" below to dispatch to a maintenance team.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {tasks.map(task => (
-              <div key={task._id} style={{
+            {tasksToDisplay.map((task: any) => (
+              <div key={task._id || task.id} style={{
                 display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
-                borderRadius: 8, border: '1px solid var(--border)', background: '#fafafa',
+                borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-subtle)',
               }}>
                 <span style={taskStatusStyle(task.status)}>
-                  {task.status === 'done' ? 'Done' : task.status === 'in_progress' ? 'In Progress' : 'Pending'}
+                  {task.status === 'done' || task.status === 'officer_verified' ? '✅ Completed' : task.status === 'in_progress' ? '🔄 In Progress' : '🕐 Dispatched'}
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{task.title}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
+                    {task.orderNumber ? `[${task.orderNumber}] ` : ''}{task.title}
+                  </div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                    Assigned to: {task.assignedTo || 'Unassigned'} · Due: {task.dueDate}
+                    Assigned Crew: <strong style={{ color: '#0F172A' }}>{task.assignedCrew || task.assignedTo || 'Maintenance Response Team'}</strong>
+                    {task.location ? ` · 📍 ${task.location}` : ''}
                   </div>
                 </div>
+                <Link href="/officer/tasks">
+                  <span style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>Manage ↗</span>
+                </Link>
               </div>
             ))}
           </div>
@@ -461,48 +466,177 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       {/* Actions footer */}
       <div style={{
         ...card,
-        display: 'flex', gap: 10, flexWrap: 'wrap' as const, alignItems: 'center',
+        display: 'flex', gap: 12, flexWrap: 'wrap' as const, alignItems: 'center',
         background: 'var(--surface)',
       }}>
         <button
-          onClick={() => showToast('Task assigned successfully.')}
+          onClick={() => setShowDispatchModal(true)}
           style={{
-            padding: '10px 22px', background: 'var(--primary)', color: '#fff', border: 'none',
-            borderRadius: 10, fontSize: 14, fontWeight: 600, transition: 'all 0.15s ease',
+            padding: '10px 22px', background: '#0A192F', color: '#fff', border: 'none',
+            borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 8,
           }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--primary-hover)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--primary)'; }}
         >
-          🔧 Assign Task
+          <span>🔧</span> Assign Maintenance Task
         </button>
         <button
-          onClick={() => showToast('Report marked as resolved.')}
+          onClick={handleMarkResolved}
           style={{
             padding: '10px 22px', background: 'var(--surface)', color: 'var(--success)',
-            border: '1.5px solid var(--success)', borderRadius: 10, fontSize: 14, fontWeight: 600, transition: 'all 0.15s ease',
+            border: '1.5px solid var(--success)', borderRadius: 10, fontSize: 14, fontWeight: 700,
+            cursor: 'pointer',
           }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-subtle)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}
         >
-          ✅ Mark Resolved
-        </button>
-        <button
-          onClick={() => showToast('Report escalated to senior management.')}
-          style={{
-            padding: '10px 22px', background: 'var(--surface)', color: 'var(--danger)',
-            border: '1.5px solid var(--danger)', borderRadius: 10, fontSize: 14, fontWeight: 600, transition: 'all 0.15s ease',
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-subtle)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}
-        >
-          ⬆ Escalate
+          ✅ Mark Report Resolved
         </button>
         <div style={{ marginLeft: 'auto' }}>
-          <Link href="/officer/reports" style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+          <Link href="/officer/reports" style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>
             ← Back to Reports
           </Link>
         </div>
       </div>
+
+      {/* ─── Dispatch Work Order to Maintenance Modal ─── */}
+      {showDispatchModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 2500,
+          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 16, backdropFilter: 'blur(2px)',
+        }}>
+          <form onSubmit={handleDispatchFromModal} style={{
+            background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.25)', width: '100%', maxWidth: 520,
+            overflow: 'hidden', display: 'flex', flexDirection: 'column',
+          }}>
+            <div style={{
+              padding: '16px 20px', borderBottom: '1px solid var(--border)',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              background: 'var(--surface-subtle)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 18 }}>🔧</span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>
+                  Dispatch Work Order to Maintenance Team
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDispatchModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: 18, color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{
+                background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: '10px 12px',
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>REPORT INCIDENT:</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginTop: 2 }}>{report.title}</div>
+                <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>📍 {report.location}</div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+                  Assign Maintenance Crew / Department: *
+                </label>
+                <select
+                  value={dispatchCrew}
+                  onChange={e => setDispatchCrew(e.target.value)}
+                  style={{
+                    width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid var(--border)',
+                    background: 'var(--surface)', color: 'var(--text)', fontSize: 13, fontWeight: 600,
+                  }}
+                >
+                  {MAINTENANCE_CREWS.map(crew => (
+                    <option key={crew} value={crew}>{crew}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+                    Priority Level:
+                  </label>
+                  <select
+                    value={dispatchSeverity}
+                    onChange={e => setDispatchSeverity(e.target.value)}
+                    style={{
+                      width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)',
+                      background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontWeight: 600,
+                    }}
+                  >
+                    <option value="critical">CRITICAL (Immediate)</option>
+                    <option value="high">HIGH (Next shift)</option>
+                    <option value="medium">MEDIUM (Standard)</option>
+                    <option value="low">LOW (Routine)</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', marginTop: 18 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={dispatchLoto}
+                      onChange={e => setDispatchLoto(e.target.checked)}
+                      style={{ width: 16, height: 16, accentColor: '#dc2626' }}
+                    />
+                    <span style={{ fontSize: 12, fontWeight: 700, color: dispatchLoto ? '#dc2626' : 'var(--text)' }}>
+                      🔒 LOTO Required
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+                  Work Scope &amp; Safety Instructions:
+                </label>
+                <textarea
+                  value={dispatchInstructions}
+                  onChange={e => setDispatchInstructions(e.target.value)}
+                  placeholder={report.recommendations?.[0] || "Specify maintenance tasks, replacement parts, or lockout requirements..."}
+                  rows={3}
+                  style={{
+                    width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)',
+                    background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{
+              padding: '14px 20px', borderTop: '1px solid var(--border)',
+              display: 'flex', justifyContent: 'flex-end', gap: 10,
+              background: 'var(--surface-subtle)',
+            }}>
+              <button
+                type="button"
+                onClick={() => setShowDispatchModal(false)}
+                style={{
+                  padding: '9px 16px', borderRadius: 8, border: '1px solid var(--border)',
+                  background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isDispatching}
+                style={{
+                  padding: '9px 20px', borderRadius: 8, border: 'none',
+                  background: '#0A192F', color: '#fff', fontSize: 12, fontWeight: 700,
+                  cursor: isDispatching ? 'wait' : 'pointer',
+                }}
+              >
+                <span>{isDispatching ? 'Dispatching...' : 'Dispatch to Maintenance Team'}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
