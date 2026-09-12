@@ -11,6 +11,7 @@ import {
   ACTIVE_ALERTS,
   HEATMAP_ZONES,
 } from '@/app/lib/officerMockData';
+import { ShieldCheck, Lightbulb } from 'lucide-react';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -333,8 +334,11 @@ export default function OfficerOverview() {
                 background: 'var(--surface-subtle)',
                 borderRadius: 14,
                 border: '1px dashed var(--border)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
               }}>
-                <div style={{ fontSize: 24, marginBottom: 6 }}>🛡️</div>
+                <ShieldCheck size={28} color="#16a34a" style={{ marginBottom: 6 }} />
                 <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>All Active Alerts Acknowledged</div>
                 <div>No critical or high-risk SIF alerts currently require officer intervention.</div>
               </div>
@@ -372,13 +376,16 @@ export default function OfficerOverview() {
                         backgroundColor: 'rgba(255,255,255,0.7)',
                         padding: '2px 8px',
                         borderRadius: 4,
-                        display: 'inline-block',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
                         maxWidth: '100%',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
                       }}>
-                        💡 AI: {alert.recommendations[0]}
+                        <Lightbulb size={12} color="#d97706" style={{ flexShrink: 0 }} />
+                        <span>AI: {alert.recommendations[0]}</span>
                       </div>
                     )}
                   </div>

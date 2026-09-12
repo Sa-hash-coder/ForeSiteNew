@@ -6,6 +6,7 @@ import { getStoredUser, logout, saveAuth } from "@/app/lib/auth";
 import { getToken } from "@/app/lib/auth";
 import { MOCK_REPORTS } from "@/app/lib/mockData";
 import { getMyReportsApi } from "@/app/lib/api";
+import { Check } from "lucide-react";
 
 export default function WorkerProfilePage() {
   const { lang } = useLanguage();
@@ -77,8 +78,9 @@ export default function WorkerProfilePage() {
     <div style={styles.container}>
       {/* Success toast */}
       {saved && (
-        <div style={styles.toast}>
-          ✓ {lang === "hi" ? "प्रोफ़ाइल अपडेट हो गई" : "Profile updated successfully"}
+        <div style={{ ...styles.toast, display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
+          <Check size={14} strokeWidth={3} />
+          <span>{lang === "hi" ? "प्रोफ़ाइल अपडेट हो गई" : "Profile updated successfully"}</span>
         </div>
       )}
 

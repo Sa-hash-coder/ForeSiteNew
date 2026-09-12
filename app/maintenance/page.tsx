@@ -926,12 +926,12 @@ export default function MaintenancePage() {
                                   justifyContent: "center",
                                 }}
                               >
-                                {isDone ? "✓" : s.step}
+                                {isDone ? <Check size={10} strokeWidth={3} /> : s.step}
                               </div>
                               <span style={{ fontSize: 11, fontWeight: isCurrent ? 700 : 500, color: isCurrent ? "var(--text)" : "var(--text-muted)" }}>
                                 {s.label}
                               </span>
-                              {idx < 3 && <span style={{ color: "var(--border)", fontSize: 11 }}>➔</span>}
+                              {idx < 3 && <ArrowRight size={11} style={{ color: "var(--border)", flexShrink: 0 }} />}
                             </div>
                           );
                         })}
@@ -1525,8 +1525,13 @@ export default function MaintenancePage() {
                   textAlign: "center",
                   color: "var(--text-muted)",
                   fontSize: 13,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
                 }}>
-                  ✅ All dispatched work orders have been certified. Pending clearances are awaiting safety officer review.
+                  <CheckCircle2 size={16} color="#16a34a" style={{ flexShrink: 0 }} />
+                  <span>All dispatched work orders have been certified. Pending clearances are awaiting safety officer review.</span>
                 </div>
               ) : (
                 orders

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useLanguage } from "@/app/lib/LanguageContext";
+import { Volume2, Square } from "lucide-react";
 
 interface VoiceReadAloudButtonProps {
   textToRead: string;
@@ -65,7 +66,7 @@ export default function VoiceReadAloudButton({ textToRead }: VoiceReadAloudButto
       }}
       title={isPlaying ? t.stopListenAdviceBtn : t.listenAdviceBtn}
     >
-      <span style={{ fontSize: "16px" }}>{isPlaying ? "⏹️" : "🔊"}</span>
+      {isPlaying ? <Square size={14} fill="currentColor" /> : <Volume2 size={16} />}
       <span style={{ fontWeight: 700 }}>
         {isPlaying ? t.stopListenAdviceBtn : t.listenAdviceBtn}
       </span>

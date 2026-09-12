@@ -8,6 +8,15 @@ import StatusBadge from "@/app/components/StatusBadge";
 import DangerBadge from "@/app/components/DangerBadge";
 import VoiceReadAloudButton from "@/app/components/VoiceReadAloudButton";
 import { getReportByIdApi } from "@/app/lib/api";
+import {
+  AlertTriangle,
+  MapPin,
+  ShieldCheck,
+  Wrench,
+  HardHat,
+  Calendar,
+  Check,
+} from "lucide-react";
 
 export default function ReportDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -63,7 +72,9 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   if (!report) {
     return (
       <div style={s.errorBox}>
-        <p>⚠️ {lang === "hi" ? "रिपोर्ट नहीं मिली" : "Report not found"}</p>
+        <p style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
+          <AlertTriangle size={16} /> {lang === "hi" ? "रिपोर्ट नहीं मिली" : "Report not found"}
+        </p>
         <Link href="/worker/reports" style={s.backLink}>{t.backToReports}</Link>
       </div>
     );
@@ -90,7 +101,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
           <StatusBadge status={report.status} />
         </div>
         <div style={s.metaRow}>
-          <span>📍 {displayLocation}</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><MapPin size={12} /> {displayLocation}</span>
           <span>•</span>
           <span>
             {new Date(report.createdAt).toLocaleDateString(
@@ -119,7 +130,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       {suggestions.length > 0 && (
         <div style={s.suggestionsCard}>
           <div style={s.cardHeaderWithIcon}>
-            <span style={{ fontSize: "20px" }}>🛡️</span>
+            <ShieldCheck size={20} color="#16a34a" />
             <h2 style={s.sectionTitle}>{t.suggestionsTitle}</h2>
           </div>
           <div style={s.suggestionList}>
@@ -136,27 +147,32 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       {report.maintenanceTasks && report.maintenanceTasks.length > 0 && (
         <div style={s.card}>
           <div style={s.cardHeaderWithIcon}>
-            <span style={{ fontSize: "18px" }}>🔧</span>
+            <Wrench size={18} color="var(--primary)" />
             <h2 style={s.sectionTitle}>{t.actionTakenTitle}</h2>
           </div>
           {report.maintenanceTasks.map((task: any) => (
             <div key={task._id} style={s.taskCard}>
               <div style={s.taskTop}>
                 <span style={s.taskTitle}>{task.title}</span>
-                <span style={s.taskBadge}>
-                  {task.status === "verified"
-                    ? (lang === "hi" ? "पूर्ण (सत्यापित) ✓" : "Verified ✓")
-                    : (lang === "hi" ? "मरम्मत चालू है" : "In Progress")}
+                <span style={{ ...s.taskBadge, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  {task.status === "verified" ? (
+                    <>
+                      <Check size={11} strokeWidth={3} />
+                      {lang === "hi" ? "पूर्ण (सत्यापित)" : "Verified"}
+                    </>
+                  ) : (
+                    lang === "hi" ? "मरम्मत चालू है" : "In Progress"
+                  )}
                 </span>
               </div>
               {task.assignedTo && (
-                <p style={s.taskDetail}>
-                  👷 <strong>{t.assignedTo}:</strong> {task.assignedTo.name}
+                <p style={{ ...s.taskDetail, display: "flex", alignItems: "center", gap: 5 }}>
+                  <HardHat size={13} /> <strong>{t.assignedTo}:</strong> {task.assignedTo.name}
                 </p>
               )}
               {task.dueDate && (
-                <p style={s.taskDetail}>
-                  📅 <strong>{t.dueDate}:</strong> {new Date(task.dueDate).toLocaleDateString(lang === "hi" ? "hi-IN" : "en-IN", { day: "numeric", month: "short" })}
+                <p style={{ ...s.taskDetail, display: "flex", alignItems: "center", gap: 5 }}>
+                  <Calendar size={13} /> <strong>{t.dueDate}:</strong> {new Date(task.dueDate).toLocaleDateString(lang === "hi" ? "hi-IN" : "en-IN", { day: "numeric", month: "short" })}
                 </p>
               )}
             </div>

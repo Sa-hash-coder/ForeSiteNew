@@ -32,7 +32,9 @@ import {
   Sliders,
   Radio,
   Clock,
-  ExternalLink
+  ExternalLink,
+  Zap,
+  Lock,
 } from "lucide-react";
 
 export interface DynamicFacilityUnit extends FacilityUnit {
@@ -343,7 +345,7 @@ export default function HeatmapPage() {
           padding: "12px 20px", boxShadow: "0 6px 20px rgba(0,0,0,0.25)",
           fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 8,
         }}>
-          <span>✅</span> {toast}
+          <CheckCircle2 size={16} color="#10b981" /> <span>{toast}</span>
         </div>
       )}
 
@@ -853,7 +855,9 @@ export default function HeatmapPage() {
                             </span>
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 2 }}>
-                            <span style={{ fontSize: 10, color: "#7F1D1D" }}>📍 {rep.location}</span>
+                            <span style={{ fontSize: 10, color: "#7F1D1D", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                              <MapPin size={10} /> {rep.location}
+                            </span>
                             <Link href={`/officer/reports/${rep._id}`} style={{ fontSize: 10, color: "#1D4ED8", fontWeight: 700, textDecoration: "underline" }}>
                               View Report ↗
                             </Link>
@@ -991,7 +995,7 @@ export default function HeatmapPage() {
               background: "var(--surface-subtle)",
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 18 }}>⚡</span>
+                <Zap size={18} style={{ color: "#0A192F" }} />
                 <span style={{ fontSize: 16, fontWeight: 800, color: "var(--text)" }}>
                   Dispatch Work Order for {dispatchModalUnit.code}
                 </span>
@@ -999,9 +1003,9 @@ export default function HeatmapPage() {
               <button
                 type="button"
                 onClick={() => setDispatchModalUnit(null)}
-                style={{ background: "none", border: "none", fontSize: 18, color: "var(--text-muted)", cursor: "pointer" }}
+                style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", display: "flex", alignItems: "center" }}
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 
@@ -1040,8 +1044,8 @@ export default function HeatmapPage() {
                   onChange={e => setDispatchLoto(e.target.checked)}
                   style={{ width: 16, height: 16, accentColor: "#dc2626" }}
                 />
-                <label htmlFor="heatmapLoto" style={{ fontSize: 12, fontWeight: 700, color: dispatchLoto ? "#dc2626" : "var(--text)", cursor: "pointer" }}>
-                  🔒 LOTO Isolation Mandated for this Work Order
+                <label htmlFor="heatmapLoto" style={{ fontSize: 12, fontWeight: 700, color: dispatchLoto ? "#dc2626" : "var(--text)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                  <Lock size={13} /> LOTO Isolation Mandated for this Work Order
                 </label>
               </div>
 

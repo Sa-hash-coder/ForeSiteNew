@@ -7,6 +7,7 @@ import { ACTIVE_ALERTS } from '@/app/lib/officerMockData';
 import { getAlertsApi } from '@/app/lib/api';
 import { LanguageProvider, useLanguage } from '@/app/lib/LanguageContext';
 import { getStoredUser, logout } from '@/app/lib/auth';
+import { Bell, Menu, X } from 'lucide-react';
 
 // Replaced emojis with clean, strict SVG icons
 const NAV_ITEMS = [
@@ -148,12 +149,13 @@ function OfficerLayoutContent({ children }: { children: React.ReactNode }) {
             style={{
               background: 'transparent',
               border: 'none',
-              fontSize: 20,
               color: 'var(--text-muted)',
               padding: 4,
+              display: 'flex',
+              alignItems: 'center',
             }}
           >
-            ✕
+            <X size={20} />
           </button>
         </div>
 
@@ -320,11 +322,10 @@ function OfficerLayoutContent({ children }: { children: React.ReactNode }) {
                 display: 'none',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 18,
                 color: 'var(--text)',
               }}
             >
-              ☰
+              <Menu size={18} />
             </button>
             <div>
               <h1 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', margin: 0 }}>
@@ -387,7 +388,7 @@ function OfficerLayoutContent({ children }: { children: React.ReactNode }) {
                   borderRadius: 12,
                   border: '1px solid var(--border)',
                   background: 'var(--surface)',
-                  fontSize: 17,
+                  color: 'var(--text)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -395,7 +396,7 @@ function OfficerLayoutContent({ children }: { children: React.ReactNode }) {
                   cursor: 'pointer',
                 }}
               >
-                🔔
+                <Bell size={18} strokeWidth={2.2} />
                 {unacknowledgedCount > 0 && (
                   <span
                     className="animate-apple-pulse"

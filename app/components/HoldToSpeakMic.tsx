@@ -10,6 +10,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useLanguage } from "@/app/lib/LanguageContext";
+import { Mic, Square, RotateCcw, CheckCircle2, AlertTriangle, Settings, Loader2, PenTool } from "lucide-react";
 
 interface Props {
   onAudioChange: (base64Audio: string | null) => void;
@@ -83,8 +84,8 @@ export default function HoldToSpeakMic({ onAudioChange, onTranscript }: Props) {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
       setErrMsg(lang === "hi"
-        ? "माइक की अनुमति दें — Brave में 🦁 आइकन → Site Settings → Mic → Allow"
-        : "Mic blocked — click the 🦁 icon in Brave address bar → Site Settings → Microphone → Allow");
+        ? "माइक की अनुमति दें — Brave में शील्ड्स आइकन → Site Settings → Mic → Allow"
+        : "Mic blocked — click Shields icon in Brave address bar → Site Settings → Microphone → Allow");
       return;
     }
 
@@ -177,15 +178,23 @@ export default function HoldToSpeakMic({ onAudioChange, onTranscript }: Props) {
 
       {/* API key missing warning */}
       {noKey && (
-        <div style={{ ...S.err, background: "#fff7ed", borderColor: "#fdba74", color: "#9a3412" }}>
-          ⚙️ {lang === "hi"
-            ? "GROQ_API_KEY नहीं मिली। .env.local में GROQ_API_KEY=gsk_... add करें और server restart करें।"
-            : "GROQ_API_KEY missing. Add GROQ_API_KEY=gsk_... to .env.local and restart the server."}
+        <div style={{ ...S.err, background: "#fff7ed", borderColor: "#fdba74", color: "#9a3412", display: "flex", alignItems: "center", gap: 6 }}>
+          <Settings size={15} />
+          <span>
+            {lang === "hi"
+              ? "GROQ_API_KEY नहीं मिली। .env.local में GROQ_API_KEY=gsk_... add करें और server restart करें।"
+              : "GROQ_API_KEY missing. Add GROQ_API_KEY=gsk_... to .env.local and restart the server."}
+          </span>
         </div>
       )}
 
       {/* Error */}
-      {errMsg && !noKey && <div style={S.err}>⚠️ {errMsg}</div>}
+      {errMsg && !noKey && (
+        <div style={{ ...S.err, display: "flex", alignItems: "center", gap: 6 }}>
+          <AlertTriangle size={15} />
+          <span>{errMsg}</span>
+        </div>
+      )}
 
       {/* Big round button */}
       <div style={S.col}>
@@ -203,31 +212,44 @@ export default function HoldToSpeakMic({ onAudioChange, onTranscript }: Props) {
               : "0 0 0 10px rgba(29,78,216,0.12), 0 4px 16px rgba(29,78,216,0.3)",
             transform: (isRec || isTranscribing) ? "scale(1.08)" : "scale(1)",
             cursor: isTranscribing ? "wait" : "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
           aria-label="microphone"
         >
-          <span style={{ fontSize: 38, lineHeight: 1 }}>
-            {isRec ? "⏹️" : isTranscribing ? "⏳" : isDone ? "🔄" : "🎙️"}
-          </span>
+          {isRec ? (
+            <Square size={32} fill="#ffffff" color="#ffffff" />
+          ) : isTranscribing ? (
+            <Loader2 size={36} className="animate-spin" color="#ffffff" />
+          ) : isDone ? (
+            <RotateCcw size={32} color="#ffffff" />
+          ) : (
+            <Mic size={36} color="#ffffff" />
+          )}
         </button>
 
         {/* Status */}
         {isRec && (
           <div style={S.col}>
-            <span style={S.pill}>🔴 {fmt(seconds)}</span>
+            <span style={S.pill}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#dc2626", display: "inline-block", marginRight: 6 }} />
+              {fmt(seconds)}
+            </span>
             <div style={{ fontWeight: 800, fontSize: 15, color: "#b91c1c", textAlign: "center" }}>
               {lang === "hi" ? "रिकॉर्ड हो रहा है — बोलते रहें" : "Recording — keep speaking"}
             </div>
             <div style={{ fontSize: 12, color: "#b91c1c" }}>
-              {lang === "hi" ? "बोलना खत्म हो जाए तो ⏹ दबाएं" : "Tap ⏹ when done"}
+              {lang === "hi" ? "बोलना खत्म हो जाए तो बटन दोबारा दबाएं" : "Tap button when finished"}
             </div>
           </div>
         )}
 
         {isTranscribing && (
           <div style={S.col}>
-            <span style={{ ...S.pill, background: "#ede9fe", color: "#5b21b6", borderColor: "#c4b5fd" }}>
-              ⏳ {lang === "hi" ? "AI text बना रहा है…" : "AI is converting…"}
+            <span style={{ ...S.pill, background: "#ede9fe", color: "#5b21b6", borderColor: "#c4b5fd", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Loader2 size={13} className="animate-spin" />
+              <span>{lang === "hi" ? "AI text बना रहा है…" : "AI is converting…"}</span>
             </span>
             <div style={{ fontSize: 13, color: "#7c3aed", fontWeight: 600 }}>
               {lang === "hi" ? "Whisper AI सुन रहा है — 10-15 सेकंड" : "Whisper AI processing — 10–15 sec"}
@@ -237,18 +259,22 @@ export default function HoldToSpeakMic({ onAudioChange, onTranscript }: Props) {
 
         {isDone && !isTranscribing && (
           <div style={{ fontSize: 14, fontWeight: 700, color: "#15803d", textAlign: "center" }}>
-            ✅ {t.voiceRecordedSuccess} ({fmt(seconds)})
-            <br />
-            <button type="button" onClick={deleteRecording} style={{ ...S.del, fontSize: 13, marginTop: 4 }}>
-              🔄 {lang === "hi" ? "दोबारा बोलें" : "Re-record"}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <CheckCircle2 size={16} color="#15803d" />
+              <span>{t.voiceRecordedSuccess} ({fmt(seconds)})</span>
+            </div>
+            <button type="button" onClick={deleteRecording} style={{ ...S.del, fontSize: 13, marginTop: 4, display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <RotateCcw size={12} />
+              <span>{lang === "hi" ? "दोबारा बोलें" : "Re-record"}</span>
             </button>
           </div>
         )}
 
         {phase === "idle" && (
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontWeight: 800, fontSize: 16, color: "var(--text)" }}>
-              {lang === "hi" ? "🎙️ दबाएं और बोलें" : "🎙️ Tap & Speak"}
+            <div style={{ fontWeight: 800, fontSize: 16, color: "var(--text)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <Mic size={18} />
+              <span>{lang === "hi" ? "दबाएं और बोलें" : "Tap & Speak"}</span>
             </div>
             <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 3 }}>
               {lang === "hi" ? "Brave, Chrome, Firefox — सब में काम करता है" : "Works in Brave, Chrome & Firefox"}
@@ -263,7 +289,10 @@ export default function HoldToSpeakMic({ onAudioChange, onTranscript }: Props) {
           {audioUrl && !isTranscribing && (
             <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontWeight: 800, fontSize: 14, color: "#15803d" }}>✅ {t.voiceRecordedSuccess}</span>
+                <span style={{ fontWeight: 800, fontSize: 14, color: "#15803d", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <CheckCircle2 size={16} color="#15803d" />
+                  <span>{t.voiceRecordedSuccess}</span>
+                </span>
                 <button type="button" onClick={deleteRecording} style={S.del}>{t.voiceDelete}</button>
               </div>
               {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
@@ -274,17 +303,21 @@ export default function HoldToSpeakMic({ onAudioChange, onTranscript }: Props) {
           {/* Transcript */}
           <div style={S.txBox}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-              <span style={{ fontWeight: 800, fontSize: 13, color: "#1e3a8a" }}>✍️ {t.convertedTextTitle}</span>
+              <span style={{ fontWeight: 800, fontSize: 13, color: "#1e3a8a", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <PenTool size={14} color="#1e3a8a" />
+                <span>{t.convertedTextTitle}</span>
+              </span>
               {detLang && !isTranscribing && (
                 <span style={S.badge}>
-                  {detLang === "hi" ? "🇮🇳 " + t.detectedHindi : "🇬🇧 " + t.detectedEnglish}
+                  {detLang === "hi" ? t.detectedHindi : t.detectedEnglish}
                 </span>
               )}
             </div>
 
             {isTranscribing ? (
-              <div style={{ fontSize: 13, color: "#7c3aed", fontWeight: 600 }}>
-                {lang === "hi" ? "⏳ Whisper AI text बना रहा है…" : "⏳ Whisper AI is transcribing your audio…"}
+              <div style={{ fontSize: 13, color: "#7c3aed", fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                <Loader2 size={13} className="animate-spin" />
+                <span>{lang === "hi" ? "Whisper AI text बना रहा है…" : "Whisper AI is transcribing your audio…"}</span>
               </div>
             ) : transcript ? (
               <textarea
@@ -295,10 +328,13 @@ export default function HoldToSpeakMic({ onAudioChange, onTranscript }: Props) {
                 placeholder={lang === "hi" ? "यहाँ सुधार सकते हैं…" : "Edit if needed…"}
               />
             ) : (
-              <div style={{ fontSize: 13, color: "#6b7280", fontStyle: "italic" }}>
-                {lang === "hi"
-                  ? "⚠️ आवाज़ नहीं पकड़ी। दोबारा बोलें या नीचे टाइप करें।"
-                  : "⚠️ No speech in audio. Try again or type below."}
+              <div style={{ fontSize: 13, color: "#6b7280", fontStyle: "italic", display: "flex", alignItems: "center", gap: 6 }}>
+                <AlertTriangle size={14} color="#d97706" />
+                <span>
+                  {lang === "hi"
+                    ? "आवाज़ नहीं पकड़ी। दोबारा बोलें या नीचे टाइप करें।"
+                    : "No speech in audio. Try again or type below."}
+                </span>
               </div>
             )}
           </div>

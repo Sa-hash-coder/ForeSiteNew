@@ -16,6 +16,8 @@ import {
   Info,
   CheckCheck,
   ExternalLink,
+  Menu,
+  MapPin,
 } from "lucide-react";
 import { getStoredUser } from "@/app/lib/auth";
 
@@ -376,7 +378,7 @@ function WorkerAppContent({ children }: { children: React.ReactNode }) {
               style={s.hamburgerBtn}
               aria-label="Toggle Menu"
             >
-              ☰
+              <Menu size={20} />
             </button>
 
             {/* Mobile Brand Title */}
@@ -680,7 +682,9 @@ function WorkerAppContent({ children }: { children: React.ReactNode }) {
                               </p>
                               <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--text-light)" }}>
                                 {item.location && (
-                                  <span style={{ fontWeight: 600 }}>📍 {item.location}</span>
+                                  <span style={{ fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                                    <MapPin size={11} /> {item.location}
+                                  </span>
                                 )}
                                 <span>·</span>
                                 <span>{getTimeAgo(item.timestamp)}</span>

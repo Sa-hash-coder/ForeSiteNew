@@ -5,6 +5,19 @@ import Link from 'next/link';
 import { MOCK_REPORTS, MAINTENANCE_TASKS } from '@/app/lib/officerMockData';
 import { getReportByIdApi, createTaskApi, updateReportStatusApi, getTasksApi } from '@/app/lib/api';
 import { MAINTENANCE_CREWS } from '@/app/officer/tasks/page';
+import {
+  CheckCircle2,
+  MapPin,
+  User,
+  Clock,
+  Bot,
+  AlertTriangle,
+  Zap,
+  Wrench,
+  X,
+  Lock,
+  RefreshCw,
+} from 'lucide-react';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -261,7 +274,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
           fontSize: 13, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8,
           fontWeight: 600,
         }}>
-          <span>✅</span> {toast}
+          <CheckCircle2 size={16} color="#10b981" /> <span>{toast}</span>
         </div>
       )}
 
@@ -295,14 +308,14 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               {report.title}
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                📍 {report.location} · {report.zone}
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <MapPin size={13} /> {report.location} · {report.zone}
               </div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                👤 {report.submittedBy} · {report.department}
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <User size={13} /> {report.submittedBy} · {report.department}
               </div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                🕐 {timeAgo(report.createdAt)}
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Clock size={13} /> {timeAgo(report.createdAt)}
               </div>
             </div>
           </div>
@@ -328,9 +341,9 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
               width: 34, height: 34, borderRadius: 8, background: '#0A192F', color: '#fff',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              🤖
+              <Bot size={18} />
             </div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
@@ -363,8 +376,9 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                 <span key={i} style={{
                   padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700,
                   backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A',
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
                 }}>
-                  ⚠️ {p}
+                  <AlertTriangle size={11} /> {p}
                 </span>
               ))}
             </div>
@@ -403,11 +417,11 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                 style={{
                   padding: '6px 14px', borderRadius: 6, backgroundColor: '#0A192F', color: '#FFFFFF',
                   border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
-                  display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
                 }}
                 title="Create Maintenance Work Order from this recommendation"
               >
-                ⚡ Dispatch WO
+                <Zap size={12} /> Dispatch WO
               </button>
             </div>
           ))}
@@ -417,8 +431,8 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       {/* Maintenance Tasks Assigned to this Report */}
       <div style={card}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>
-            🔧 Dispatched Maintenance Work Orders ({tasksToDisplay.length})
+          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Wrench size={16} /> Dispatched Maintenance Work Orders ({tasksToDisplay.length})
           </div>
           <button
             onClick={() => setShowDispatchModal(true)}
@@ -443,22 +457,28 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                 display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
                 borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-subtle)',
               }}>
-                <span style={taskStatusStyle(task.status)}>
-                  {task.status === 'done' || task.status === 'officer_verified'
-                    ? '✅ Cleared & Resolved'
-                    : task.status === 'clearance_submitted'
-                    ? '⚡ Clearance Review'
-                    : task.status === 'in_progress'
-                    ? '🔄 In Progress'
-                    : '🕐 Dispatched'}
+                <span style={{ ...taskStatusStyle(task.status), display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  {task.status === 'done' || task.status === 'officer_verified' ? (
+                    <><CheckCircle2 size={11} strokeWidth={2.5} /> Cleared &amp; Resolved</>
+                  ) : task.status === 'clearance_submitted' ? (
+                    <><Zap size={11} /> Clearance Review</>
+                  ) : task.status === 'in_progress' ? (
+                    <><RefreshCw size={11} /> In Progress</>
+                  ) : (
+                    <><Clock size={11} /> Dispatched</>
+                  )}
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
                     {task.orderNumber ? `[${task.orderNumber}] ` : ''}{task.title}
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                     Assigned Crew: <strong style={{ color: '#0F172A' }}>{task.assignedCrew || task.assignedTo || 'Maintenance Response Team'}</strong>
-                    {task.location ? ` · 📍 ${task.location}` : ''}
+                    {task.location && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                        · <MapPin size={10} /> {task.location}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <Link href="/officer/tasks">
@@ -484,17 +504,17 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             display: 'flex', alignItems: 'center', gap: 8,
           }}
         >
-          <span>🔧</span> Assign Maintenance Task
+          <Wrench size={16} /> Assign Maintenance Task
         </button>
         <button
           onClick={handleMarkResolved}
           style={{
             padding: '10px 22px', background: 'var(--surface)', color: 'var(--success)',
             border: '1.5px solid var(--success)', borderRadius: 10, fontSize: 14, fontWeight: 700,
-            cursor: 'pointer',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
           }}
         >
-          ✅ Mark Report Resolved
+          <CheckCircle2 size={16} strokeWidth={2.4} /> Mark Report Resolved
         </button>
         <div style={{ marginLeft: 'auto' }}>
           <Link href="/officer/reports" style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>
@@ -521,7 +541,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               background: 'var(--surface-subtle)',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 18 }}>🔧</span>
+                <Wrench size={18} style={{ color: '#0A192F' }} />
                 <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>
                   Dispatch Work Order to Maintenance Team
                 </span>
@@ -529,9 +549,9 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               <button
                 type="button"
                 onClick={() => setShowDispatchModal(false)}
-                style={{ background: 'none', border: 'none', fontSize: 18, color: 'var(--text-muted)', cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 
@@ -541,7 +561,9 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>REPORT INCIDENT:</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginTop: 2 }}>{report.title}</div>
-                <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>📍 {report.location}</div>
+                <div style={{ fontSize: 11, color: '#64748B', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <MapPin size={11} /> {report.location}
+                </div>
               </div>
 
               <div>
@@ -589,8 +611,8 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                       onChange={e => setDispatchLoto(e.target.checked)}
                       style={{ width: 16, height: 16, accentColor: '#dc2626' }}
                     />
-                    <span style={{ fontSize: 12, fontWeight: 700, color: dispatchLoto ? '#dc2626' : 'var(--text)' }}>
-                      🔒 LOTO Required
+                    <span style={{ fontSize: 12, fontWeight: 700, color: dispatchLoto ? '#dc2626' : 'var(--text)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                      <Lock size={12} /> LOTO Required
                     </span>
                   </label>
                 </div>

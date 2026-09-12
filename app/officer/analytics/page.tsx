@@ -9,6 +9,7 @@ import {
   RealRiskHistogramChart,
 } from '@/app/components/AnalyticsCharts';
 import { getAllReportsApi, getAlertsApi, getDashboardStatsApi } from '@/app/lib/api';
+import { Clock, ClipboardList, AlertTriangle, Radio } from 'lucide-react';
 
 type Range = '7d' | '30d' | '3m';
 
@@ -259,14 +260,55 @@ export default function AnalyticsPage() {
       {/* KPI mini stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
         {[
-          { label: 'Avg Resolution Time', value: '2.4 days', icon: '⏱', delta: '-0.6d vs last wk' },
-          { label: 'Total Incident Reports', value: String(activeReportsCount), icon: '📋', delta: '+12% this month' },
-          { label: 'Critical SIF Alerts', value: String(criticalCount), icon: '⚠️', delta: 'High Priority' },
-          { label: 'Active Monitored Zones', value: '8 Zones', icon: '🔄', delta: 'Telemetry Active' },
+          {
+            label: 'Avg Resolution Time',
+            value: '2.4 days',
+            icon: <Clock size={18} />,
+            color: 'var(--primary)',
+            bg: 'var(--primary-light)',
+            delta: '-0.6d vs last wk',
+          },
+          {
+            label: 'Total Incident Reports',
+            value: String(activeReportsCount),
+            icon: <ClipboardList size={18} />,
+            color: '#0284c7',
+            bg: 'rgba(2, 132, 199, 0.1)',
+            delta: '+12% this month',
+          },
+          {
+            label: 'Critical SIF Alerts',
+            value: String(criticalCount),
+            icon: <AlertTriangle size={18} />,
+            color: 'var(--danger)',
+            bg: 'rgba(220, 38, 38, 0.1)',
+            delta: 'High Priority',
+          },
+          {
+            label: 'Active Monitored Zones',
+            value: '8 Zones',
+            icon: <Radio size={18} />,
+            color: 'var(--success)',
+            bg: 'rgba(21, 128, 61, 0.1)',
+            delta: 'Telemetry Active',
+          },
         ].map((stat) => (
           <div key={stat.label} style={{ ...card, padding: '16px 20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 22 }}>{stat.icon}</span>
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  backgroundColor: stat.bg,
+                  color: stat.color,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {stat.icon}
+              </div>
               <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', backgroundColor: 'var(--surface-subtle)', padding: '2px 8px', borderRadius: 999 }}>
                 {stat.delta}
               </span>

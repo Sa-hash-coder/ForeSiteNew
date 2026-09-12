@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { MOCK_REPORTS, OfficerReport, ReportStatus, Severity } from '@/app/lib/officerMockData';
 import { exportToCSV, exportToExcel, ExportColumn } from '@/app/lib/exportUtils';
 import { getAllReportsApi } from '@/app/lib/api';
+import { FileSpreadsheet, FileText, Download, Eye } from 'lucide-react';
 
 const REPORT_EXPORT_COLUMNS: ExportColumn<OfficerReport>[] = [
   { header: 'Report ID', accessor: r => r._id },
@@ -215,7 +216,7 @@ export default function ReportsPage() {
           padding: '12px 20px', boxShadow: '0 8px 24px rgba(79, 70, 229, 0.18)',
           fontSize: 14, fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 10,
         }}>
-          <span style={{ fontSize: 18 }}>📥</span>
+          <Download size={18} style={{ color: 'var(--primary)' }} />
           <span>{toastMsg}</span>
         </div>
       )}
@@ -235,43 +236,36 @@ export default function ReportsPage() {
         {/* Export Dropdown Menu */}
         <div style={{ position: 'relative' }}>
           <button
-            onClick={() => setShowExportMenu(!showExportMenu)}
+            onClick={() => setShowExportMenu(prev => !prev)}
             style={{
-              padding: '8px 16px', background: 'var(--surface)', border: '1px solid var(--border)',
-              borderRadius: 10, fontSize: 13, fontWeight: 600, color: 'var(--text)',
-              transition: 'all 0.15s ease', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
-              boxShadow: 'var(--shadow-sm)',
+              padding: '8px 16px', border: '1.5px solid var(--border)', borderRadius: 10,
+              background: 'var(--surface)', color: 'var(--text)', fontSize: 13, fontWeight: 600,
+              display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.06)', transition: 'all 0.15s ease',
             }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-subtle)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            <span>Export</span>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showExportMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }}>
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
+            <Download size={15} />
+            <span>Export Reports</span>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>▼</span>
           </button>
 
           {showExportMenu && (
             <>
+              {/* Backdrop */}
               <div
                 onClick={() => setShowExportMenu(false)}
-                style={{ position: 'fixed', inset: 0, zIndex: 90 }}
+                style={{ position: 'fixed', inset: 0, zIndex: 400 }}
               />
-              <div
-                style={{
-                  position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 100,
-                  background: 'var(--surface)', border: '1px solid var(--border)',
-                  borderRadius: 12, padding: '6px', minWidth: 230,
-                  boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column', gap: 2,
-                }}
-              >
+              <div style={{
+                position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 500,
+                background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
+                boxShadow: '0 10px 30px rgba(0,0,0,0.14)', padding: 6, minWidth: 230,
+                display: 'flex', flexDirection: 'column', gap: 2,
+              }}>
                 <div style={{ padding: '6px 10px 4px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Filtered Reports ({filtered.length})
+                  Current View ({filtered.length})
                 </div>
                 <button
                   onClick={() => handleExportCSV('filtered')}
@@ -284,7 +278,7 @@ export default function ReportsPage() {
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--primary-light)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                 >
-                  <span style={{ fontSize: 16 }}>📊</span>
+                  <FileText size={16} color="#0284c7" />
                   <div>
                     <div style={{ fontWeight: 600 }}>Download CSV</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Universal tabular (.csv)</div>
@@ -301,7 +295,7 @@ export default function ReportsPage() {
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--primary-light)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                 >
-                  <span style={{ fontSize: 16 }}>📗</span>
+                  <FileSpreadsheet size={16} color="#16a34a" />
                   <div>
                     <div style={{ fontWeight: 600 }}>Download Excel</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Styled workbook (.xls)</div>
@@ -325,7 +319,7 @@ export default function ReportsPage() {
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--primary-light)'; }}
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                     >
-                      <span style={{ fontSize: 16 }}>📊</span>
+                      <FileText size={16} color="#0284c7" />
                       <div>
                         <div style={{ fontWeight: 600 }}>All Reports (CSV)</div>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Complete archive (.csv)</div>
@@ -342,7 +336,7 @@ export default function ReportsPage() {
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--primary-light)'; }}
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                     >
-                      <span style={{ fontSize: 16 }}>📗</span>
+                      <FileSpreadsheet size={16} color="#16a34a" />
                       <div>
                         <div style={{ fontWeight: 600 }}>All Reports (Excel)</div>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Complete archive (.xls)</div>
@@ -458,12 +452,13 @@ export default function ReportsPage() {
                           width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--border)',
                           background: '#fff', fontSize: 15, transition: 'all 0.15s ease',
                           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          cursor: 'pointer',
                         }}
                           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--primary-light)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary)'; }}
                           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#fff'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
                           title="View Report"
                         >
-                          👁
+                          <Eye size={15} color="var(--primary)" />
                         </button>
                       </Link>
                     </td>

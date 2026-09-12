@@ -4,6 +4,7 @@ import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { loginApi } from "@/app/lib/api";
 import { saveAuth } from "@/app/lib/auth";
+import { ShieldAlert, AlertTriangle } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,7 +32,9 @@ export default function LoginPage() {
     <div style={styles.page}>
       {/* Header strip */}
       <div style={styles.header}>
-        <span style={styles.headerLogo}>⚠</span>
+        <span style={styles.headerLogo}>
+          <ShieldAlert size={20} color="#ffffff" />
+        </span>
         <span style={styles.headerTitle}>ForeSite</span>
       </div>
 
@@ -41,7 +44,7 @@ export default function LoginPage() {
 
         {error && (
           <div style={styles.errorBox}>
-            <span>⚠</span> {error}
+            <AlertTriangle size={16} style={{ flexShrink: 0 }} /> <span>{error}</span>
           </div>
         )}
 

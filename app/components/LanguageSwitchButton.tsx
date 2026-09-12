@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useLanguage } from "@/app/lib/LanguageContext";
+import { Globe } from "lucide-react";
 
 interface Props {
   variant?: "header" | "pill" | "badge" | "bottom-nav" | "compact";
@@ -36,7 +37,7 @@ export default function LanguageSwitchButton({ variant = "header", className = "
         title="भाषा बदलें / Switch Language"
         aria-label="Switch Language"
       >
-        <span style={{ fontSize: 18, lineHeight: 1, marginBottom: 3 }}>🌐</span>
+        <Globe size={18} style={{ marginBottom: 3 }} />
         <span>{lang === "en" ? "हिंदी" : "Eng"}</span>
       </button>
     );
@@ -65,7 +66,7 @@ export default function LanguageSwitchButton({ variant = "header", className = "
         title="भाषा बदलें / Switch Language"
         aria-label="Switch Language"
       >
-        <span style={{ fontSize: 14 }}>🌐</span>
+        <Globe size={14} />
         <span>{lang === "en" ? "हिंदी" : "EN"}</span>
       </button>
     );
@@ -96,7 +97,7 @@ export default function LanguageSwitchButton({ variant = "header", className = "
       title="भाषा बदलें / Switch Language (Hindi / English)"
       aria-label="Switch Language"
     >
-      <span style={{ fontSize: 15 }}>🌐</span>
+      <Globe size={15} style={{ color: "var(--primary)" }} />
       <span style={{ color: "var(--primary)" }}>
         {lang === "en" ? "हिंदी" : "English"}
       </span>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { submitReportApi } from "@/app/lib/api";
 import { useLanguage } from "@/app/lib/LanguageContext";
 import HoldToSpeakMic from "@/app/components/HoldToSpeakMic";
+import { CheckCircle2, AlertTriangle } from "lucide-react";
 
 export default function SubmitReportPage() {
   const router = useRouter();
@@ -38,45 +39,27 @@ export default function SubmitReportPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setError("");
-
-    if (!location) {
-      setError(t.errLocation);
-      return;
-    }
-
-    // Check that at least one of Voice Note, Text, or Photo is provided
-    if (!audioBase64 && !description.trim() && !imageBase64) {
-      setError(t.errNoInput);
+    if (!description.trim() && !audioBase64 && !imageBase64) {
+      setError(lang === "hi" ? "कृपया विवरण लिखें, बोलें या फ़ोटो अपलोड करें।" : "Please provide a description, speak or upload a photo.");
       return;
     }
 
     setSubmitting(true);
-
-    const generatedTitle = description.trim()
-      ? description.trim().slice(0, 60)
-      : (lang === "hi" ? `ख़तरे की रिपोर्ट - ${location}` : `Hazard Report - ${location}`);
-
-    const finalDescription = description.trim()
-      ? description.trim()
-      : (lang === "hi" ? "श्रमिक द्वारा वॉयस नोट / फ़ोटो संलग्न की गई है।" : "Voice note or hazard photo attached by worker.");
+    setError("");
 
     try {
       await submitReportApi({
-        title: generatedTitle,
-        description: finalDescription,
-        location,
-        category: "unsafe_condition", // Defaulted for API, AI computes exact hazard
-        severity: "high",             // Defaulted for API, AI calculates exact risk score
-        ...(imageBase64 ? { imageUrl: imageBase64 } : {}),
-        ...(audioBase64 ? { audioUrl: audioBase64 } : {}),
+        title: description.slice(0, 50) || "Worker Field Hazard Report",
+        description,
+        location: location || "Plant Floor",
+        category: "unsafe_condition",
+        severity: "high",
+        imageUrl: imageBase64 || undefined,
+        audioUrl: audioBase64 || undefined,
       });
       setSuccess(true);
-    } catch {
-      // In standalone frontend preview mode, simulate success
-      setTimeout(() => {
-        setSuccess(true);
-      }, 400);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : (lang === "hi" ? "रिपोर्ट सबमिट करने में विफल। कृपया पुन: प्रयास करें।" : "Failed to submit report. Please try again."));
     } finally {
       setSubmitting(false);
     }
@@ -85,7 +68,9 @@ export default function SubmitReportPage() {
   if (success) {
     return (
       <div className="apple-card animate-apple-scale-in" style={s.successCard}>
-        <div style={s.successIcon}>✅</div>
+        <div style={{ ...s.successIcon, display: 'flex', justifyContent: 'center' }}>
+          <CheckCircle2 size={52} color="#16a34a" strokeWidth={2.2} />
+        </div>
         <h2 style={s.successTitle}>{t.submitSuccessTitle}</h2>
         <p style={s.successMsg}>{t.submitSuccessMsg}</p>
         <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
@@ -116,7 +101,12 @@ export default function SubmitReportPage() {
       <h1 style={s.pageTitle}>{t.submitTitle}</h1>
       <p style={s.pageSubtitle}>{t.submitSubtitle}</p>
 
-      {error && <div style={s.errorBox}>⚠️ {error}</div>}
+      {error && (
+        <div style={{ ...s.errorBox, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <AlertTriangle size={18} style={{ flexShrink: 0 }} />
+          <span>{error}</span>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="apple-card" style={s.form}>
         {/* Step 1: Location Selection */}

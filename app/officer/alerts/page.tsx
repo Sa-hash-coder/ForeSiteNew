@@ -4,6 +4,18 @@ import { useEffect, useState, CSSProperties } from 'react';
 import { getAlertsApi, acknowledgeAlertApi, createTaskApi } from '@/app/lib/api';
 import Link from 'next/link';
 import { ACTIVE_ALERTS, ActiveAlert } from '@/app/lib/officerMockData';
+import {
+  CheckCircle2,
+  Zap,
+  AlertTriangle,
+  Check,
+  MapPin,
+  User,
+  Clock,
+  Eye,
+  Bot,
+  Undo2,
+} from 'lucide-react';
 
 // ─── Extended Alert with AI Suggestions ──────────────────────────────────────
 
@@ -260,7 +272,7 @@ export default function AlertsPage() {
           borderRadius: 8, boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
           display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 700,
         }}>
-          <span>✅</span> {toast}
+          <CheckCircle2 size={16} color="#10b981" /> <span>{toast}</span>
         </div>
       )}
 
@@ -291,8 +303,8 @@ export default function AlertsPage() {
         padding: '12px 18px', marginBottom: 20, fontSize: 13, color: '#991b1b',
         display: 'flex', alignItems: 'center', gap: 8,
       }}>
-        <span>⚡</span>
-        Showing real-time automated SIF hazard detections with model-generated OSHA recommendations.
+        <Zap size={16} style={{ flexShrink: 0 }} />
+        <span>Showing real-time automated SIF hazard detections with model-generated OSHA recommendations.</span>
       </div>
 
       {/* Filter tabs */}
@@ -312,7 +324,17 @@ export default function AlertsPage() {
               borderRight: i < 2 ? '1px solid var(--border)' : 'none',
               display: 'flex', alignItems: 'center', gap: 7,
             }}>
-              {t === 'all' ? 'All' : t === 'critical' ? '🔴 Critical' : '🟠 High'}
+              {t === 'all' ? 'All' : t === 'critical' ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#dc2626', display: 'inline-block' }}></span>
+                  Critical
+                </span>
+              ) : (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#ea580c', display: 'inline-block' }}></span>
+                  High
+                </span>
+              )}
               <span style={{
                 background: tab === t ? 'rgba(255,255,255,0.25)' : 'var(--surface-subtle)',
                 color: tab === t ? '#fff' : 'var(--text-muted)',
@@ -327,9 +349,10 @@ export default function AlertsPage() {
       {filtered.length === 0 ? (
         <div style={{
           ...card, padding: '48px', textAlign: 'center', color: 'var(--text-muted)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
         }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
-          <div style={{ fontSize: 14, fontWeight: 500 }}>No alerts for this category</div>
+          <CheckCircle2 size={36} color="#10b981" style={{ marginBottom: 12 }} />
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>No alerts for this category</div>
           <div style={{ fontSize: 12, marginTop: 4 }}>All risks in this severity level have been addressed.</div>
         </div>
       ) : (
@@ -382,17 +405,17 @@ export default function AlertsPage() {
                       )}
                       {alert.acknowledged && (
                         <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
-                          ✓ Acknowledged
+                          <Check size={12} strokeWidth={2.5} /> Acknowledged
                         </span>
                       )}
                     </div>
 
                     <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', marginBottom: 4 }}>{alert.title}</div>
                     
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                      <span>📍 {alert.location || alert.zone}</span>
-                      <span>👤 {alert.submittedBy}</span>
-                      <span>🕐 {alert.timeAgo}</span>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><MapPin size={12} /> {alert.location || alert.zone}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><User size={12} /> {alert.submittedBy}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Clock size={12} /> {alert.timeAgo}</span>
                     </div>
 
                     {/* Precursor Tags */}
@@ -402,8 +425,9 @@ export default function AlertsPage() {
                           <span key={idx} style={{
                             fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
                             backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A',
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
                           }}>
-                            ⚠️ Precursor: {p}
+                            <AlertTriangle size={11} /> Precursor: {p}
                           </span>
                         ))}
                       </div>
@@ -418,7 +442,7 @@ export default function AlertsPage() {
                       border: '1px solid var(--border)',
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                        <span style={{ fontSize: 14 }}>🤖</span>
+                        <Bot size={15} style={{ color: 'var(--primary)' }} />
                         <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text)' }}>
                           AI Recommended Solutions &amp; Remediation (OSHA 1910):
                         </span>
@@ -452,8 +476,9 @@ export default function AlertsPage() {
                         padding: '8px 16px', border: '1px solid var(--border)', borderRadius: 8,
                         background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontWeight: 600,
                         transition: 'all 0.15s ease', whiteSpace: 'nowrap' as const, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                       }}>
-                        👁 View Report
+                        <Eye size={13} /> View Report
                       </button>
                     </Link>
                     <button
@@ -462,10 +487,11 @@ export default function AlertsPage() {
                         padding: '8px 16px', border: 'none', borderRadius: 8,
                         background: '#0A192F', color: '#fff', fontSize: 12, fontWeight: 700,
                         transition: 'all 0.15s ease', whiteSpace: 'nowrap' as const, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                       }}
                       title="Dispatch maintenance work order based on AI suggestions"
                     >
-                      ⚡ Dispatch Task
+                      <Zap size={13} /> Dispatch Task
                     </button>
                     <button
                       onClick={() => toggle(alert._id)}
@@ -474,9 +500,18 @@ export default function AlertsPage() {
                         borderRadius: 8, background: 'var(--surface)',
                         color: alert.acknowledged ? 'var(--text-muted)' : '#16a34a',
                         fontSize: 12, fontWeight: 600, transition: 'all 0.15s ease', whiteSpace: 'nowrap' as const, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
                       }}
                     >
-                      {alert.acknowledged ? '↩ Unacknowledge' : '✓ Acknowledge'}
+                      {alert.acknowledged ? (
+                        <>
+                          <Undo2 size={12} /> Unacknowledge
+                        </>
+                      ) : (
+                        <>
+                          <Check size={12} strokeWidth={2.5} /> Acknowledge
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -489,7 +524,7 @@ export default function AlertsPage() {
                   padding: '7px 18px', fontSize: 12, fontWeight: 700, color: '#dc2626',
                   display: 'flex', alignItems: 'center', gap: 6,
                 }}>
-                  <span>⚡</span> High-priority SIF alert — Immediate supervisor verification required under OSHA 1910
+                  <Zap size={13} /> High-priority SIF alert — Immediate supervisor verification required under OSHA 1910
                 </div>
               )}
             </div>

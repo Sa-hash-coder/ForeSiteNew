@@ -7,6 +7,7 @@ import { MOCK_REPORTS } from "@/app/lib/mockData";
 import { useLanguage } from "@/app/lib/LanguageContext";
 import StatusBadge from "@/app/components/StatusBadge";
 import DangerBadge from "@/app/components/DangerBadge";
+import { Inbox, MapPin } from "lucide-react";
 
 export default function MyReportsPage() {
   const { lang, t } = useLanguage();
@@ -66,8 +67,8 @@ export default function MyReportsPage() {
       </div>
 
       {filtered.length === 0 && (
-        <div className="apple-card animate-apple-scale-in" style={s.emptyBox}>
-          <p style={{ fontSize: "32px", marginBottom: "8px" }}>📭</p>
+        <div className="apple-card animate-apple-scale-in" style={{ ...s.emptyBox, display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <Inbox size={40} color="var(--text-muted)" style={{ marginBottom: 8 }} />
           <p style={{ fontWeight: 600, color: "var(--text)" }}>
             {t.noReportsYet}
           </p>
@@ -87,7 +88,7 @@ export default function MyReportsPage() {
             </div>
 
             <div style={s.cardMeta}>
-              <span>📍 {displayLocation}</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><MapPin size={12} /> {displayLocation}</span>
               <span>•</span>
               <span>
                 {new Date(r.createdAt).toLocaleDateString(

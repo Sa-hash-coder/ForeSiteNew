@@ -5,6 +5,20 @@ import Link from 'next/link';
 import { MAINTENANCE_TASKS, MaintenanceTask, TaskStatus } from '@/app/lib/officerMockData';
 import { exportToCSV, exportToExcel, ExportColumn } from '@/app/lib/exportUtils';
 import { getTasksApi, updateTaskApi, createTaskApi } from '@/app/lib/api';
+import {
+  CheckCircle2,
+  Clock,
+  RefreshCw,
+  ShieldCheck,
+  Plus,
+  FileSpreadsheet,
+  FileText,
+  Wrench,
+  AlertTriangle,
+  X,
+  Lock,
+  Zap,
+} from 'lucide-react';
 
 const TASK_EXPORT_COLUMNS: ExportColumn<MaintenanceTask>[] = [
   { header: 'Task ID', accessor: (t: MaintenanceTask) => t._id },
@@ -30,17 +44,24 @@ export const MAINTENANCE_CREWS = [
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function taskStatusBadge(s: TaskStatus): CSSProperties {
-  if (s === 'done') return { background: 'var(--success-light)', color: 'var(--success)', borderRadius: 999, padding: '2px 10px', fontSize: 11, fontWeight: 700, display: 'inline-block' };
-  if (s === 'clearance_submitted') return { background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe', borderRadius: 999, padding: '2px 10px', fontSize: 11, fontWeight: 700, display: 'inline-block' };
-  if (s === 'in_progress') return { background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 999, padding: '2px 10px', fontSize: 11, fontWeight: 700, display: 'inline-block' };
-  return { background: 'var(--warning-light)', color: 'var(--warning)', borderRadius: 999, padding: '2px 10px', fontSize: 11, fontWeight: 700, display: 'inline-block' };
+  if (s === 'done') return { background: 'var(--success-light)', color: 'var(--success)', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 };
+  if (s === 'clearance_submitted') return { background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 };
+  if (s === 'in_progress') return { background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 };
+  return { background: 'var(--warning-light)', color: 'var(--warning)', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 };
 }
 
 function taskStatusLabel(s: TaskStatus) {
-  if (s === 'done') return '✅ Done & Cleared';
-  if (s === 'clearance_submitted') return '⚡ Clearance Submitted';
-  if (s === 'in_progress') return '🔄 In Progress';
-  return '🕐 Pending';
+  if (s === 'done') return 'Done & Cleared';
+  if (s === 'clearance_submitted') return 'Clearance Submitted';
+  if (s === 'in_progress') return 'In Progress';
+  return 'Pending';
+}
+
+function taskStatusIcon(s: TaskStatus) {
+  if (s === 'done') return <CheckCircle2 size={12} />;
+  if (s === 'clearance_submitted') return <ShieldCheck size={12} />;
+  if (s === 'in_progress') return <RefreshCw size={11} />;
+  return <Clock size={11} />;
 }
 
 function priorityBadge(p: string): CSSProperties {
@@ -268,12 +289,12 @@ export default function TasksPage() {
     boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '18px 20px', marginBottom: 12,
   };
 
-  const FILTERS: { key: FilterTab; label: string }[] = [
+  const FILTERS: { key: FilterTab; label: string; icon?: React.ReactNode }[] = [
     { key: 'all', label: 'All Tasks' },
-    { key: 'pending', label: '🕐 Pending Assignment' },
-    { key: 'in_progress', label: '🔄 In Progress' },
-    { key: 'clearance_submitted', label: `⚡ Clearance Review (${stats.clearance_submitted})` },
-    { key: 'done', label: '✅ Completed & Cleared' },
+    { key: 'pending', label: 'Pending Assignment', icon: <Clock size={13} /> },
+    { key: 'in_progress', label: 'In Progress', icon: <RefreshCw size={13} /> },
+    { key: 'clearance_submitted', label: `Clearance Review (${stats.clearance_submitted})`, icon: <ShieldCheck size={13} /> },
+    { key: 'done', label: 'Completed & Cleared', icon: <CheckCircle2 size={13} /> },
   ];
 
   if (loading) {
@@ -297,7 +318,7 @@ export default function TasksPage() {
           fontSize: 13, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8,
           fontWeight: 600,
         }}>
-          <span>✅</span> {toast}
+          <CheckCircle2 size={16} color="var(--success)" /> {toast}
         </div>
       )}
 
@@ -322,8 +343,8 @@ export default function TasksPage() {
             transition: 'transform 0.1s ease',
           }}
         >
-          <span>⚡</span>
-          <span>+ Dispatch New Work Order</span>
+          <Plus size={16} />
+          <span>Dispatch New Work Order</span>
         </button>
       </div>
 
@@ -333,7 +354,7 @@ export default function TasksPage() {
           { label: 'Total Tasks', value: stats.total, color: 'var(--primary)' },
           { label: 'Pending Assignment', value: stats.pending, color: 'var(--warning)' },
           { label: 'In Progress (Assigned)', value: stats.in_progress, color: 'var(--primary)' },
-          { label: '⚡ Clearance Review', value: stats.clearance_submitted, color: '#7c3aed' },
+          { label: 'Clearance Review', value: stats.clearance_submitted, color: '#7c3aed' },
           { label: 'Completed Clearance', value: stats.done, color: 'var(--success)' },
         ].map(s => (
           <div key={s.label} style={{
@@ -362,8 +383,12 @@ export default function TasksPage() {
               transition: 'all 0.15s ease',
               borderRight: i < FILTERS.length - 1 ? '1px solid var(--border)' : 'none',
               cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
             }}>
-              {f.label}
+              {f.icon}
+              <span>{f.label}</span>
             </button>
           ))}
         </div>
@@ -420,7 +445,7 @@ export default function TasksPage() {
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--primary-light)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                 >
-                  <span style={{ fontSize: 16 }}>📊</span>
+                  <FileSpreadsheet size={18} color="var(--primary)" />
                   <div>
                     <div style={{ fontWeight: 600 }}>Download CSV</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Universal tabular (.csv)</div>
@@ -437,7 +462,7 @@ export default function TasksPage() {
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--primary-light)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                 >
-                  <span style={{ fontSize: 16 }}>📗</span>
+                  <FileText size={18} color="var(--success)" />
                   <div>
                     <div style={{ fontWeight: 600 }}>Download Excel</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Styled workbook (.xls)</div>
@@ -456,7 +481,7 @@ export default function TasksPage() {
           padding: '48px', textAlign: 'center', color: 'var(--text-muted)',
           boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
         }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
+          <CheckCircle2 size={36} color="var(--success)" style={{ margin: '0 auto 8px', opacity: 0.8 }} />
           <div style={{ fontSize: 14, fontWeight: 500 }}>No tasks in this category</div>
         </div>
       ) : (
@@ -499,16 +524,17 @@ export default function TasksPage() {
                         <span style={{
                           fontSize: 12, fontWeight: 700, color: '#0A192F',
                           background: '#E2E8F0', padding: '2px 10px', borderRadius: 6,
-                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
                         }}>
-                          🛠️ {task.assignedTo}
+                          <Wrench size={12} strokeWidth={2.2} /> {task.assignedTo}
                         </span>
                       ) : (
                         <span style={{
                           fontSize: 11, fontWeight: 700, color: '#dc2626',
                           background: '#fef2f2', padding: '2px 8px', borderRadius: 6,
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
                         }}>
-                          ⚠️ Unassigned
+                          <AlertTriangle size={11} strokeWidth={2.2} /> Unassigned
                         </span>
                       )}
                     </div>
@@ -536,7 +562,7 @@ export default function TasksPage() {
                       border: '1px solid #e9d5ff', borderRadius: 8, fontSize: 12, color: '#6b21a8',
                       display: 'flex', alignItems: 'center', gap: 8,
                     }}>
-                      <span style={{ fontSize: 15 }}>📝</span>
+                      <FileText size={15} style={{ flexShrink: 0 }} />
                       <div>
                         <strong>Maintenance Clearance Note:</strong> {task.clearanceNote}
                       </div>
@@ -561,7 +587,7 @@ export default function TasksPage() {
                         transition: 'transform 0.1s ease',
                       }}
                     >
-                      <span>✅</span>
+                      <CheckCircle2 size={15} strokeWidth={2.4} />
                       <span>Verify &amp; Clear Task</span>
                     </button>
                   )}
@@ -580,7 +606,7 @@ export default function TasksPage() {
                         cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
                       }}
                     >
-                      <span>⚡</span>
+                      <Zap size={13} strokeWidth={2.4} />
                       <span>Sign Off &amp; Clear</span>
                     </button>
                   )}
@@ -600,7 +626,7 @@ export default function TasksPage() {
                         boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
                       }}
                     >
-                      <span>{isAssigned ? '🔄' : '🔧'}</span>
+                      {isAssigned ? <RefreshCw size={13} strokeWidth={2.2} /> : <Wrench size={13} strokeWidth={2.2} />}
                       <span>{isAssigned ? 'Reassign Team' : 'Assign Team'}</span>
                     </button>
                   )}
@@ -609,9 +635,9 @@ export default function TasksPage() {
                     <div style={{
                       padding: '4px 10px', borderRadius: 6, background: 'var(--success-light)',
                       color: 'var(--success)', fontSize: 11, fontWeight: 700,
-                      display: 'flex', alignItems: 'center', gap: 4,
+                      display: 'flex', alignItems: 'center', gap: 5,
                     }}>
-                      <span>✅</span> Cleared &amp; Closed
+                      <CheckCircle2 size={13} strokeWidth={2.2} /> Cleared &amp; Closed
                     </div>
                   )}
                 </div>
@@ -640,7 +666,7 @@ export default function TasksPage() {
               background: 'var(--surface-subtle)',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 18 }}>🛠️</span>
+                <Wrench size={18} style={{ color: 'var(--primary)' }} />
                 <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>
                   {assignModalTask.assignedTo && assignModalTask.assignedTo !== 'Unassigned'
                     ? 'Reassign Maintenance Team'
@@ -649,9 +675,9 @@ export default function TasksPage() {
               </div>
               <button
                 onClick={() => setAssignModalTask(null)}
-                style={{ background: 'none', border: 'none', fontSize: 18, color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 
@@ -806,7 +832,7 @@ export default function TasksPage() {
               background: 'var(--surface-subtle)',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 18 }}>⚡</span>
+                <Zap size={18} style={{ color: '#0A192F' }} />
                 <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>
                   Dispatch New Maintenance Work Order
                 </span>
@@ -814,9 +840,9 @@ export default function TasksPage() {
               <button
                 type="button"
                 onClick={() => setShowNewOrderModal(false)}
-                style={{ background: 'none', border: 'none', fontSize: 18, color: 'var(--text-muted)', cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 
@@ -917,8 +943,8 @@ export default function TasksPage() {
                       onChange={e => setNewLoto(e.target.checked)}
                       style={{ width: 16, height: 16, accentColor: '#dc2626' }}
                     />
-                    <span style={{ fontSize: 12, fontWeight: 700, color: newLoto ? '#dc2626' : 'var(--text)' }}>
-                      🔒 LOTO Isolation Required
+                    <span style={{ fontSize: 12, fontWeight: 700, color: newLoto ? '#dc2626' : 'var(--text)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                      <Lock size={13} /> LOTO Isolation Required
                     </span>
                   </label>
                 </div>

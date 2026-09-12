@@ -7,7 +7,7 @@ import {
   LogIn, UserPlus, X, Zap, BarChart2, Bell, FileCheck,
   Check, Activity, Cpu, Radio, Menu, ChevronRight, FileText,
   TrendingUp, Users, Shield, ArrowUpRight, Flame, Factory,
-  BookOpen, Layers
+  BookOpen, Layers, AlertTriangle
 } from "lucide-react";
 import { loginApi, registerApi } from "@/app/lib/api";
 import { saveAuth } from "@/app/lib/auth";
@@ -810,7 +810,7 @@ export default function ForeSiteLanding() {
 
             {authError && (
               <div style={{ padding: "10px 14px", borderRadius: 8, backgroundColor: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: 13, fontWeight: 600, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 16 }}>⚠</span>
+                <AlertTriangle size={16} style={{ flexShrink: 0 }} />
                 <span>{authError}</span>
               </div>
             )}

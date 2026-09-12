@@ -8,6 +8,7 @@ import StatusBadge from "@/app/components/StatusBadge";
 import DangerBadge from "@/app/components/DangerBadge";
 import { getStoredUser } from "@/app/lib/auth";
 import { getMyReportsApi } from "@/app/lib/api";
+import { ShieldCheck, Check, AlertTriangle } from "lucide-react";
 
 export default function WorkerDashboard() {
   const { lang, t } = useLanguage();
@@ -154,7 +155,9 @@ export default function WorkerDashboard() {
         {/* Right: Your Impact Card */}
         <div className="apple-card animate-apple-fade-up delay-3" style={styles.impactCard}>
           <div style={styles.impactHeader}>
-            <div style={styles.impactIconWrap}>🛡️</div>
+            <div style={styles.impactIconWrap}>
+              <ShieldCheck size={24} color="#16a34a" strokeWidth={2.2} />
+            </div>
             <div>
               <h3 style={styles.impactTitle}>{lang === "hi" ? "आपका प्रभाव" : "Your Impact"}</h3>
               <p style={styles.impactSub}>
@@ -167,15 +170,15 @@ export default function WorkerDashboard() {
 
           <div style={styles.impactList}>
             <div style={styles.impactItem}>
-              <span style={styles.checkIcon}>✓</span>
+              <span style={styles.checkIcon}><Check size={14} strokeWidth={3} /></span>
               <span>{lang === "hi" ? "AI चालित विश्लेषण" : "AI-powered analysis"}</span>
             </div>
             <div style={styles.impactItem}>
-              <span style={styles.checkIcon}>✓</span>
+              <span style={styles.checkIcon}><Check size={14} strokeWidth={3} /></span>
               <span>{lang === "hi" ? "त्वरित समाधान" : "Faster resolution"}</span>
             </div>
             <div style={styles.impactItem}>
-              <span style={styles.checkIcon}>✓</span>
+              <span style={styles.checkIcon}><Check size={14} strokeWidth={3} /></span>
               <span>{lang === "hi" ? "सुरक्षित कार्यस्थल" : "Safer workplaces"}</span>
             </div>
           </div>
@@ -206,7 +209,9 @@ export default function WorkerDashboard() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={r.imageUrl} alt={displayTitle} style={styles.reportThumb} />
                     ) : (
-                      <div style={styles.reportThumbFallback}>⚠️</div>
+                      <div style={styles.reportThumbFallback}>
+                        <AlertTriangle size={18} color="#d97706" />
+                      </div>
                     )}
                   </div>
 
