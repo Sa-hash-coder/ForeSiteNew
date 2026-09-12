@@ -63,6 +63,29 @@ function timeAgo(iso: string) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+function resolveAlertRec(alert: any): string {
+  if (alert.recommendations && alert.recommendations.length > 0) {
+    return alert.recommendations[0];
+  }
+  const text = `${alert.title || ''} ${alert.message || ''}`.toLowerCase();
+  if (/scaffold|fall|height|ladder|plank/.test(text)) {
+    return "Red-tag scaffolding and suspend elevated work until re-certified.";
+  }
+  if (/vibration|bearing|pump|motor/.test(text)) {
+    return "Initiate operational throttling/shutdown to prevent bearing seizure.";
+  }
+  if (/chemical|acid|toxic|spill/.test(text)) {
+    return "Evacuate sector and deploy neutralising chemical absorbent boom kit.";
+  }
+  if (/electric|wire|cable|voltage/.test(text)) {
+    return "Enforce zero-energy lockout/tagout (LOTO) at upstream distribution breaker.";
+  }
+  if (/steam|flange|pressure|pipe|leak/.test(text)) {
+    return "Isolate upstream line valves and depressurize affected pipe section.";
+  }
+  return "Conduct frontline supervisor hazard walkthrough and isolate immediate zone.";
+}
+
 // ─── Skeleton ────────────────────────────────────────────────────────────────
 
 function SkeletonCard({ h = 140 }: { h?: number }) {
@@ -148,14 +171,14 @@ export default function OfficerOverview() {
           title: a.reportTitle || a.message,
           riskScore: a.riskScore || 85,
           severity: (a.riskLevel?.toLowerCase() === "critical" ? "critical" : "high") as any,
-          zone: "Sector 4",
+          zone: a.zone || (a.location ? a.location.split(',')[0].trim() : "Sector 4"),
           timeAgo: a.createdAt ? timeAgo(a.createdAt) : "Live",
-          recommendations: a.recommendations || [],
+          recommendations: a.recommendations && a.recommendations.length > 0 ? a.recommendations : [resolveAlertRec(a)],
         }))
     : ACTIVE_ALERTS.filter(a => !a.acknowledged).slice(0, 3).map((a: any) => ({
         ...a,
         reportId: a._id.replace("alt-", "rpt-0"),
-        recommendations: ["Immediate perimeter isolation & zero-energy verification", "Conduct certified OSHA inspection"],
+        recommendations: a.recommendations && a.recommendations.length > 0 ? a.recommendations : [resolveAlertRec(a)],
       }));
 
   const maxTrend = Math.max(...WEEKLY_TREND.map(w => w.total));
@@ -339,51 +362,67 @@ export default function OfficerOverview() {
             <Link href="/officer/alerts" className="apple-btn" style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600 }}>View all →</Link>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {topAlerts.map(alert => (
-              <Link key={alert._id} href="/officer/alerts" className="apple-card" style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 16,
-                padding: '14px 16px',
+            {topAlerts.length === 0 ? (
+              <div style={{
+                textAlign: 'center',
+                padding: '32px 16px',
+                color: 'var(--text-muted)',
+                fontSize: 13,
+                background: 'var(--surface-subtle)',
                 borderRadius: 14,
-                background: alert.severity === 'critical' ? 'var(--danger-light)' : 'var(--warning-light)',
-                border: `1px solid ${alert.severity === 'critical' ? 'var(--danger)' : 'var(--warning)'}`,
-                textDecoration: 'none',
+                border: '1px dashed var(--border)',
               }}>
-                <div style={{
-                  fontSize: 28,
-                  fontWeight: 800,
-                  color: alert.severity === 'critical' ? 'var(--danger)' : 'var(--warning)',
-                  lineHeight: 1,
-                  minWidth: 40,
-                  textAlign: 'center',
+                <div style={{ fontSize: 24, marginBottom: 6 }}>🛡️</div>
+                <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>All Active Alerts Acknowledged</div>
+                <div>No critical or high-risk SIF alerts currently require officer intervention.</div>
+              </div>
+            ) : (
+              topAlerts.map(alert => (
+                <Link key={alert._id} href="/officer/alerts" className="apple-card" style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 16,
+                  padding: '14px 16px',
+                  borderRadius: 14,
+                  background: alert.severity === 'critical' ? 'var(--danger-light)' : 'var(--warning-light)',
+                  border: `1px solid ${alert.severity === 'critical' ? 'var(--danger)' : 'var(--warning)'}`,
+                  textDecoration: 'none',
                 }}>
-                  {alert.riskScore}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{alert.title}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{alert.zone} · {alert.timeAgo}</div>
-                  {alert.recommendations && alert.recommendations.length > 0 && (
-                    <div style={{
-                      marginTop: 4,
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: '#0A192F',
-                      backgroundColor: 'rgba(255,255,255,0.7)',
-                      padding: '2px 8px',
-                      borderRadius: 4,
-                      display: 'inline-block',
-                      maxWidth: '100%',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}>
-                      💡 AI: {alert.recommendations[0]}
-                    </div>
-                  )}
-                </div>
-              </Link>
-            ))}
+                  <div style={{
+                    fontSize: 28,
+                    fontWeight: 800,
+                    color: alert.severity === 'critical' ? 'var(--danger)' : 'var(--warning)',
+                    lineHeight: 1,
+                    minWidth: 40,
+                    textAlign: 'center',
+                  }}>
+                    {alert.riskScore}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{alert.title}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{alert.zone} · {alert.timeAgo}</div>
+                    {alert.recommendations && alert.recommendations.length > 0 && (
+                      <div style={{
+                        marginTop: 4,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: '#0A192F',
+                        backgroundColor: 'rgba(255,255,255,0.7)',
+                        padding: '2px 8px',
+                        borderRadius: 4,
+                        display: 'inline-block',
+                        maxWidth: '100%',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        💡 AI: {alert.recommendations[0]}
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              ))
+            )}
           </div>
         </div>
       </div>

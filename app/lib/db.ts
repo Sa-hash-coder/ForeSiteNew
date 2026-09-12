@@ -72,6 +72,8 @@ export interface StoredAlert {
   recommendations?: string[];
   explanation?: string;
   location?: string;
+  category?: string;
+  zone?: string;
   submittedBy?: string;
   createdAt: string;
 }
@@ -477,15 +479,15 @@ export const dbAlerts = {
     return newAlert;
   },
 
-  async acknowledge(id: string, officerName: string): Promise<StoredAlert | null> {
+  async acknowledge(id: string, officerName: string, state = true): Promise<StoredAlert | null> {
     const db = loadLocalStore();
     const idx = db.alerts.findIndex((a) => a._id === id);
     if (idx === -1) return null;
     db.alerts[idx] = {
       ...db.alerts[idx],
-      isAcknowledged: true,
-      acknowledgedBy: officerName,
-      acknowledgedAt: new Date().toISOString(),
+      isAcknowledged: state,
+      acknowledgedBy: state ? officerName : undefined,
+      acknowledgedAt: state ? new Date().toISOString() : undefined,
     };
     saveLocalStore(db);
     return db.alerts[idx];

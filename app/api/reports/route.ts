@@ -236,6 +236,8 @@ export async function POST(req: NextRequest) {
         recommendations: newReport.recommendations,
         explanation: newReport.explanation,
         location: newReport.location,
+        category: newReport.category,
+        zone: newReport.location ? newReport.location.split(',')[0] : "Sector 4",
         submittedBy: user.name,
         isAcknowledged: false,
       });

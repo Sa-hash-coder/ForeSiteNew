@@ -135,10 +135,10 @@ export async function getAlertsApi(unacknowledgedOnly = false) {
   return request<{ success: true; data: AlertItem[] }>(`/alerts${q}`);
 }
 
-export async function acknowledgeAlertApi(id: string, officerName?: string) {
+export async function acknowledgeAlertApi(id: string, officerName?: string, isAcknowledged = true) {
   return request<{ success: true; data: AlertItem }>(`/alerts`, {
     method: "PATCH",
-    body: JSON.stringify({ id, officerName }),
+    body: JSON.stringify({ id, officerName, isAcknowledged }),
   });
 }
 
@@ -278,6 +278,8 @@ export interface AlertItem {
   recommendations?: string[];
   explanation?: string;
   location?: string;
+  category?: string;
+  zone?: string;
   submittedBy?: string;
   createdAt: string;
 }

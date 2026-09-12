@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { ACTIVE_ALERTS } from '@/app/lib/officerMockData';
+import { getAlertsApi } from '@/app/lib/api';
 import { LanguageProvider, useLanguage } from '@/app/lib/LanguageContext';
 import { getStoredUser, logout } from '@/app/lib/auth';
 
@@ -81,7 +82,29 @@ function OfficerLayoutContent({ children }: { children: React.ReactNode }) {
     return key ? PAGE_TITLES[key] : 'Safety Command';
   })();
 
-  const unacknowledgedCount = ACTIVE_ALERTS.filter(a => !a.acknowledged).length;
+  const [unacknowledgedCount, setUnacknowledgedCount] = useState<number>(() => {
+    return ACTIVE_ALERTS.filter(a => !a.acknowledged).length;
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchAlertCount() {
+      try {
+        const res = await getAlertsApi(true);
+        if (res.data && isMounted) {
+          setUnacknowledgedCount(res.data.length);
+        }
+      } catch {
+        // preserve current count
+      }
+    }
+    fetchAlertCount();
+    const interval = setInterval(fetchAlertCount, 3500);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [pathname]);
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', width: '100%', background: 'var(--bg)' }}>

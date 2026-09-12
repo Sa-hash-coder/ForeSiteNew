@@ -28,6 +28,28 @@ interface LiveAlertItem {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function inferCategory(title: string = '', precursors: string[] = []): string {
+  const text = (title + ' ' + precursors.join(' ')).toLowerCase();
+  if (/scaffold|fall|height|ladder|plank|guardrail|roof|perimeter/.test(text)) return 'fall';
+  if (/electric|wire|cable|voltage|breaker|panel|spark/.test(text)) return 'electrical';
+  if (/chemical|acid|toxic|spill|solvent|caustic/.test(text)) return 'chemical';
+  if (/fire|explosion|gas|combustion|cylinder/.test(text)) return 'fire';
+  if (/structural|crack|column|foundation/.test(text)) return 'structural';
+  if (/ppe|helmet|glove|mask|eye/.test(text)) return 'ppe';
+  return 'machinery';
+}
+
+function timeAgo(iso?: string) {
+  if (!iso) return 'Live';
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
 function catLabel(c: string) {
   const m: Record<string, string> = {
     electrical: 'Electrical', fall: 'Fall Risk', chemical: 'Chemical',
@@ -131,14 +153,14 @@ export default function AlertsPage() {
             _id: a._id,
             reportId: a.reportId,
             title: a.reportTitle || a.message,
-            category: "machinery",
+            category: a.category || inferCategory(a.reportTitle || a.message, a.precursors),
             severity: (a.riskLevel?.toLowerCase() === "critical" ? "critical" : "high") as any,
             riskScore: a.riskScore || 85,
             sifProbability: a.sifProbability,
-            zone: "Sector 4",
+            zone: a.zone || (a.location ? a.location.split(',')[0].trim() : "Sector 4"),
             location: a.location || "Plant Sector 4 North",
-            timeAgo: a.createdAt ? new Date(a.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Recently",
-            acknowledged: a.isAcknowledged,
+            timeAgo: timeAgo(a.createdAt),
+            acknowledged: !!a.isAcknowledged,
             submittedBy: a.submittedBy || "Site Worker",
             precursors: a.precursors || [],
             hazards: a.hazards || [],
@@ -203,9 +225,11 @@ export default function AlertsPage() {
   const unackCount = alerts.filter(a => !a.acknowledged).length;
 
   const toggle = async (id: string) => {
-    setAlerts(prev => prev.map(a => a._id === id ? { ...a, acknowledged: !a.acknowledged } : a));
+    const target = alerts.find(a => a._id === id);
+    const nextState = !target?.acknowledged;
+    setAlerts(prev => prev.map(a => a._id === id ? { ...a, acknowledged: nextState } : a));
     try {
-      await acknowledgeAlertApi(id, "Safety Officer");
+      await acknowledgeAlertApi(id, "Safety Officer", nextState);
     } catch (err) {
       console.warn("Failed to sync acknowledgment:", err);
     }

@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, officerName = "Officer Command" } = body;
+    const { id, officerName = "Officer Command", isAcknowledged = true } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -33,7 +33,7 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const acknowledged = await dbAlerts.acknowledge(id, officerName);
+    const acknowledged = await dbAlerts.acknowledge(id, officerName, isAcknowledged);
     if (!acknowledged) {
       return NextResponse.json(
         { success: false, message: "Alert not found" },
