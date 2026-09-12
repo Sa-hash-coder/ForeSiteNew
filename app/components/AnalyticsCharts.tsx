@@ -3,15 +3,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Chart as ChartJS,
-  ArcElement,
-  BarElement,
-  CategoryScale,
-  LinearScale,
-  Tooltip,
-  Legend,
+  registerables,
 } from "chart.js";
 
-ChartJS.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend);
+ChartJS.register(...registerables);
 
 // ─── 1. Real Chart.js Doughnut Chart: Status Distribution ───────────────────
 

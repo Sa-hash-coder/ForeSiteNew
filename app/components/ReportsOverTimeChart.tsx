@@ -3,28 +3,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
+  registerables,
   ScriptableContext,
 } from "chart.js";
 
 // Register necessary Chart.js modules
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-);
+ChartJS.register(...registerables);
 
 export interface ChartDataPoint {
   label: string;
