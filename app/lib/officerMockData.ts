@@ -18,7 +18,7 @@ export type ReportStatus =
   | 'analysis_complete'
   | 'resolved';
 
-export type TaskStatus = 'pending' | 'in_progress' | 'done';
+export type TaskStatus = 'pending' | 'in_progress' | 'clearance_submitted' | 'done';
 
 export interface OfficerReport {
   _id: string;
@@ -82,6 +82,7 @@ export interface ActiveAlert {
 
 export interface MaintenanceTask {
   _id: string;
+  orderNumber?: string;
   title: string;
   reportId: string;
   reportTitle: string;
@@ -89,6 +90,8 @@ export interface MaintenanceTask {
   assignedTo: string | null;
   dueDate: string;
   priority: Severity;
+  clearanceNote?: string;
+  updatedAt?: string;
 }
 
 // ─── Reports ─────────────────────────────────────────────────────────────────

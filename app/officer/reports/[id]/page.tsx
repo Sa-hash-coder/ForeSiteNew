@@ -41,6 +41,7 @@ function statusBadgeStyle(status: string): CSSProperties {
 
 function taskStatusStyle(s: string): CSSProperties {
   if (s === 'done' || s === 'officer_verified') return { background: 'var(--success-light)', color: 'var(--success)', borderRadius: 999, padding: '2px 9px', fontSize: 11, fontWeight: 600, display: 'inline-block' };
+  if (s === 'clearance_submitted') return { background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe', borderRadius: 999, padding: '2px 9px', fontSize: 11, fontWeight: 600, display: 'inline-block' };
   if (s === 'in_progress') return { background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 999, padding: '2px 9px', fontSize: 11, fontWeight: 600, display: 'inline-block' };
   return { background: 'var(--warning-light)', color: 'var(--warning)', borderRadius: 999, padding: '2px 9px', fontSize: 11, fontWeight: 600, display: 'inline-block' };
 }
@@ -443,7 +444,13 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                 borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-subtle)',
               }}>
                 <span style={taskStatusStyle(task.status)}>
-                  {task.status === 'done' || task.status === 'officer_verified' ? '✅ Completed' : task.status === 'in_progress' ? '🔄 In Progress' : '🕐 Dispatched'}
+                  {task.status === 'done' || task.status === 'officer_verified'
+                    ? '✅ Cleared & Resolved'
+                    : task.status === 'clearance_submitted'
+                    ? '⚡ Clearance Review'
+                    : task.status === 'in_progress'
+                    ? '🔄 In Progress'
+                    : '🕐 Dispatched'}
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>

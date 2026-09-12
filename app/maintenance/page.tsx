@@ -60,6 +60,7 @@ interface DispatchedOrder {
   dispatchedAt: string;
   description: string;
   lotoRequired: boolean;
+  clearanceNote?: string;
 }
 
 interface EquipmentNode {
@@ -213,7 +214,7 @@ export default function MaintenancePage() {
         if (res?.data && Array.isArray(res.data) && res.data.length > 0) {
           const mapped: DispatchedOrder[] = res.data.map((t: any, idx: number) => ({
             id: t._id || `task-${idx}`,
-            orderNumber: t.taskNumber || `WO-${9038 + idx}`,
+            orderNumber: t.orderNumber || t.taskNumber || `WO-${9038 + idx}`,
             title: t.title || "Safety Remediation Task",
             equipmentId: t.equipmentId || "EQ-PLANT",
             equipmentName: t.equipmentName || "Plant Equipment",
@@ -224,9 +225,10 @@ export default function MaintenancePage() {
             dispatchedBy: t.dispatchedBy || { name: "Officer Command", role: "Safety Lead", badgeId: "SAF-4019" },
             safetyPermitId: t.safetyPermitId || "PTW-2026-0881",
             assignedCrew: t.assignedCrew || "Maintenance Crew M-4",
-            dispatchedAt: "Recently",
+            dispatchedAt: t.createdAt ? new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Recently",
             description: t.description || "Field safety repair work order.",
             lotoRequired: t.lotoRequired ?? true,
+            clearanceNote: t.clearanceNote,
           }));
           setOrders(mapped);
         }
@@ -235,8 +237,12 @@ export default function MaintenancePage() {
       }
     }
     loadTasks();
+    const interval = setInterval(loadTasks, 4000);
 
-    return () => window.removeEventListener("maintenance-tab-change", handleTab);
+    return () => {
+      window.removeEventListener("maintenance-tab-change", handleTab);
+      clearInterval(interval);
+    };
   }, []);
 
   const changeTab = (tabId: string) => {
@@ -256,8 +262,9 @@ export default function MaintenancePage() {
     }
   };
 
-  const handleSignOffClearance = (id: string) => {
-    handleUpdateStatus(id, "clearance_submitted", clearanceNote);
+  const handleSignOffClearance = (id: string, directClear = false) => {
+    const nextStatus: OrderStatus = directClear ? "officer_verified" : "clearance_submitted";
+    handleUpdateStatus(id, nextStatus, clearanceNote || "Physical repair certified & cleared.");
     setSelectedOrder(null);
     setClearanceNote("");
   };
@@ -277,6 +284,7 @@ export default function MaintenancePage() {
       if (orderFilter === "action_needed") return o.status === "dispatched" || o.status === "in_progress";
       if (orderFilter === "in_progress") return o.status === "in_progress";
       if (orderFilter === "clearance_submitted") return o.status === "clearance_submitted";
+      if (orderFilter === "cleared") return o.status === "officer_verified" || o.status === "clearance_submitted";
       return true;
     })
     .filter((o) => {
@@ -808,6 +816,7 @@ export default function MaintenancePage() {
                 { id: "critical", label: `Critical SIF (${criticalCount})` },
                 { id: "in_progress", label: "In Progress" },
                 { id: "clearance_submitted", label: "Sign-Off Submitted" },
+                { id: "cleared", label: `Cleared & Closed (${orders.filter(o => o.status === 'officer_verified' || o.status === 'clearance_submitted').length})` },
               ].map((f) => {
                 const isActive = orderFilter === f.id;
                 return (
@@ -975,6 +984,43 @@ export default function MaintenancePage() {
                       )}
 
                       {order.status === "clearance_submitted" && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+                          <div
+                            style={{
+                              padding: "5px 12px",
+                              borderRadius: 8,
+                              backgroundColor: "#f5f3ff",
+                              color: "#7c3aed",
+                              border: "1px solid #ddd6fe",
+                              fontSize: 11,
+                              fontWeight: 700,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6,
+                            }}
+                          >
+                            <Clock size={14} /> Awaiting Officer Review
+                          </div>
+                          <button
+                            onClick={() => handleUpdateStatus(order.id, "officer_verified", "Cleared & Certified by Maintenance")}
+                            className="apple-btn"
+                            style={{
+                              padding: "4px 10px",
+                              backgroundColor: "var(--surface-subtle)",
+                              color: "var(--primary)",
+                              borderRadius: 6,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              border: "1px solid var(--border)",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Mark Cleared &amp; Closed
+                          </button>
+                        </div>
+                      )}
+
+                      {order.status === "officer_verified" && (
                         <div
                           style={{
                             padding: "6px 12px",
@@ -988,7 +1034,7 @@ export default function MaintenancePage() {
                             gap: 6,
                           }}
                         >
-                          <CheckCircle2 size={15} /> Awaiting Review
+                          <CheckCircle size={15} /> Cleared &amp; Closed
                         </div>
                       )}
 
@@ -1466,38 +1512,50 @@ export default function MaintenancePage() {
             }}
           >
             <div style={{ fontSize: 15, fontWeight: 800, color: "var(--text)", marginBottom: 14 }}>
-              Orders Pending Technician Certification ({orders.filter((o) => o.status === "in_progress" || o.status === "clearance_submitted").length})
+              Orders Pending Technician Certification ({orders.filter((o) => o.status === "in_progress").length})
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {orders
-                .filter((o) => o.status === "in_progress" || o.status === "clearance_submitted")
-                .map((order) => (
-                  <div
-                    key={order.id}
-                    style={{
-                      border: "1px solid var(--border)",
-                      borderRadius: 12,
-                      padding: "16px 20px",
-                      backgroundColor: "var(--surface-subtle)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 16,
-                    }}
-                  >
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                        <span style={{ fontSize: 11, fontWeight: 800, color: "var(--text)", fontFamily: "monospace" }}>{order.orderNumber}</span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>{order.equipmentId}</span>
-                        <span style={{ fontSize: 12, color: "var(--text-light)" }}>· Assigned to {order.assignedCrew}</span>
+              {orders.filter((o) => o.status === "in_progress").length === 0 ? (
+                <div style={{
+                  padding: "24px",
+                  borderRadius: 12,
+                  backgroundColor: "var(--surface-subtle)",
+                  border: "1px dashed var(--border)",
+                  textAlign: "center",
+                  color: "var(--text-muted)",
+                  fontSize: 13,
+                }}>
+                  ✅ All dispatched work orders have been certified. Pending clearances are awaiting safety officer review.
+                </div>
+              ) : (
+                orders
+                  .filter((o) => o.status === "in_progress")
+                  .map((order) => (
+                    <div
+                      key={order.id}
+                      style={{
+                        border: "1px solid var(--border)",
+                        borderRadius: 12,
+                        padding: "16px 20px",
+                        backgroundColor: "var(--surface-subtle)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 16,
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                          <span style={{ fontSize: 11, fontWeight: 800, color: "var(--text)", fontFamily: "monospace" }}>{order.orderNumber}</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>{order.equipmentId}</span>
+                          <span style={{ fontSize: 12, color: "var(--text-light)" }}>· Assigned to {order.assignedCrew}</span>
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>{order.title}</div>
+                        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{order.description}</div>
                       </div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>{order.title}</div>
-                      <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{order.description}</div>
-                    </div>
 
-                    <div style={{ flexShrink: 0 }}>
-                      {order.status === "in_progress" ? (
+                      <div style={{ flexShrink: 0 }}>
                         <button
                           onClick={() => setSelectedOrder(order)}
                           className="apple-btn"
@@ -1517,22 +1575,83 @@ export default function MaintenancePage() {
                         >
                           <Check size={14} /> Certify Repair
                         </button>
-                      ) : (
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--success)", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                          <CheckCircle2 size={16} /> Awaiting Officer Verification
-                        </span>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+              )}
             </div>
 
             {/* Historical Cleared Ledger */}
             <div style={{ marginTop: 24, paddingTop: 18, borderTop: "1px solid var(--border)" }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 12 }}>
-                Recently Certified &amp; Cleared Work Orders
+                Recently Certified &amp; Cleared Work Orders ({orders.filter((o) => o.status === "clearance_submitted" || o.status === "officer_verified").length + 2})
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {/* Dynamically Cleared Orders */}
+                {orders
+                  .filter((o) => o.status === "clearance_submitted" || o.status === "officer_verified")
+                  .map((order) => {
+                    const isOfficerVerified = order.status === "officer_verified";
+                    return (
+                      <div
+                        key={order.id}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "12px 16px",
+                          borderRadius: 10,
+                          backgroundColor: "var(--surface)",
+                          border: "1px solid var(--border)",
+                          fontSize: 13,
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <strong style={{ fontFamily: "monospace" }}>{order.orderNumber}</strong>
+                            <span>·</span>
+                            <span style={{ fontWeight: 600, color: "var(--text)" }}>{order.title}</span>
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--text-light)", marginTop: 3 }}>
+                            {order.clearanceNote ? `Clearance Log: "${order.clearanceNote}" · ` : ""}
+                            Permit: {order.safetyPermitId} · Crew: {order.assignedCrew}
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                          {isOfficerVerified ? (
+                            <span style={{ fontSize: 11, color: "var(--success)", fontWeight: 700, backgroundColor: "var(--success-light)", padding: "4px 10px", borderRadius: 6, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                              <CheckCircle2 size={13} /> Officer Verified &amp; Cleared
+                            </span>
+                          ) : (
+                            <>
+                              <span style={{ fontSize: 11, color: "#7c3aed", fontWeight: 700, backgroundColor: "#f5f3ff", border: "1px solid #ddd6fe", padding: "4px 10px", borderRadius: 6, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                <Clock size={13} /> Awaiting Officer Verification
+                              </span>
+                              <button
+                                onClick={() => handleUpdateStatus(order.id, "officer_verified", "Cleared & Closed by Technician")}
+                                className="apple-btn"
+                                style={{
+                                  padding: "4px 10px",
+                                  borderRadius: 6,
+                                  border: "1px solid var(--border)",
+                                  backgroundColor: "var(--surface-subtle)",
+                                  color: "var(--primary)",
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Clear from Desk
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                {/* Seeded Certified Orders */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderRadius: 8, backgroundColor: "var(--surface)", border: "1px solid var(--border)", fontSize: 13 }}>
                   <div>
                     <strong>WO-9035</strong> · Flare Stack Pressure Relief Valve Calibration
@@ -1666,12 +1785,12 @@ export default function MaintenancePage() {
               <span>Certifies all physical hazard repairs are complete and unit is safe for safety officer verification.</span>
             </div>
 
-            <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button
                 onClick={() => setSelectedOrder(null)}
                 className="apple-btn"
                 style={{
-                  flex: 1,
+                  flex: "1 1 80px",
                   padding: "10px",
                   borderRadius: 8,
                   backgroundColor: "var(--surface)",
@@ -1685,15 +1804,15 @@ export default function MaintenancePage() {
                 Cancel
               </button>
               <button
-                onClick={() => handleSignOffClearance(selectedOrder.id)}
+                onClick={() => handleSignOffClearance(selectedOrder.id, false)}
                 className="apple-btn"
                 style={{
-                  flex: 2,
-                  padding: "10px",
+                  flex: "2 1 170px",
+                  padding: "10px 14px",
                   borderRadius: 8,
                   backgroundColor: "var(--primary)",
                   color: "#FFFFFF",
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: 700,
                   border: "none",
                   cursor: "pointer",
@@ -1704,7 +1823,29 @@ export default function MaintenancePage() {
                 }}
               >
                 <CheckCircle2 size={16} />
-                Certify &amp; Submit Clearance
+                Submit for Officer Review
+              </button>
+              <button
+                onClick={() => handleSignOffClearance(selectedOrder.id, true)}
+                className="apple-btn"
+                style={{
+                  flex: "2 1 170px",
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  backgroundColor: "var(--success)",
+                  color: "#FFFFFF",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  border: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                }}
+              >
+                <Check size={16} />
+                Certify &amp; Clear Now
               </button>
             </div>
           </div>

@@ -777,6 +777,39 @@ export const dbAlerts = {
     }
     return idx !== -1 ? db.alerts[idx] : null;
   },
+
+  async acknowledgeByReportId(reportId: string, officerName = "Safety Clearance"): Promise<void> {
+    const db = loadLocalStore();
+    const now = new Date().toISOString();
+    let changed = false;
+    db.alerts.forEach((a) => {
+      if (a.reportId === reportId && !a.isAcknowledged) {
+        a.isAcknowledged = true;
+        a.acknowledgedBy = officerName;
+        a.acknowledgedAt = now;
+        changed = true;
+      }
+    });
+    if (changed) saveLocalStore(db);
+
+    try {
+      const conn = await connectToDatabase();
+      if (conn) {
+        await AlertModel.updateMany(
+          { reportId, isAcknowledged: false },
+          {
+            $set: {
+              isAcknowledged: true,
+              acknowledgedBy: officerName,
+              acknowledgedAt: now,
+            },
+          }
+        );
+      }
+    } catch (e) {
+      console.warn("[DB] Could not update alerts in MongoDB:", e);
+    }
+  },
 };
 
 export const dbTasks = {

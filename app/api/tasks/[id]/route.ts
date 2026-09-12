@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { dbTasks } from "@/app/lib/db";
+import { dbTasks, dbReports, dbAlerts } from "@/app/lib/db";
 
 export async function PATCH(
   req: NextRequest,
@@ -40,6 +40,18 @@ export async function PATCH(
         { success: false, message: "Task not found" },
         { status: 404 }
       );
+    }
+
+    // When task is verified / completed, resolve corresponding hazard report & clear alerts
+    if (updates.status === "officer_verified" || updates.status === "completed") {
+      if (updated.reportId) {
+        try {
+          await dbReports.updateById(updated.reportId, { status: "resolved" });
+          await dbAlerts.acknowledgeByReportId(updated.reportId, "Officer & Maintenance Sign-off");
+        } catch (linkErr) {
+          console.warn("[API Tasks] Could not auto-resolve linked report or alert:", linkErr);
+        }
+      }
     }
 
     return NextResponse.json({

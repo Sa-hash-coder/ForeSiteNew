@@ -31,12 +31,14 @@ export const MAINTENANCE_CREWS = [
 
 function taskStatusBadge(s: TaskStatus): CSSProperties {
   if (s === 'done') return { background: 'var(--success-light)', color: 'var(--success)', borderRadius: 999, padding: '2px 10px', fontSize: 11, fontWeight: 700, display: 'inline-block' };
+  if (s === 'clearance_submitted') return { background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe', borderRadius: 999, padding: '2px 10px', fontSize: 11, fontWeight: 700, display: 'inline-block' };
   if (s === 'in_progress') return { background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 999, padding: '2px 10px', fontSize: 11, fontWeight: 700, display: 'inline-block' };
   return { background: 'var(--warning-light)', color: 'var(--warning)', borderRadius: 999, padding: '2px 10px', fontSize: 11, fontWeight: 700, display: 'inline-block' };
 }
 
 function taskStatusLabel(s: TaskStatus) {
-  if (s === 'done') return '✅ Done';
+  if (s === 'done') return '✅ Done & Cleared';
+  if (s === 'clearance_submitted') return '⚡ Clearance Submitted';
   if (s === 'in_progress') return '🔄 In Progress';
   return '🕐 Pending';
 }
@@ -53,7 +55,7 @@ function isOverdue(dueDate: string) {
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
-type FilterTab = 'all' | 'pending' | 'in_progress' | 'done';
+type FilterTab = 'all' | 'pending' | 'in_progress' | 'clearance_submitted' | 'done';
 
 export default function TasksPage() {
   const [loading, setLoading] = useState(true);
@@ -87,13 +89,22 @@ export default function TasksPage() {
       if (res.success && Array.isArray(res.data) && res.data.length > 0) {
         const liveTasks: MaintenanceTask[] = res.data.map((t: any) => ({
           _id: t._id || t.id,
+          orderNumber: t.orderNumber || t.taskNumber,
           reportId: t.reportId || 'rep-live',
           reportTitle: t.title,
           title: t.title,
           assignedTo: t.assignedCrew || t.assignedTo || 'Unassigned',
           dueDate: t.createdAt ? new Date(new Date(t.createdAt).getTime() + 86400000).toISOString().split('T')[0] : '2026-09-15',
           priority: (t.severity === 'critical' ? 'critical' : t.severity === 'high' ? 'high' : 'medium') as any,
-          status: (t.status === 'completed' || t.status === 'officer_verified' ? 'done' : t.status === 'in_progress' ? 'in_progress' : 'pending') as TaskStatus,
+          status: (t.status === 'completed' || t.status === 'officer_verified'
+            ? 'done'
+            : t.status === 'clearance_submitted'
+            ? 'clearance_submitted'
+            : t.status === 'in_progress'
+            ? 'in_progress'
+            : 'pending') as TaskStatus,
+          clearanceNote: t.clearanceNote,
+          updatedAt: t.updatedAt,
         }));
         // Merge live tasks at top with mock tasks
         const liveIds = new Set(liveTasks.map(lt => lt._id));
@@ -104,6 +115,24 @@ export default function TasksPage() {
       console.warn('Failed to fetch live tasks, using local store:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerifyAndClearTask = async (task: MaintenanceTask) => {
+    const taskId = task._id;
+    // Optimistic UI update: move directly to 'done'
+    setTasks(prev => prev.map(t => t._id === taskId ? { ...t, status: 'done' } : t));
+    try {
+      await updateTaskApi(taskId, {
+        status: 'officer_verified',
+      });
+      setToast(`Work Order ${task.orderNumber || task.title} verified & cleared! Linked hazard report marked resolved.`);
+    } catch (err) {
+      console.warn("Failed to verify task on server:", err);
+      setToast(`Task marked as cleared.`);
+    } finally {
+      setTimeout(() => setToast(''), 3500);
+      loadTasks();
     }
   };
 
@@ -129,7 +158,7 @@ export default function TasksPage() {
 
   useEffect(() => {
     loadTasks();
-    const interval = setInterval(loadTasks, 6000);
+    const interval = setInterval(loadTasks, 4000);
     return () => clearInterval(interval);
   }, []);
 
@@ -139,6 +168,7 @@ export default function TasksPage() {
     total: tasks.length,
     pending: tasks.filter(t => t.status === 'pending').length,
     in_progress: tasks.filter(t => t.status === 'in_progress').length,
+    clearance_submitted: tasks.filter(t => t.status === 'clearance_submitted').length,
     done: tasks.filter(t => t.status === 'done').length,
   };
 
@@ -173,7 +203,7 @@ export default function TasksPage() {
     try {
       await updateTaskApi(taskId, {
         assignedCrew: crew,
-        status: nextStatus === 'done' ? 'officer_verified' : (nextStatus === 'in_progress' ? 'in_progress' : 'dispatched'),
+        status: nextStatus === 'done' ? 'officer_verified' : (nextStatus === 'clearance_submitted' ? 'clearance_submitted' : nextStatus === 'in_progress' ? 'in_progress' : 'dispatched'),
         severity: priority,
         clearanceNote: specialInstructions ? `[Officer Dispatch Note]: ${specialInstructions}` : undefined,
       });
@@ -242,7 +272,8 @@ export default function TasksPage() {
     { key: 'all', label: 'All Tasks' },
     { key: 'pending', label: '🕐 Pending Assignment' },
     { key: 'in_progress', label: '🔄 In Progress' },
-    { key: 'done', label: '✅ Completed' },
+    { key: 'clearance_submitted', label: `⚡ Clearance Review (${stats.clearance_submitted})` },
+    { key: 'done', label: '✅ Completed & Cleared' },
   ];
 
   if (loading) {
@@ -297,11 +328,12 @@ export default function TasksPage() {
       </div>
 
       {/* Summary stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
         {[
           { label: 'Total Tasks', value: stats.total, color: 'var(--primary)' },
           { label: 'Pending Assignment', value: stats.pending, color: 'var(--warning)' },
           { label: 'In Progress (Assigned)', value: stats.in_progress, color: 'var(--primary)' },
+          { label: '⚡ Clearance Review', value: stats.clearance_submitted, color: '#7c3aed' },
           { label: 'Completed Clearance', value: stats.done, color: 'var(--success)' },
         ].map(s => (
           <div key={s.label} style={{
@@ -441,7 +473,18 @@ export default function TasksPage() {
 
                 {/* Content */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{task.title}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    {task.orderNumber && (
+                      <span style={{
+                        fontSize: 11, fontWeight: 800, color: 'var(--primary)',
+                        background: 'var(--surface-subtle)', padding: '2px 8px', borderRadius: 6,
+                        border: '1px solid var(--border)', fontFamily: 'monospace',
+                      }}>
+                        {task.orderNumber}
+                      </span>
+                    )}
+                    <span>{task.title}</span>
+                  </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
                     Report Reference:{' '}
                     <Link href={`/officer/reports/${task.reportId}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>
@@ -485,27 +528,92 @@ export default function TasksPage() {
                       </span>
                     </div>
                   </div>
+
+                  {/* Maintenance Clearance Note Callout */}
+                  {task.clearanceNote && (
+                    <div style={{
+                      marginTop: 10, padding: '8px 12px', background: '#faf5ff',
+                      border: '1px solid #e9d5ff', borderRadius: 8, fontSize: 12, color: '#6b21a8',
+                      display: 'flex', alignItems: 'center', gap: 8,
+                    }}>
+                      <span style={{ fontSize: 15 }}>📝</span>
+                      <div>
+                        <strong>Maintenance Clearance Note:</strong> {task.clearanceNote}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Assign / Reassign Action Button */}
-                <div style={{ flexShrink: 0, display: 'flex', gap: 8 }}>
-                  <button
-                    onClick={() => openAssignModal(task)}
-                    style={{
-                      padding: '8px 16px',
-                      border: isAssigned ? '1.5px solid #0A192F' : '1.5px solid var(--primary)',
-                      borderRadius: 10,
-                      background: isAssigned ? '#0A192F' : 'var(--primary)',
-                      color: '#fff',
-                      fontSize: 12, fontWeight: 700,
-                      transition: 'all 0.15s ease', whiteSpace: 'nowrap' as const,
-                      cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                    }}
-                  >
-                    <span>{isAssigned ? '🔄' : '🔧'}</span>
-                    <span>{isAssigned ? 'Reassign Team' : 'Assign Team'}</span>
-                  </button>
+                {/* Action Buttons */}
+                <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+                  {task.status === 'clearance_submitted' && (
+                    <button
+                      onClick={() => handleVerifyAndClearTask(task)}
+                      style={{
+                        padding: '9px 18px',
+                        border: 'none',
+                        borderRadius: 10,
+                        background: 'var(--success)',
+                        color: '#fff',
+                        fontSize: 12, fontWeight: 800,
+                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                        boxShadow: '0 2px 8px rgba(16,185,129,0.35)',
+                        transition: 'transform 0.1s ease',
+                      }}
+                    >
+                      <span>✅</span>
+                      <span>Verify &amp; Clear Task</span>
+                    </button>
+                  )}
+
+                  {task.status === 'in_progress' && (
+                    <button
+                      onClick={() => handleVerifyAndClearTask(task)}
+                      title="Directly certify and clear this task"
+                      style={{
+                        padding: '6px 14px',
+                        border: '1px solid #10b981',
+                        borderRadius: 8,
+                        background: '#ecfdf5',
+                        color: '#065f46',
+                        fontSize: 11, fontWeight: 700,
+                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+                      }}
+                    >
+                      <span>⚡</span>
+                      <span>Sign Off &amp; Clear</span>
+                    </button>
+                  )}
+
+                  {task.status !== 'done' && (
+                    <button
+                      onClick={() => openAssignModal(task)}
+                      style={{
+                        padding: '7px 14px',
+                        border: isAssigned ? '1.5px solid #0A192F' : '1.5px solid var(--primary)',
+                        borderRadius: 8,
+                        background: isAssigned ? '#0A192F' : 'var(--primary)',
+                        color: '#fff',
+                        fontSize: 12, fontWeight: 700,
+                        transition: 'all 0.15s ease', whiteSpace: 'nowrap' as const,
+                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                      }}
+                    >
+                      <span>{isAssigned ? '🔄' : '🔧'}</span>
+                      <span>{isAssigned ? 'Reassign Team' : 'Assign Team'}</span>
+                    </button>
+                  )}
+
+                  {task.status === 'done' && (
+                    <div style={{
+                      padding: '4px 10px', borderRadius: 6, background: 'var(--success-light)',
+                      color: 'var(--success)', fontSize: 11, fontWeight: 700,
+                      display: 'flex', alignItems: 'center', gap: 4,
+                    }}>
+                      <span>✅</span> Cleared &amp; Closed
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -604,7 +712,8 @@ export default function TasksPage() {
                   >
                     <option value="in_progress">In Progress (Active Dispatch)</option>
                     <option value="pending">Pending Crew Acknowledgment</option>
-                    <option value="done">Completed / Verified</option>
+                    <option value="clearance_submitted">Clearance Submitted (Awaiting Officer)</option>
+                    <option value="done">Completed &amp; Cleared</option>
                   </select>
                 </div>
 
