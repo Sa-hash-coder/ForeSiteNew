@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "dev:ai": "python ai-service/main.py",
-    "dev:all": "concurrently -n \"WEB,AI\" -c \"blue,green\" \"next dev\" \"python ai-service/main.py\"",
+    "dev:ai": "run_ai.bat",
+    "dev:all": "concurrently -n \"WEB,AI\" -c \"blue,green\" \"next dev\" \"run_ai.bat\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
