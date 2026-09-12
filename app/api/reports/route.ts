@@ -125,24 +125,79 @@ export async function POST(req: NextRequest) {
       }
     } catch {
       // Local fallback heuristics if microservice is offline
+      const text = `${title || ""} ${description || ""} ${category || ""} ${location || ""}`.toLowerCase();
+      
       const isCritical =
         severity === "critical" ||
-        (description && /fall|fire|explosion|collapse|gas|electrocution|leak/i.test(description));
-      const isHigh = severity === "high" || (description && /crack|vibration|spill|high pressure/i.test(description));
+        /fall|fire|explosion|collapse|gas|electrocution|leak|acid|fatal|crush/i.test(text);
+      const isHigh = severity === "high" || /crack|vibration|spill|high pressure|flange|bearing|steam/i.test(text);
 
       riskLevel = isCritical ? "CRITICAL" : isHigh ? "HIGH" : severity === "low" ? "LOW" : "MEDIUM";
       riskScore = isCritical ? 88 : isHigh ? 72 : 38;
       sifProbability = isCritical ? 0.85 : isHigh ? 0.62 : 0.25;
-      precursors = isCritical
-        ? ["Working at Height / Unsecured Perimeter", "Direct Line of Fire Exposure"]
-        : isHigh
-        ? ["Mechanical Component Degradation", "Fluid Pressure Anomaly"]
-        : ["Operational Fatigue"];
-      hazards = isCritical
-        ? ["Catastrophic Structural Failure", "Fatal Fall Impact"]
-        : isHigh
-        ? ["Unplanned Machine Trip", "Hot Fluid Contact"]
-        : ["Minor First Aid Event"];
+
+      if (/scaffold|fall|height|ladder|plank|guardrail|roof|perimeter/i.test(text)) {
+        precursors = ["Working at Height Exposure", "Missing Fall Restraint Barrier"];
+        hazards = ["Fall from Elevation", "Fatal Traumatic Impact"];
+        recommendations = [
+          "Red-tag scaffolding and immediately suspend elevated work until inspected (OSHA 1926.451).",
+          "Secure all loose planks with certified scaffolding clamps and install 42-inch top guardrails with toe-boards.",
+          "Enforce 100% tie-off using dual self-retracting lifelines (SRLs) anchored to certified structural points."
+        ];
+      } else if (/vibration|bearing|pump|motor|compressor|shaft|rotating|gear/i.test(text)) {
+        precursors = ["Rotating Machinery Bearing Failure", "Mechanical Component Degradation"];
+        hazards = ["Mechanical Catastrophic Seizure", "Projectile / Fragmentation Risk"];
+        recommendations = [
+          "Initiate controlled operational throttling/shutdown of unit to prevent catastrophic bearing seizure.",
+          "Conduct spectrum vibration FFT analysis and laser shaft alignment on bearing housing.",
+          "Inspect lubrication reservoir for metal particles and replace degraded bearings under LOTO protocol."
+        ];
+      } else if (/chemical|acid|caustic|toxic|solvent|corrosive/i.test(text)) {
+        precursors = ["Toxic / Corrosive Chemical Release", "Inadequate Secondary Containment"];
+        hazards = ["Chemical Inhalation Hazard", "Skin Chemical Burn"];
+        recommendations = [
+          "Cordon off area within 50m perimeter and post certified OSHA HAZMAT danger signage.",
+          "Deploy neutralizing absorbent boom kit and activate local exhaust ventilation.",
+          "Mandate Level B chemical splash suit and full-face respirator for containment crew."
+        ];
+      } else if (/electric|wire|cable|voltage|breaker|panel|spark|conduit|energized/i.test(text)) {
+        precursors = ["Energized Electrical Conductor Exposure", "Inadequate Lockout/Tagout"];
+        hazards = ["Fatal Electrocution", "Arc Flash Blast"];
+        recommendations = [
+          "Enforce zero-energy lockout/tagout (LOTO) at upstream distribution circuit breaker.",
+          "Erect perimeter barricade and post 'DANGER - HIGH VOLTAGE' certified signage.",
+          "Inspect and re-insulate exposed cabling in flame-retardant industrial conduit."
+        ];
+      } else if (/steam|flange|pressure|pipe|valve|leak|gasket/i.test(text)) {
+        precursors = ["High-Pressure Fluid Line Compromise", "Flange Gasket Degradation"];
+        hazards = ["High-Pressure Thermal Scald", "Piping System Depressurization Hazard"];
+        recommendations = [
+          "Isolate upstream line valves and depressurize affected pipe section immediately.",
+          "Deploy thermal splash blast shields and verify flange bolt torques per ASME B16.5.",
+          "Replace corroded gasket with high-temp spiral-wound metallic gasket under hot-work permit."
+        ];
+      } else if (/fire|explosion|combustion|flammable|gas|cylinder/i.test(text)) {
+        precursors = ["Flammable Gas / Vapor Accumulation", "Uncontrolled Ignition Source"];
+        hazards = ["Catastrophic Vapor Cloud Explosion", "Thermal Radiation Injury"];
+        recommendations = [
+          "Isolate flammable gas supply headers and initiate continuous LEL combustible gas monitoring.",
+          "Verify dry chemical fire suppression systems are armed and clear emergency access paths.",
+          "Eliminate all hot work within 35 feet and ground all metal structures to prevent static spark."
+        ];
+      } else {
+        precursors = isCritical
+          ? ["High-Consequence Hazard Exposure", "Direct Line of Fire Exposure"]
+          : ["Operational Hazard Exposure", "Administrative Control Deficiency"];
+        hazards = isCritical
+          ? ["Catastrophic Structural Failure", "Fatal Impact Risk"]
+          : ["Workplace Injury Risk", "Operational Interruption"];
+        recommendations = [
+          "Conduct immediate frontline supervisor hazard walkthrough and isolate immediate work zone.",
+          "Log findings in plant EHS incident management register and verify PPE compliance.",
+          "Schedule formal job safety analysis (JSA) and issue corrective action work order."
+        ];
+      }
+
       explanation = `Automated SIF classification calculated risk score ${riskScore}/100 (${riskLevel}) for ${location}. Priority response mandated under OSHA 1910.`;
     }
 

@@ -224,6 +224,16 @@ function getInitialDatabase(): LocalDatabase {
         sifProbability: 0.88,
         message: "CRITICAL SIF PRECURSOR: Working at height without certified perimeter guardrail in Sector 4.",
         isAcknowledged: false,
+        precursors: ["Working at Height Exposure", "Missing Fall Restraint Barrier"],
+        hazards: ["Fall from Elevation", "Fatal Traumatic Impact"],
+        recommendations: [
+          "Red-tag scaffolding and immediately suspend elevated work until inspected (OSHA 1926.451).",
+          "Secure loose planks with certified scaffolding clamps and install 42-inch top guardrails with toe-boards.",
+          "Enforce 100% tie-off using dual self-retracting lifelines (SRLs) anchored to certified structural points."
+        ],
+        explanation: "Tier 3 elevation lacking certified guardrails poses immediate SIF risk under OSHA 1926.451.",
+        location: "Sector 4 North, Tank Farm",
+        submittedBy: "Rajan Mehta",
         createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
       },
       {
@@ -237,6 +247,16 @@ function getInitialDatabase(): LocalDatabase {
         isAcknowledged: true,
         acknowledgedBy: "Officer Vikram Sharma",
         acknowledgedAt: new Date(Date.now() - 3600000 * 4).toISOString(),
+        precursors: ["Rotating Machinery Bearing Failure", "Mechanical Component Degradation"],
+        hazards: ["Mechanical Catastrophic Seizure", "Projectile / Fragmentation Risk"],
+        recommendations: [
+          "Initiate controlled operational throttling/shutdown of unit to prevent catastrophic bearing seizure.",
+          "Conduct spectrum vibration FFT analysis and laser shaft alignment on bearing housing.",
+          "Inspect lubrication reservoir for metal particles and replace degraded bearings under LOTO protocol."
+        ],
+        explanation: "Excessive vibration exceeds operational baseline threshold of 2.5 mm/s. Immediate balancing under LOTO required.",
+        location: "Process Area 2, Hydro Unit",
+        submittedBy: "Rajan Mehta",
         createdAt: new Date(Date.now() - 3600000 * 5).toISOString(),
       },
     ],

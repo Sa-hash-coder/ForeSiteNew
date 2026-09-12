@@ -74,6 +74,10 @@ export interface ActiveAlert {
   acknowledged: boolean;
   submittedBy: string;
   category: Category;
+  precursors?: string[];
+  hazards?: string[];
+  recommendations?: string[];
+  explanation?: string;
 }
 
 export interface MaintenanceTask {
@@ -562,6 +566,14 @@ export const ACTIVE_ALERTS: ActiveAlert[] = [
     acknowledged: false,
     submittedBy: 'Rahul Singh',
     category: 'chemical',
+    precursors: ['Toxic / Corrosive Chemical Release', 'Inadequate Secondary Containment'],
+    hazards: ['Chemical Inhalation Hazard', 'Skin Chemical Burn'],
+    recommendations: [
+      'Evacuate basement storage immediately and activate emergency chemical scrubber ventilation.',
+      'Deploy neutralizing chemical absorbent boom kit and acid-resistant spill berms.',
+      'Mandate Level B chemical splash suit and full-face positive-pressure respirator for containment team.'
+    ],
+    explanation: 'Corrosive chemical release poses severe inhalation and burn risks under OSHA 1910.120. Immediate containment mandated.',
   },
   {
     _id: 'alt-002',
@@ -574,6 +586,14 @@ export const ACTIVE_ALERTS: ActiveAlert[] = [
     acknowledged: false,
     submittedBy: 'Arjun Mehta',
     category: 'electrical',
+    precursors: ['Energized Electrical Conductor Exposure', 'Inadequate Lockout/Tagout'],
+    hazards: ['Fatal Electrocution', 'Arc Flash Blast'],
+    recommendations: [
+      'Enforce zero-energy lockout/tagout (LOTO) at distribution panel DP-4.',
+      'Barricade assembly line B perimeter with high-voltage warning tape.',
+      'Replace degraded conduit with IP67 armored industrial cable before line restart.'
+    ],
+    explanation: 'Exposed live conductor adjacent to high-traffic conveyor creates immediate electrocution and arc flash hazard.',
   },
   {
     _id: 'alt-003',
@@ -586,6 +606,14 @@ export const ACTIVE_ALERTS: ActiveAlert[] = [
     acknowledged: false,
     submittedBy: 'Priya Nair',
     category: 'fall',
+    precursors: ['Working at Height Exposure', 'Missing Fall Restraint Barrier'],
+    hazards: ['Fall from Elevation', 'Fatal Traumatic Impact'],
+    recommendations: [
+      'Issue stop-work red tag on West Facade scaffolding immediately.',
+      'Install certified 42-inch top guardrails, mid-rails, and toe-boards per OSHA 1926.451.',
+      'Mandate 100% tie-off using dual self-retracting lifelines for rigging crew.'
+    ],
+    explanation: 'Scaffolding lacking certified guardrails and perimeter restraint at height represents an OSHA SIF precursor.',
   },
   {
     _id: 'alt-004',
@@ -598,6 +626,14 @@ export const ACTIVE_ALERTS: ActiveAlert[] = [
     acknowledged: true,
     submittedBy: 'Rohan Desai',
     category: 'structural',
+    precursors: ['Structural Integrity Compromise', 'Overload Degradation'],
+    hazards: ['Catastrophic Structural Collapse', 'Crush Injury'],
+    recommendations: [
+      'Erect temporary heavy-duty steel shoring towers around column P2-C3.',
+      'Cordon off parking bays directly above and adjacent to damaged structure.',
+      'Engage licensed structural engineer for ultrasonic crack depth and load assessment.'
+    ],
+    explanation: 'Crack progression on primary load-bearing column poses catastrophic failure risk under sustained vehicular load.',
   },
   {
     _id: 'alt-005',
@@ -610,6 +646,14 @@ export const ACTIVE_ALERTS: ActiveAlert[] = [
     acknowledged: false,
     submittedBy: 'Sneha Patel',
     category: 'fire',
+    precursors: ['Fire Suppression System Impairment', 'Uncontrolled Fire Growth Potential'],
+    hazards: ['Rapid Flame Spread', 'Thermal Inhalation'],
+    recommendations: [
+      'Establish continuous 24/7 dedicated fire watch patrol across Warehouse C.',
+      'Expedite repair and hydrostatic re-certification of main suppression riser valve.',
+      'Verify secondary dry-chemical extinguishers and fire hoses are fully charged and unobstructed.'
+    ],
+    explanation: 'Suppression system impairment increases facility loss risk to SIF levels should ignition occur in storage racks.',
   },
 ];
 

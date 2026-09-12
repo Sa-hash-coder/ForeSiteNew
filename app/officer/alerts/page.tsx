@@ -47,6 +47,67 @@ function catStyle(c: string): CSSProperties {
   return { background: s.bg, color: s.color, borderRadius: 999, padding: '2px 10px', fontSize: 11, fontWeight: 500, display: 'inline-block' };
 }
 
+function resolveRecommendations(alert: LiveAlertItem): string[] {
+  if (alert.recommendations && alert.recommendations.length > 0) {
+    return alert.recommendations;
+  }
+  const text = `${alert.title || ''} ${alert.category || ''} ${alert.location || ''} ${alert.explanation || ''}`.toLowerCase();
+  if (/scaffold|fall|height|ladder|plank|guardrail|roof|perimeter/i.test(text)) {
+    return [
+      "Red-tag scaffolding and suspend elevated work until re-certified (OSHA 1926.451).",
+      "Secure loose planks with certified scaffolding clamps and install 42-inch guardrails.",
+      "Enforce 100% tie-off using dual self-retracting lifelines (SRLs) anchored to tested points."
+    ];
+  }
+  if (/vibration|bearing|pump|hydrocracker|motor|compressor|shaft|rotating|machinery/i.test(text)) {
+    return [
+      "Initiate controlled operational throttling/shutdown of unit to prevent catastrophic bearing seizure.",
+      "Conduct vibration spectrum FFT analysis and laser shaft alignment on bearing housing.",
+      "Inspect lubrication reservoir for metal particulates and replace degraded bearings under LOTO."
+    ];
+  }
+  if (/chemical|acid|caustic|toxic|solvent|corrosive|spill/i.test(text)) {
+    return [
+      "Evacuate affected sector, cordon 50m hot zone, and post OSHA HAZMAT danger signage.",
+      "Deploy neutralizing chemical absorbent boom kit and activate emergency ventilation.",
+      "Mandate Level B chemical protective suit and full-face respirator for containment crew."
+    ];
+  }
+  if (/electric|wire|cable|voltage|breaker|panel|spark|conduit|energized/i.test(text)) {
+    return [
+      "Enforce zero-energy lockout/tagout (LOTO) at upstream distribution circuit breaker.",
+      "Erect perimeter barricades and post 'DANGER - HIGH VOLTAGE' certified warnings.",
+      "Inspect and re-insulate damaged wiring in flame-retardant industrial conduit."
+    ];
+  }
+  if (/steam|flange|pressure|pipe|valve|leak|gasket/i.test(text)) {
+    return [
+      "Isolate upstream line valves and depressurize affected pipe section immediately.",
+      "Deploy thermal splash blast shields and verify flange bolt torques per ASME B16.5.",
+      "Replace compromised gasket with high-temp spiral-wound metallic gasket under hot-work permit."
+    ];
+  }
+  if (/fire|explosion|flammable|gas|cylinder/i.test(text)) {
+    return [
+      "Isolate flammable gas supply lines and initiate continuous LEL combustible gas monitoring.",
+      "Verify dry chemical fire suppression systems are armed and clear emergency access paths.",
+      "Eliminate all ignition sources within 35 feet and ground metal structures."
+    ];
+  }
+  if (/crack|structural|column|foundation|concrete/i.test(text)) {
+    return [
+      "Erect temporary heavy-duty steel shoring towers around affected structural members.",
+      "Cordon off areas directly above and below the compromised zone to prevent load hazard.",
+      "Engage certified structural reliability engineer for ultrasonic integrity assessment."
+    ];
+  }
+  return [
+    "Conduct immediate frontline supervisor hazard walkthrough and isolate active work zone.",
+    "Log incident in plant EHS register and verify operational PPE compliance.",
+    "Schedule formal job safety analysis (JSA) and dispatch maintenance work order."
+  ];
+}
+
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 type Tab = 'all' | 'critical' | 'high';
@@ -339,19 +400,16 @@ export default function AlertsPage() {
                         </span>
                       </div>
 
-                      {alert.recommendations && alert.recommendations.length > 0 ? (
-                        <ul style={{ margin: '4px 0 0 0', paddingLeft: 18, fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>
-                          {alert.recommendations.map((rec, i) => (
-                            <li key={i} style={{ fontWeight: 600, marginBottom: 2 }}>{rec}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>
-                          • Enforce zero-energy lockout/tagout (LOTO) state at the primary sector distribution panel.<br />
-                          • Restrict perimeter access and post certified OSHA hazard signage.<br />
-                          • Dispatch certified plant reliability technician for immediate remediation.
-                        </div>
-                      )}
+                      {(() => {
+                        const recs = resolveRecommendations(alert);
+                        return (
+                          <ul style={{ margin: '4px 0 0 0', paddingLeft: 18, fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>
+                            {recs.map((rec, i) => (
+                              <li key={i} style={{ fontWeight: 600, marginBottom: 2 }}>{rec}</li>
+                            ))}
+                          </ul>
+                        );
+                      })()}
 
                       {alert.explanation && (
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, fontStyle: 'italic' }}>
