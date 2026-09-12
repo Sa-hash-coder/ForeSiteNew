@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import {
   ShieldCheck,
@@ -15,7 +15,9 @@ import {
   LogOut,
   Search,
   Menu,
-  X
+  X,
+  AlertTriangle,
+  CheckCheck,
 } from "lucide-react";
 import { getStoredUser, logout } from "@/app/lib/auth";
 
@@ -30,6 +32,12 @@ export default function MaintenanceLayout({
   const [activeTab, setActiveTab] = useState<string>("desk");
   const [currentUser, setCurrentUser] = useState<any>(null);
 
+  // Notification state
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [readNotifIds, setReadNotifIds] = useState<string[]>([]);
+  const notifRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const saved = localStorage.getItem("foresite_theme") as "light" | "dark" | null;
     const initialTheme = saved || "light";
@@ -38,6 +46,11 @@ export default function MaintenanceLayout({
 
     const u = getStoredUser();
     if (u) setCurrentUser(u);
+
+    try {
+      const storedRead = localStorage.getItem("foresite_maint_read_notifs");
+      if (storedRead) setReadNotifIds(JSON.parse(storedRead));
+    } catch {}
 
     const handleTabChange = (e: Event) => {
       const customEvent = e as CustomEvent<string>;
@@ -48,6 +61,101 @@ export default function MaintenanceLayout({
     window.addEventListener("maintenance-tab-change", handleTabChange);
     return () => window.removeEventListener("maintenance-tab-change", handleTabChange);
   }, []);
+
+  // Fetch notifications for maintenance
+  useEffect(() => {
+    let isMounted = true;
+    async function loadMaintNotifs() {
+      try {
+        const [repRes, altRes] = await Promise.allSettled([
+          fetch("/api/reports?limit=15").then((r) => r.json()),
+          fetch("/api/alerts").then((r) => r.json()),
+        ]);
+
+        const list: any[] = [];
+
+        if (altRes.status === "fulfilled" && altRes.value?.success && Array.isArray(altRes.value.data)) {
+          altRes.value.data.forEach((alt: any) => {
+            list.push({
+              id: `alt_${alt._id || Math.random()}`,
+              title: alt.riskLevel === "CRITICAL" ? "CRITICAL SIF ALERT" : "Active Safety Hazard",
+              desc: alt.message || alt.reportTitle,
+              tab: "orders",
+              time: alt.createdAt || new Date().toISOString(),
+              type: "alert",
+            });
+          });
+        }
+
+        if (repRes.status === "fulfilled" && repRes.value?.success && Array.isArray(repRes.value.data)) {
+          repRes.value.data.forEach((r: any) => {
+            if (r.status === "action_assigned") {
+              list.push({
+                id: `wo_${r._id}`,
+                title: "Work Order Pending Action",
+                desc: `${r.title} (${r.location || "Refinery"})`,
+                tab: "orders",
+                time: r.createdAt || new Date().toISOString(),
+                type: "order",
+              });
+            } else if (r.status === "resolved" || r.status === "closed") {
+              list.push({
+                id: `clr_${r._id}`,
+                title: "Clearance Sign-Off Archived",
+                desc: `${r.title} - OSHA Sign-Off Completed`,
+                tab: "clearance",
+                time: r.createdAt || new Date().toISOString(),
+                type: "clearance",
+              });
+            }
+          });
+        }
+
+        if (isMounted) {
+          setNotifications(list);
+        }
+      } catch (err) {
+        console.warn("Maint notif load error:", err);
+      }
+    }
+
+    loadMaintNotifs();
+    const interval = setInterval(loadMaintNotifs, 20000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Outside click & escape handler
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setNotifOpen(false);
+    }
+    if (notifOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [notifOpen]);
+
+  const unreadMaintCount = notifications.filter((n) => !readNotifIds.includes(n.id)).length;
+
+  const markAllMaintRead = () => {
+    const allIds = notifications.map((n) => n.id);
+    setReadNotifIds(allIds);
+    try {
+      localStorage.setItem("foresite_maint_read_notifs", JSON.stringify(allIds));
+    } catch {}
+  };
 
   const toggleTheme = () => {
     const nextTheme = theme === "light" ? "dark" : "light";
@@ -270,6 +378,222 @@ export default function MaintenanceLayout({
             >
               {isDark ? <Sun size={16} /> : <Moon size={16} />}
             </button>
+
+            {/* Notification Bell with Dropdown */}
+            <div ref={notifRef} style={{ position: "relative" }}>
+              <button
+                onClick={() => setNotifOpen(!notifOpen)}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 8,
+                  backgroundColor: notifOpen ? "var(--primary-light)" : "var(--surface-subtle)",
+                  border: "1px solid " + (notifOpen ? "var(--primary)" : "var(--border)"),
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  color: notifOpen ? "var(--primary)" : "var(--text)",
+                  position: "relative",
+                }}
+                title="Operations Alerts & Notifications"
+              >
+                <Bell size={16} />
+                {unreadMaintCount > 0 && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: -2,
+                      right: -2,
+                      minWidth: 16,
+                      height: 16,
+                      padding: "0 4px",
+                      borderRadius: 999,
+                      backgroundColor: "var(--danger, #ef4444)",
+                      color: "#ffffff",
+                      fontSize: 10,
+                      fontWeight: 800,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxShadow: "0 0 0 2px var(--surface)",
+                    }}
+                  >
+                    {unreadMaintCount > 9 ? "9+" : unreadMaintCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Dropdown Menu */}
+              {notifOpen && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 10px)",
+                    right: 0,
+                    width: 360,
+                    maxWidth: "calc(100vw - 32px)",
+                    backgroundColor: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 14,
+                    boxShadow: "0 20px 40px -10px rgba(0, 0, 0, 0.25), 0 0 0 1px var(--border)",
+                    zIndex: 100,
+                    overflow: "hidden",
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "12px 16px",
+                      borderBottom: "1px solid var(--border)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      backgroundColor: "var(--surface-subtle)",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontWeight: 800, fontSize: 13, color: "var(--text)" }}>
+                        Maintenance Alerts
+                      </span>
+                      {unreadMaintCount > 0 && (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 800,
+                            padding: "2px 6px",
+                            borderRadius: 999,
+                            backgroundColor: "var(--danger)",
+                            color: "#ffffff",
+                          }}
+                        >
+                          {unreadMaintCount} new
+                        </span>
+                      )}
+                    </div>
+                    {unreadMaintCount > 0 && (
+                      <button
+                        onClick={markAllMaintRead}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: "var(--primary)",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <CheckCheck size={13} />
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ maxHeight: 320, overflowY: "auto" }}>
+                    {notifications.length === 0 ? (
+                      <div style={{ padding: "28px 16px", textAlign: "center", color: "var(--text-muted)", fontSize: 12 }}>
+                        No pending work order alerts.
+                      </div>
+                    ) : (
+                      notifications.map((n) => {
+                        const isUnread = !readNotifIds.includes(n.id);
+                        return (
+                          <div
+                            key={n.id}
+                            onClick={() => {
+                              if (isUnread) {
+                                const next = [...readNotifIds, n.id];
+                                setReadNotifIds(next);
+                                try {
+                                  localStorage.setItem("foresite_maint_read_notifs", JSON.stringify(next));
+                                } catch {}
+                              }
+                              handleTabClick(n.tab);
+                              setNotifOpen(false);
+                            }}
+                            style={{
+                              padding: "11px 14px",
+                              borderBottom: "1px solid var(--border)",
+                              display: "flex",
+                              gap: 10,
+                              cursor: "pointer",
+                              backgroundColor: isUnread ? "rgba(14, 165, 233, 0.05)" : "transparent",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = "var(--surface-subtle)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = isUnread ? "rgba(14, 165, 233, 0.05)" : "transparent";
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: 6,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0,
+                                backgroundColor:
+                                  n.type === "alert"
+                                    ? "rgba(239, 68, 68, 0.12)"
+                                    : n.type === "order"
+                                    ? "rgba(245, 158, 11, 0.12)"
+                                    : "rgba(16, 185, 129, 0.12)",
+                                color:
+                                  n.type === "alert"
+                                    ? "#ef4444"
+                                    : n.type === "order"
+                                    ? "#f59e0b"
+                                    : "#10b981",
+                              }}
+                            >
+                              {n.type === "alert" && <AlertTriangle size={14} />}
+                              {n.type === "order" && <Wrench size={14} />}
+                              {n.type === "clearance" && <CheckCircle2 size={14} />}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>
+                                  {n.title}
+                                </div>
+                                {isUnread && (
+                                  <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "var(--primary)" }} />
+                                )}
+                              </div>
+                              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {n.desc}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      padding: "8px 14px",
+                      borderTop: "1px solid var(--border)",
+                      backgroundColor: "var(--surface-subtle)",
+                      textAlign: "right",
+                    }}
+                  >
+                    <button
+                      onClick={() => setNotifOpen(false)}
+                      style={{ background: "none", border: "none", fontSize: 11, color: "var(--text-muted)", cursor: "pointer" }}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Profile Avatar */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 8, borderLeft: "1px solid var(--border)" }}>

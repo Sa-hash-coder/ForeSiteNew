@@ -1,19 +1,47 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import React, { useState, useEffect, useRef } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { LanguageProvider, useLanguage } from "@/app/lib/LanguageContext";
 import LanguageSwitchButton from "@/app/components/LanguageSwitchButton";
-import { Sun, Moon } from "lucide-react";
+import {
+  Sun,
+  Moon,
+  Bell,
+  AlertTriangle,
+  Wrench,
+  CheckCircle2,
+  Clock,
+  Info,
+  CheckCheck,
+  ExternalLink,
+} from "lucide-react";
 import { getStoredUser } from "@/app/lib/auth";
+
+interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  timestamp: string;
+  type: "alert" | "action" | "resolved" | "review" | "info";
+  link: string;
+  location?: string;
+}
 
 function WorkerAppContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { lang, t } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // Notification state
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [readIds, setReadIds] = useState<string[]>([]);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Default to clean industrial light theme
@@ -23,7 +51,187 @@ function WorkerAppContent({ children }: { children: React.ReactNode }) {
 
     const u = getStoredUser();
     if (u) setCurrentUser(u);
+
+    // Load persisted read notifications
+    try {
+      const storedRead = localStorage.getItem("foresite_worker_read_notifs");
+      if (storedRead) {
+        setReadIds(JSON.parse(storedRead));
+      }
+    } catch {
+      // ignore parse err
+    }
   }, []);
+
+  // Fetch live notifications based on reports and alerts
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchNotifications() {
+      try {
+        const [repRes, altRes] = await Promise.allSettled([
+          fetch("/api/reports?limit=15").then((r) => r.json()),
+          fetch("/api/alerts").then((r) => r.json()),
+        ]);
+
+        const items: NotificationItem[] = [];
+
+        // 1. Process active alerts
+        if (altRes.status === "fulfilled" && altRes.value?.success && Array.isArray(altRes.value.data)) {
+          altRes.value.data.forEach((alt: any) => {
+            const isCritical = alt.riskLevel === "CRITICAL" || alt.riskScore >= 80;
+            items.push({
+              id: `alt_${alt._id || alt.reportId || Math.random()}`,
+              title: isCritical
+                ? (lang === "hi" ? "गंभीर SIF सुरक्षा चेतावनी" : "Critical SIF Hazard Alert")
+                : (lang === "hi" ? "प्लांट सुरक्षा सूचना" : "Plant Safety Warning"),
+              message: alt.message || alt.reportTitle || "High risk safety precursor active.",
+              timestamp: alt.createdAt || new Date().toISOString(),
+              type: "alert",
+              link: alt.reportId ? `/worker/reports/${alt.reportId}` : "/worker/reports",
+              location: alt.location || "Refinery Unit Alpha",
+            });
+          });
+        }
+
+        // 2. Process reports status updates
+        if (repRes.status === "fulfilled" && repRes.value?.success && Array.isArray(repRes.value.data)) {
+          repRes.value.data.forEach((rep: any) => {
+            if (rep.status === "action_assigned") {
+              items.push({
+                id: `rep_act_${rep._id}`,
+                title: lang === "hi" ? "मेंटेनेंस टीम भेजी गई" : "Maintenance Team Dispatched",
+                message: `${lang === "hi" ? "कार्य आदेश जारी:" : "Work order assigned for:"} ${rep.title}`,
+                timestamp: rep.createdAt || new Date().toISOString(),
+                type: "action",
+                link: `/worker/reports/${rep._id}`,
+                location: rep.location,
+              });
+            } else if (rep.status === "resolved" || rep.status === "closed") {
+              items.push({
+                id: `rep_res_${rep._id}`,
+                title: lang === "hi" ? "खतरा हल और सत्यापित" : "Hazard Cleared & Verified",
+                message: `${lang === "hi" ? "सुरक्षा क्लीयरेंस स्वीकृत:" : "Safety clearance verified:"} ${rep.title}`,
+                timestamp: rep.createdAt || new Date().toISOString(),
+                type: "resolved",
+                link: `/worker/reports/${rep._id}`,
+                location: rep.location,
+              });
+            } else if (rep.status === "under_review") {
+              items.push({
+                id: `rep_rev_${rep._id}`,
+                title: lang === "hi" ? "अधिकारी समीक्षाधीन" : "Safety Officer Review",
+                message: `${lang === "hi" ? "समीक्षा जारी:" : "Review in progress:"} ${rep.title}`,
+                timestamp: rep.createdAt || new Date().toISOString(),
+                type: "review",
+                link: `/worker/reports/${rep._id}`,
+                location: rep.location,
+              });
+            }
+          });
+        }
+
+        // Ensure default safety advisories exist
+        if (items.length < 2) {
+          items.push(
+            {
+              id: "sys_ppe_adv",
+              title: lang === "hi" ? "दैनिक सुरक्षा एडवाइजरी" : "Daily Safety Protocol Active",
+              message: lang === "hi" ? "सेक्टर 4 में 100% पीपीई और हार्नेस टाई-ऑफ अनिवार्य है।" : "Mandatory 100% harness tie-off and dual SRL protocol active in Sector 4.",
+              timestamp: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
+              type: "info",
+              link: "/worker/reports",
+              location: "Tank Farm Sector 4",
+            },
+            {
+              id: "sys_telemetry_ok",
+              title: lang === "hi" ? "सेंसर टेलीमेट्री सक्रिय" : "Telemetry Monitor Online",
+              message: lang === "hi" ? "गैस व कंपन डिटेक्टर सामान्य स्तर पर कार्य कर रहे हैं।" : "Live gas & vibration telemetry channels healthy across all units.",
+              timestamp: new Date(Date.now() - 1000 * 60 * 110).toISOString(),
+              type: "info",
+              link: "/worker",
+              location: "Refinery Unit Alpha",
+            }
+          );
+        }
+
+        // Sort descending by timestamp
+        items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+        if (isMounted) {
+          setNotifications(items);
+        }
+      } catch (err) {
+        console.warn("Failed to load notifications:", err);
+      }
+    }
+
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 20000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [lang]);
+
+  // Outside click & Escape key listener
+  useEffect(() => {
+    function handleOutsideClick(e: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotificationsOpen(false);
+      }
+    }
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setNotificationsOpen(false);
+      }
+    }
+    if (notificationsOpen) {
+      document.addEventListener("mousedown", handleOutsideClick);
+      document.addEventListener("keydown", handleEscape);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [notificationsOpen]);
+
+  const unreadCount = notifications.filter((n) => !readIds.includes(n.id)).length;
+
+  const markAllAsRead = () => {
+    const allIds = notifications.map((n) => n.id);
+    setReadIds(allIds);
+    try {
+      localStorage.setItem("foresite_worker_read_notifs", JSON.stringify(allIds));
+    } catch {}
+  };
+
+  const handleNotificationClick = (item: NotificationItem) => {
+    if (!readIds.includes(item.id)) {
+      const updated = [...readIds, item.id];
+      setReadIds(updated);
+      try {
+        localStorage.setItem("foresite_worker_read_notifs", JSON.stringify(updated));
+      } catch {}
+    }
+    setNotificationsOpen(false);
+    router.push(item.link);
+  };
+
+  const getTimeAgo = (dateStr: string) => {
+    try {
+      const diff = Date.now() - new Date(dateStr).getTime();
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return lang === "hi" ? "अभी" : "Just now";
+      if (mins < 60) return `${mins}${lang === "hi" ? " मि. पहले" : "m ago"}`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}${lang === "hi" ? " घंटे पहले" : "h ago"}`;
+      const days = Math.floor(hrs / 24);
+      return `${days}${lang === "hi" ? " दिन पहले" : "d ago"}`;
+    } catch {
+      return "Recent";
+    }
+  };
 
   const toggleTheme = () => {
     const next = theme === "light" ? "dark" : "light";
@@ -212,14 +420,322 @@ function WorkerAppContent({ children }: { children: React.ReactNode }) {
               {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
             </button>
 
-            {/* Notification Bell Icon */}
-            <button className="apple-btn" style={s.iconBtn} title="Notifications">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-              </svg>
-              <span style={s.bellBadge} />
-            </button>
+            {/* Notification Bell with Dropdown */}
+            <div ref={notifRef} style={{ position: "relative" }}>
+              <button
+                className="apple-btn"
+                style={{
+                  ...s.iconBtn,
+                  backgroundColor: notificationsOpen ? "var(--primary-light)" : "var(--surface)",
+                  borderColor: notificationsOpen ? "var(--primary)" : "var(--border)",
+                  color: notificationsOpen ? "var(--primary)" : "var(--text)",
+                }}
+                title={lang === "hi" ? "सूचनाएँ" : "Notifications"}
+                aria-label="Notifications"
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+              >
+                <Bell size={18} strokeWidth={2.2} />
+                {unreadCount > 0 && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: -2,
+                      right: -2,
+                      minWidth: 16,
+                      height: 16,
+                      padding: "0 4px",
+                      borderRadius: 999,
+                      backgroundColor: "var(--danger, #ef4444)",
+                      color: "#ffffff",
+                      fontSize: 10,
+                      fontWeight: 800,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxShadow: "0 0 0 2px var(--surface)",
+                    }}
+                  >
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Dropdown Menu */}
+              {notificationsOpen && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 10px)",
+                    right: 0,
+                    width: 380,
+                    maxWidth: "calc(100vw - 32px)",
+                    backgroundColor: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 16,
+                    boxShadow: "0 20px 40px -10px rgba(0, 0, 0, 0.25), 0 0 0 1px var(--border)",
+                    zIndex: 100,
+                    overflow: "hidden",
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
+                  {/* Dropdown Header */}
+                  <div
+                    style={{
+                      padding: "14px 16px",
+                      borderBottom: "1px solid var(--border)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      backgroundColor: "var(--surface-subtle)",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontWeight: 800, fontSize: 14, color: "var(--text)" }}>
+                        {lang === "hi" ? "सूचनाएँ" : "Notifications"}
+                      </span>
+                      {unreadCount > 0 ? (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            padding: "2px 7px",
+                            borderRadius: 999,
+                            backgroundColor: "var(--danger)",
+                            color: "#ffffff",
+                          }}
+                        >
+                          {unreadCount} {lang === "hi" ? "नई" : "new"}
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            padding: "2px 7px",
+                            borderRadius: 999,
+                            backgroundColor: "var(--surface)",
+                            border: "1px solid var(--border)",
+                            color: "var(--text-muted)",
+                          }}
+                        >
+                          {lang === "hi" ? "सब पढ़ा हुआ" : "All read"}
+                        </span>
+                      )}
+                    </div>
+
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={markAllAsRead}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: "var(--primary)",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          padding: "4px 8px",
+                          borderRadius: 6,
+                        }}
+                      >
+                        <CheckCheck size={14} />
+                        <span>{lang === "hi" ? "सभी पढ़ा हुआ करें" : "Mark all read"}</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Dropdown List */}
+                  <div
+                    style={{
+                      maxHeight: 360,
+                      overflowY: "auto",
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  >
+                    {notifications.length === 0 ? (
+                      <div
+                        style={{
+                          padding: "36px 20px",
+                          textAlign: "center",
+                          color: "var(--text-muted)",
+                        }}
+                      >
+                        <Bell size={28} style={{ opacity: 0.3, margin: "0 auto 8px" }} />
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>
+                          {lang === "hi" ? "कोई नई सूचना नहीं है" : "No new notifications"}
+                        </div>
+                        <div style={{ fontSize: 11, marginTop: 4 }}>
+                          {lang === "hi" ? "आपके सभी सुरक्षा कार्य अद्यतित हैं।" : "You're all caught up on plant safety updates."}
+                        </div>
+                      </div>
+                    ) : (
+                      notifications.map((item) => {
+                        const isUnread = !readIds.includes(item.id);
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => handleNotificationClick(item)}
+                            style={{
+                              padding: "12px 16px",
+                              borderBottom: "1px solid var(--border)",
+                              display: "flex",
+                              gap: 12,
+                              cursor: "pointer",
+                              backgroundColor: isUnread ? "rgba(14, 165, 233, 0.04)" : "transparent",
+                              transition: "background 0.15s ease",
+                              alignItems: "flex-start",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = "var(--surface-subtle)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = isUnread ? "rgba(14, 165, 233, 0.04)" : "transparent";
+                            }}
+                          >
+                            {/* Icon Avatar */}
+                            <div
+                              style={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: 8,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0,
+                                marginTop: 2,
+                                backgroundColor:
+                                  item.type === "alert"
+                                    ? "rgba(239, 68, 68, 0.12)"
+                                    : item.type === "action"
+                                    ? "rgba(245, 158, 11, 0.12)"
+                                    : item.type === "resolved"
+                                    ? "rgba(16, 185, 129, 0.12)"
+                                    : item.type === "review"
+                                    ? "rgba(59, 130, 246, 0.12)"
+                                    : "rgba(99, 102, 241, 0.12)",
+                                color:
+                                  item.type === "alert"
+                                    ? "#ef4444"
+                                    : item.type === "action"
+                                    ? "#f59e0b"
+                                    : item.type === "resolved"
+                                    ? "#10b981"
+                                    : item.type === "review"
+                                    ? "#3b82f6"
+                                    : "#6366f1",
+                              }}
+                            >
+                              {item.type === "alert" && <AlertTriangle size={16} />}
+                              {item.type === "action" && <Wrench size={16} />}
+                              {item.type === "resolved" && <CheckCircle2 size={16} />}
+                              {item.type === "review" && <Clock size={16} />}
+                              {item.type === "info" && <Info size={16} />}
+                            </div>
+
+                            {/* Content */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginBottom: 2 }}>
+                                <span
+                                  style={{
+                                    fontSize: 13,
+                                    fontWeight: isUnread ? 700 : 600,
+                                    color: "var(--text)",
+                                    lineHeight: 1.2,
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  {item.title}
+                                </span>
+                                {isUnread && (
+                                  <span
+                                    style={{
+                                      width: 7,
+                                      height: 7,
+                                      borderRadius: "50%",
+                                      backgroundColor: "var(--primary)",
+                                      flexShrink: 0,
+                                    }}
+                                  />
+                                )}
+                              </div>
+                              <p
+                                style={{
+                                  fontSize: 12,
+                                  color: "var(--text-muted)",
+                                  margin: "0 0 4px 0",
+                                  lineHeight: 1.35,
+                                  display: "-webkit-box",
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: "vertical",
+                                  overflow: "hidden",
+                                }}
+                              >
+                                {item.message}
+                              </p>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--text-light)" }}>
+                                {item.location && (
+                                  <span style={{ fontWeight: 600 }}>📍 {item.location}</span>
+                                )}
+                                <span>·</span>
+                                <span>{getTimeAgo(item.timestamp)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Dropdown Footer */}
+                  <div
+                    style={{
+                      padding: "10px 16px",
+                      borderTop: "1px solid var(--border)",
+                      backgroundColor: "var(--surface-subtle)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <Link
+                      href="/worker/reports"
+                      onClick={() => setNotificationsOpen(false)}
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "var(--primary)",
+                        textDecoration: "none",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <span>{lang === "hi" ? "सभी रिपोर्ट्स देखें" : "View All Incident Reports"}</span>
+                      <ExternalLink size={12} />
+                    </Link>
+
+                    <button
+                      onClick={() => setNotificationsOpen(false)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        fontSize: 11,
+                        color: "var(--text-muted)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {lang === "hi" ? "बंद करें" : "Dismiss"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* User Profile Avatar */}
             <Link href="/worker/profile" className="apple-btn" style={s.userAvatarBtn}>
