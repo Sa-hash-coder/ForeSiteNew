@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import {
@@ -18,7 +17,6 @@ import {
   Menu,
   X
 } from "lucide-react";
-import LanguageSwitchButton from "@/app/components/LanguageSwitchButton";
 import { getStoredUser, logout } from "@/app/lib/auth";
 
 export default function MaintenanceLayout({
@@ -241,11 +239,11 @@ export default function MaintenanceLayout({
             </button>
 
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 8px", borderRadius: 6, backgroundColor: "var(--surface-subtle)", border: "1px solid var(--border)", color: "#0A192F" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 8px", borderRadius: 6, backgroundColor: "var(--surface-subtle)", border: "1px solid var(--border)", color: "var(--text)" }}>
                 PLANT SECTOR 4
               </span>
               <span style={{ fontSize: 12, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#15803D", display: "inline-block" }} />
+                <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "var(--success)", display: "inline-block" }} />
                 Modbus Telemetry Online
               </span>
             </div>
@@ -253,8 +251,6 @@ export default function MaintenanceLayout({
 
           {/* Right Header Actions */}
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <LanguageSwitchButton />
-
             {/* Dark/Light Toggle */}
             <button
               onClick={toggleTheme}
@@ -275,26 +271,6 @@ export default function MaintenanceLayout({
               {isDark ? <Sun size={16} /> : <Moon size={16} />}
             </button>
 
-            {/* Switch Portal Button */}
-            <Link
-              href="/officer"
-              style={{
-                padding: "6px 12px",
-                borderRadius: 6,
-                fontSize: 12,
-                fontWeight: 700,
-                color: "#0A192F",
-                backgroundColor: "var(--surface-subtle)",
-                border: "1px solid var(--border)",
-                textDecoration: "none",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              Officer Portal →
-            </Link>
-
             {/* Profile Avatar */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 8, borderLeft: "1px solid var(--border)" }}>
               <div
@@ -302,7 +278,7 @@ export default function MaintenanceLayout({
                   width: 34,
                   height: 34,
                   borderRadius: "50%",
-                  backgroundColor: "#0A192F",
+                  backgroundColor: "var(--primary)",
                   color: "#ffffff",
                   display: "flex",
                   alignItems: "center",

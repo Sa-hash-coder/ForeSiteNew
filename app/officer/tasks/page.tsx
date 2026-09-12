@@ -4,6 +4,7 @@ import { useEffect, useState, CSSProperties } from 'react';
 import Link from 'next/link';
 import { MAINTENANCE_TASKS, MaintenanceTask, TaskStatus } from '@/app/lib/officerMockData';
 import { exportToCSV, exportToExcel, ExportColumn } from '@/app/lib/exportUtils';
+import { getTasksApi, updateTaskStatusApi, TaskItem } from '@/app/lib/api';
 
 const TASK_EXPORT_COLUMNS: ExportColumn<MaintenanceTask>[] = [
   { header: 'Task ID', accessor: (t: MaintenanceTask) => t._id },
@@ -51,6 +52,32 @@ export default function TasksPage() {
   const [toast, setToast] = useState('');
   const [showExportMenu, setShowExportMenu] = useState(false);
 
+  const loadTasks = async () => {
+    try {
+      const res = await getTasksApi();
+      if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        const liveTasks: MaintenanceTask[] = res.data.map((t: any) => ({
+          _id: t._id || t.id,
+          reportId: t.reportId || 'rep-live',
+          reportTitle: t.title,
+          title: t.title,
+          assignedTo: t.assignedCrew || t.assignedTo || 'Maintenance Response Team',
+          dueDate: t.createdAt ? new Date(new Date(t.createdAt).getTime() + 86400000).toISOString().split('T')[0] : '2026-09-15',
+          priority: (t.severity === 'critical' ? 'critical' : t.severity === 'high' ? 'high' : 'medium') as any,
+          status: (t.status === 'completed' || t.status === 'officer_verified' ? 'done' : t.status === 'in_progress' ? 'in_progress' : 'pending') as TaskStatus,
+        }));
+        // Merge live tasks at top with mock tasks
+        const liveIds = new Set(liveTasks.map(lt => lt._id));
+        const filteredMock = MAINTENANCE_TASKS.filter(mt => !liveIds.has(mt._id));
+        setTasks([...liveTasks, ...filteredMock]);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch live tasks, using mock:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleExportCSV = (scope: 'filtered' | 'all') => {
     const data = scope === 'filtered' ? filtered : tasks;
     const dateStr = new Date().toISOString().split('T')[0];
@@ -72,8 +99,9 @@ export default function TasksPage() {
   };
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(t);
+    loadTasks();
+    const interval = setInterval(loadTasks, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const filtered = tasks.filter(t => filter === 'all' || t.status === filter);
@@ -85,9 +113,14 @@ export default function TasksPage() {
     done: tasks.filter(t => t.status === 'done').length,
   };
 
-  const assign = (taskId: string) => {
-    setTasks(prev => prev.map(t => t._id === taskId ? { ...t, assignedTo: 'Assigned', status: 'in_progress' } : t));
-    setToast('Task assigned successfully!');
+  const assign = async (taskId: string) => {
+    setTasks(prev => prev.map(t => t._id === taskId ? { ...t, assignedTo: 'Assigned Crew Alpha', status: 'in_progress' } : t));
+    try {
+      await updateTaskStatusApi(taskId, 'in_progress');
+    } catch {
+      // fallback
+    }
+    setToast('Task assigned & dispatched to Maintenance portal!');
     setTimeout(() => setToast(''), 2400);
   };
 

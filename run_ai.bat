@@ -1,8 +1,12 @@
 @echo off
-if exist "C:\Users\%USERNAME%\anaconda3\python.exe" (
+python -c "import flask_cors" >nul 2>&1
+if %errorlevel% equ 0 (
+  python ai-service\main.py
+) else if exist "C:\Users\%USERNAME%\anaconda3\python.exe" (
   "C:\Users\%USERNAME%\anaconda3\python.exe" ai-service\main.py
 ) else if exist "C:\Users\saura\anaconda3\python.exe" (
   "C:\Users\saura\anaconda3\python.exe" ai-service\main.py
 ) else (
   python ai-service\main.py
 )
+
