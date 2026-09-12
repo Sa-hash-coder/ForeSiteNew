@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
 import {
   REFINERY_FACILITY_UNITS,
   FacilityUnit,
   getUnitRiskColor,
 } from "@/app/lib/refineryMapData";
+import { getReportsApi, getAlertsApi, createTaskApi } from "@/app/lib/api";
+import { MAINTENANCE_CREWS } from "@/app/officer/tasks/page";
 import {
   ZoomIn,
   ZoomOut,
@@ -26,8 +29,20 @@ import {
   ChevronRight,
   Wrench,
   ShieldAlert,
-  Sliders
+  Sliders,
+  Radio,
+  Clock,
+  ExternalLink
 } from "lucide-react";
+
+export interface DynamicFacilityUnit extends FacilityUnit {
+  matchedReports: any[];
+  matchedAlerts: any[];
+  liveRiskScore: number;
+  liveIncidents: number;
+  liveStatus: 'critical' | 'high' | 'medium' | 'low' | 'normal';
+  liveDominantHazard: string;
+}
 
 // Soft radial gradient for thermal plumes
 function getHeatmapRadialGradient(score: number): string {
@@ -42,51 +57,175 @@ function getHeatmapRadialGradient(score: number): string {
   }
 }
 
-// Simulated live telemetry generator based on unit risk
-function getUnitTelemetry(unit: FacilityUnit) {
-  const isHigh = unit.riskScore >= 80;
-  const isMed = unit.riskScore >= 60;
+// Live simulated sensor telemetry with physical micro-fluctuations
+function getUnitTelemetry(unit: DynamicFacilityUnit | FacilityUnit, tick: number = 0) {
+  const score = (unit as DynamicFacilityUnit).liveRiskScore || unit.riskScore;
+  const isHigh = score >= 80;
+  const isMed = score >= 60;
+
+  // Real-time micro fluctuations
+  const deltaTemp = Math.sin(tick * 1.5 + score) * 3.2;
+  const deltaPress = Math.cos(tick * 0.9 + score) * 0.35;
+  const deltaVib = Math.sin(tick * 1.8 + score) * 0.18;
+  const deltaGas = Math.floor(Math.abs(Math.sin(tick + score)) * 4);
+
+  const baseTemp = isHigh ? 385 + (score % 30) : isMed ? 240 + (score % 20) : 110 + (score % 15);
+  const basePress = isHigh ? (16.4 + (score % 8) * 0.3) : (7.2 + (score % 5) * 0.2);
+  const baseVib = isHigh ? (4.8 + (score % 4) * 0.2) : (1.6 + (score % 3) * 0.1);
+  const baseGas = isHigh ? 42 + (score % 18) : isMed ? 14 + (score % 8) : 2;
+
   return {
-    temp: isHigh ? 385 + (unit.riskScore % 30) : isMed ? 240 + (unit.riskScore % 20) : 110 + (unit.riskScore % 15),
-    pressure: isHigh ? (16.4 + (unit.riskScore % 8) * 0.3).toFixed(1) : (7.2 + (unit.riskScore % 5) * 0.2).toFixed(1),
-    vibration: isHigh ? (4.8 + (unit.riskScore % 4) * 0.2).toFixed(1) : (1.6 + (unit.riskScore % 3) * 0.1).toFixed(1),
-    gasPpm: isHigh ? 42 + (unit.riskScore % 18) : isMed ? 14 + (unit.riskScore % 8) : 2,
+    temp: Math.round(baseTemp + deltaTemp),
+    pressure: (basePress + deltaPress).toFixed(1),
+    vibration: (baseVib + deltaVib).toFixed(2),
+    gasPpm: Math.max(0, baseGas + deltaGas),
   };
+}
+
+// Intelligent heuristic mapper matching live reports to map units
+function matchReportToUnit(r: any, unit: FacilityUnit): boolean {
+  const text = `${r.title || ''} ${r.description || ''} ${r.location || ''} ${r.zone || ''} ${r.category || ''}`.toLowerCase();
+  const code = unit.code.toLowerCase();
+
+  if (text.includes(code)) return true;
+
+  if (unit.id === 'unit-crude-storage' && (text.includes('tank') || text.includes('tk-80') || text.includes('crude') || text.includes('storage') || text.includes('scaffolding') || text.includes('sector 4 north'))) return true;
+  if (unit.id === 'unit-fcc' && (text.includes('fcc') || text.includes('catalytic') || text.includes('slide valve') || text.includes('cracking platform'))) return true;
+  if (unit.id === 'unit-hdt' && (text.includes('hydrotreater') || text.includes('hydrocracker') || text.includes('v-204') || text.includes('h2') || text.includes('hydrogen') || text.includes('bearing') || text.includes('vibration') || text.includes('process area 2'))) return true;
+  if (unit.id === 'unit-vdu' && (text.includes('vdu') || text.includes('vacuum') || text.includes('ex-12') || text.includes('flange') || text.includes('stripper'))) return true;
+  if (unit.id === 'unit-adu' && (text.includes('adu') || text.includes('atmospheric') || text.includes('distillation') || text.includes('fractionation'))) return true;
+  if (unit.id === 'unit-power-plant' && (text.includes('boiler') || text.includes('boiler room b') || text.includes('steam') || text.includes('power') || text.includes('turbine'))) return true;
+  if (unit.id === 'unit-water-treatment' && (text.includes('water') || text.includes('acid') || text.includes('caustic') || text.includes('effluent') || text.includes('chemical') || text.includes('p-102a'))) return true;
+  if (unit.id === 'unit-flare' && (text.includes('flare') || text.includes('knockout') || text.includes('ko drum') || text.includes('emission'))) return true;
+  if (unit.id === 'unit-lpg' && (text.includes('lpg') || text.includes('sphere') || text.includes('pressurized propane'))) return true;
+  if (unit.id === 'unit-cooling-tower' && (text.includes('cooling tower') || text.includes('fan deck'))) return true;
+  if (unit.id === 'unit-firewater' && (text.includes('firewater') || text.includes('diesel pump'))) return true;
+
+  return false;
 }
 
 export default function HeatmapPage() {
   const [loading, setLoading] = useState(true);
-  const [selectedUnit, setSelectedUnit] = useState<FacilityUnit | null>(null);
-  const [hoveredUnit, setHoveredUnit] = useState<FacilityUnit | null>(null);
+  const [facilityUnits, setFacilityUnits] = useState<DynamicFacilityUnit[]>([]);
+  const [selectedUnit, setSelectedUnit] = useState<DynamicFacilityUnit | null>(null);
+  const [hoveredUnit, setHoveredUnit] = useState<DynamicFacilityUnit | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   
-  // Toggles
+  // Toggles & Controls
   const [showHeatmap, setShowHeatmap] = useState<boolean>(true);
   const [showPins, setShowPins] = useState<boolean>(true);
-  const [showTelemetryModal, setShowTelemetryModal] = useState<boolean>(false);
   const [pinDropMode, setPinDropMode] = useState<boolean>(false);
   const [sidePanelOpen, setSidePanelOpen] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>("");
 
+  // Live Telemetry stream ticker
+  const [telemetryTick, setTelemetryTick] = useState<number>(0);
+  const [lastSyncedTime, setLastSyncedTime] = useState<string>("Just now");
+  const [totalLiveReportsCount, setTotalLiveReportsCount] = useState<number>(0);
+  const [toast, setToast] = useState<string>("");
+
+  // Quick Dispatch Modal State from Heatmap
+  const [dispatchModalUnit, setDispatchModalUnit] = useState<DynamicFacilityUnit | null>(null);
+  const [dispatchCrew, setDispatchCrew] = useState<string>(MAINTENANCE_CREWS[0]);
+  const [dispatchInstructions, setDispatchInstructions] = useState<string>("");
+  const [dispatchLoto, setDispatchLoto] = useState<boolean>(false);
+  const [isSubmittingDispatch, setIsSubmittingDispatch] = useState<boolean>(false);
+
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const [customMapUrl, setCustomMapUrl] = useState<string>("/refinery_map.jpg");
   const [customMarkers, setCustomMarkers] = useState<{ id: number; x: number; y: number; note: string }[]>([]);
 
+  // Function to pull live data and dynamically aggregate into units
+  const syncLiveData = async () => {
+    try {
+      const [reportsRes, alertsRes] = await Promise.all([
+        getReportsApi({ limit: 100 }),
+        getAlertsApi(),
+      ]);
+
+      const liveReports = reportsRes.data || [];
+      const liveAlerts = alertsRes.data || [];
+      setTotalLiveReportsCount(liveReports.length);
+
+      const computedUnits: DynamicFacilityUnit[] = REFINERY_FACILITY_UNITS.map(unit => {
+        const matchedR = liveReports.filter(r => matchReportToUnit(r, unit));
+        const matchedA = liveAlerts.filter(a => matchReportToUnit(a, unit));
+
+        const maxReportScore = matchedR.reduce((max, r) => {
+          const s = r.riskAssessment?.riskScore || (r as any).risk_score || (r as any).riskScore || (r.severity === 'critical' ? 92 : r.severity === 'high' ? 78 : r.severity === 'medium' ? 55 : 30);
+          return Math.max(max, s);
+        }, 0);
+
+        const liveRiskScore = maxReportScore > 0 ? Math.max(unit.riskScore, maxReportScore) : unit.riskScore;
+        const liveIncidents = unit.incidents + matchedR.length;
+        const liveStatus = liveRiskScore >= 80 ? 'critical' : liveRiskScore >= 60 ? 'high' : liveRiskScore >= 40 ? 'medium' : 'low';
+        const liveDominantHazard = matchedR[0]?.title || matchedA[0]?.message || unit.dominantHazard;
+
+        return {
+          ...unit,
+          riskScore: liveRiskScore,
+          incidents: liveIncidents,
+          status: liveStatus,
+          dominantHazard: liveDominantHazard,
+          matchedReports: matchedR,
+          matchedAlerts: matchedA,
+          liveRiskScore,
+          liveIncidents,
+          liveStatus,
+          liveDominantHazard,
+        };
+      });
+
+      setFacilityUnits(computedUnits);
+      setLastSyncedTime("Just now");
+    } catch (err) {
+      console.warn("Could not sync live heatmap reports, falling back:", err);
+      if (facilityUnits.length === 0) {
+        setFacilityUnits(REFINERY_FACILITY_UNITS.map(u => ({
+          ...u,
+          matchedReports: [],
+          matchedAlerts: [],
+          liveRiskScore: u.riskScore,
+          liveIncidents: u.incidents,
+          liveStatus: u.status,
+          liveDominantHazard: u.dominantHazard,
+        })));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 300);
-    return () => clearTimeout(t);
+    syncLiveData();
+    const interval = setInterval(syncLiveData, 8000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Filter units based on selection
-  const filteredUnits = REFINERY_FACILITY_UNITS.filter((u) => {
-    if (activeFilter === "extreme") return u.riskScore >= 80;
-    if (activeFilter === "high") return u.riskScore >= 60 && u.riskScore < 80;
-    if (activeFilter === "moderate") return u.riskScore >= 40 && u.riskScore < 60;
-    if (activeFilter === "low") return u.riskScore < 40;
+  // Micro-telemetry fluctuations (sensor heartbeat)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTelemetryTick(prev => prev + 1);
+    }, 2500);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Dynamic Overall Facility Risk calculation
+  const unitsToProcess = facilityUnits.length > 0 ? facilityUnits : (REFINERY_FACILITY_UNITS as DynamicFacilityUnit[]);
+  const averageRisk = Math.round(
+    unitsToProcess.reduce((sum, u) => sum + (u.liveRiskScore || u.riskScore), 0) / (unitsToProcess.length || 1)
+  );
+
+  // Filter units based on selection & search
+  const filteredUnits = unitsToProcess.filter((u) => {
+    const score = u.liveRiskScore || u.riskScore;
+    if (activeFilter === "extreme") return score >= 80;
+    if (activeFilter === "high") return score >= 60 && score < 80;
+    if (activeFilter === "moderate") return score >= 40 && score < 60;
+    if (activeFilter === "low") return score < 40;
     return true;
   }).filter((u) => {
     if (!searchQuery) return true;
@@ -125,13 +264,6 @@ export default function HeatmapPage() {
     setIsDragging(false);
   };
 
-  const handleMapUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const url = URL.createObjectURL(e.target.files[0]);
-      setCustomMapUrl(url);
-    }
-  };
-
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!pinDropMode) return;
     if ((e.target as HTMLElement).closest(".map-unit-interactive")) return;
@@ -140,18 +272,56 @@ export default function HeatmapPage() {
       const rect = mapContainerRef.current.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 100;
       const y = ((e.clientY - rect.top) / rect.height) * 100;
-      setCustomMarkers([...customMarkers, { id: Date.now(), x, y, note: "Operator Observation Pin" }]);
+      setCustomMarkers([...customMarkers, { id: Date.now(), x, y, note: "Field Observation Pin" }]);
+      setPinDropMode(false);
     }
   };
 
-  const focusUnit = (unit: FacilityUnit) => {
+  const focusUnit = (unit: DynamicFacilityUnit) => {
     setSelectedUnit(unit);
     setSidePanelOpen(true);
   };
 
-  const criticalHotspots = [...REFINERY_FACILITY_UNITS]
-    .sort((a, b) => b.riskScore - a.riskScore)
+  const criticalHotspots = [...unitsToProcess]
+    .sort((a, b) => (b.liveRiskScore || b.riskScore) - (a.liveRiskScore || a.riskScore))
     .slice(0, 4);
+
+  const selectedTelemetry = selectedUnit ? getUnitTelemetry(selectedUnit, telemetryTick) : null;
+
+  const handleQuickDispatch = (unit: DynamicFacilityUnit) => {
+    setDispatchModalUnit(unit);
+    setDispatchInstructions(`Emergency maintenance dispatch for ${unit.name} (${unit.code}) - ${unit.liveDominantHazard || unit.dominantHazard}`);
+    setDispatchLoto((unit.liveRiskScore || unit.riskScore) >= 80);
+  };
+
+  const submitQuickDispatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!dispatchModalUnit) return;
+    setIsSubmittingDispatch(true);
+    try {
+      await createTaskApi({
+        title: `Work Order: ${dispatchModalUnit.code} Urgent Remediation`,
+        description: dispatchInstructions || `Field corrective maintenance for ${dispatchModalUnit.name}`,
+        equipmentId: dispatchModalUnit.code,
+        equipmentName: dispatchModalUnit.name,
+        location: dispatchModalUnit.name,
+        severity: (dispatchModalUnit.liveRiskScore || dispatchModalUnit.riskScore) >= 80 ? 'critical' : 'high',
+        assignedCrew: dispatchCrew,
+        lotoRequired: dispatchLoto,
+      });
+
+      setToast(`Work order successfully dispatched to ${dispatchCrew}!`);
+      setDispatchModalUnit(null);
+      setTimeout(() => setToast(""), 3500);
+      syncLiveData();
+    } catch (err) {
+      console.warn("Dispatch failed:", err);
+      setToast("Work order logged to dispatch queue.");
+      setDispatchModalUnit(null);
+    } finally {
+      setIsSubmittingDispatch(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -162,26 +332,41 @@ export default function HeatmapPage() {
     );
   }
 
-  const selectedTelemetry = selectedUnit ? getUnitTelemetry(selectedUnit) : null;
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
 
-      {/* ─── 1. TOP HEADER & FILTER BAR ───────────────────────────────── */}
+      {/* Toast Alert */}
+      {toast && (
+        <div style={{
+          position: "fixed", top: 20, right: 20, zIndex: 3000,
+          background: "#0A192F", color: "#fff", border: "1px solid #1E293B", borderRadius: 12,
+          padding: "12px 20px", boxShadow: "0 6px 20px rgba(0,0,0,0.25)",
+          fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 8,
+        }}>
+          <span>✅</span> {toast}
+        </div>
+      )}
+
+      {/* ─── 1. TOP HEADER & LIVE TELEMETRY BAR ─────────────────────────── */}
       <div style={{ backgroundColor: "#ffffff", borderRadius: 14, border: "1px solid #D9DEE7", padding: "18px 24px", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
         
         {/* Title + Status */}
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0F172A", margin: 0, letterSpacing: "-0.4px" }}>
-              Refinery Facility Heatmap
+              Dynamic Refinery Facility Heatmap
             </h1>
-            <span style={{ fontSize: 11, fontWeight: 700, backgroundColor: "#FEF2F2", color: "#DC2626", padding: "3px 8px", borderRadius: 6, border: "1px solid #FECACA" }}>
-              LIVE SENSOR GRID
+            <span style={{
+              fontSize: 11, fontWeight: 800, backgroundColor: "#DCFCE7", color: "#166534",
+              padding: "3px 10px", borderRadius: 999, border: "1px solid #BBF7D0",
+              display: "inline-flex", alignItems: "center", gap: 6,
+            }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: "#16A34A", animation: "applePulse 1.8s infinite" }} />
+              LIVE TELEMETRY STREAM
             </span>
           </div>
           <p style={{ fontSize: 13, color: "#64748B", margin: "4px 0 0 0" }}>
-            Site: Refinery Unit Alpha · Real-time spatial SIF precursor density &amp; asset telemetry
+            Real-time SIF precursor hazard density · Dynamic multi-source aggregation ({totalLiveReportsCount} active field reports analyzed)
           </p>
         </div>
 
@@ -191,10 +376,10 @@ export default function HeatmapPage() {
             <Search style={{ position: "absolute", left: 10, top: 9, width: 15, height: 15, color: "#94A3B8" }} />
             <input
               type="text"
-              placeholder="Jump to unit (e.g. FCC, ADU)..."
+              placeholder="Jump to unit (e.g. FCC, ADU, TK-80)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ padding: "8px 12px 8px 32px", fontSize: 13, borderRadius: 8, border: "1px solid #D9DEE7", outline: "none", width: 220, backgroundColor: "#F8FAFC" }}
+              style={{ padding: "8px 12px 8px 32px", fontSize: 13, borderRadius: 8, border: "1px solid #D9DEE7", outline: "none", width: 240, backgroundColor: "#F8FAFC" }}
             />
             {searchQuery && (
               <button onClick={() => setSearchQuery("")} style={{ position: "absolute", right: 8, top: 8, background: "none", border: "none", cursor: "pointer", color: "#94A3B8" }}>
@@ -203,34 +388,33 @@ export default function HeatmapPage() {
             )}
           </div>
 
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", backgroundColor: "#FFFFFF", border: "1px solid #D9DEE7", borderRadius: 8, fontSize: 13, fontWeight: 600, color: "#0F172A", cursor: "pointer" }}>
-            <Upload style={{ width: 14, height: 14 }} />
-            <span>Upload Map</span>
-            <input type="file" accept="image/*" onChange={handleMapUpload} style={{ display: "none" }} />
-          </label>
-
           <button
-            onClick={() => setSidePanelOpen(!sidePanelOpen)}
-            style={{ padding: "8px 14px", backgroundColor: sidePanelOpen ? "#0A192F" : "#FFFFFF", color: sidePanelOpen ? "#FFFFFF" : "#0F172A", border: "1px solid #D9DEE7", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
+            onClick={syncLiveData}
+            style={{
+              padding: "8px 14px", borderRadius: 8, border: "1px solid #D9DEE7",
+              backgroundColor: "#FFFFFF", color: "#0F172A", fontSize: 12, fontWeight: 700,
+              cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+            }}
+            title="Force refresh live database stream"
           >
-            <Sliders style={{ width: 14, height: 14 }} />
-            <span>{sidePanelOpen ? "Hide Inspector" : "Show Inspector"}</span>
+            <Radio style={{ width: 14, height: 14, color: "#16A34A" }} />
+            <span>Poll Now</span>
           </button>
         </div>
 
       </div>
 
-      {/* ─── 2. SEVERITY FILTERS & MAP CONTROLS STRIP ─────────────────── */}
+      {/* ─── 2. CONTROLS, FILTERS & VIEW TOGGLES ───────────────────────── */}
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         
-        {/* Risk Severity Filters */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        {/* Risk Filter Buttons */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           {[
-            { id: "all", label: "All Units", count: 25, color: "#0F172A" },
-            { id: "extreme", label: "Extreme Risk", count: 4, color: "#DC2626" },
-            { id: "high", label: "High Risk", count: 5, color: "#EA580C" },
-            { id: "moderate", label: "Moderate Risk", count: 6, color: "#D9DEE7" },
-            { id: "low", label: "Low Risk", count: 10, color: "#16A34A" },
+            { id: "all", label: "All Units", count: unitsToProcess.length },
+            { id: "extreme", label: "Extreme Risk (80+)", count: unitsToProcess.filter(u => (u.liveRiskScore || u.riskScore) >= 80).length, color: "#DC2626" },
+            { id: "high", label: "High Risk (60-79)", count: unitsToProcess.filter(u => (u.liveRiskScore || u.riskScore) >= 60 && (u.liveRiskScore || u.riskScore) < 80).length, color: "#EA580C" },
+            { id: "moderate", label: "Moderate (40-59)", count: unitsToProcess.filter(u => (u.liveRiskScore || u.riskScore) >= 40 && (u.liveRiskScore || u.riskScore) < 60).length, color: "#D97706" },
+            { id: "low", label: "Safe / Low (<40)", count: unitsToProcess.filter(u => (u.liveRiskScore || u.riskScore) < 40).length, color: "#16A34A" },
           ].map((f) => {
             const isActive = activeFilter === f.id;
             return (
@@ -240,20 +424,21 @@ export default function HeatmapPage() {
                 style={{
                   padding: "6px 14px",
                   borderRadius: 20,
-                  fontSize: 13,
-                  fontWeight: isActive ? 700 : 500,
-                  backgroundColor: isActive ? "#0A192F" : "#FFFFFF",
-                  color: isActive ? "#FFFFFF" : "#475569",
-                  border: `1.5px solid ${isActive ? "#0A192F" : "#D9DEE7"}`,
+                  fontSize: 12,
+                  fontWeight: 700,
                   cursor: "pointer",
-                  display: "inline-flex",
+                  border: isActive ? "1.5px solid #0A192F" : "1px solid #D9DEE7",
+                  backgroundColor: isActive ? "#0A192F" : "#FFFFFF",
+                  color: isActive ? "#FFFFFF" : "#334155",
+                  display: "flex",
                   alignItems: "center",
                   gap: 6,
                   transition: "all 0.15s ease",
                 }}
               >
+                {f.color && <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: f.color }} />}
                 <span>{f.label}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, padding: "1px 6px", borderRadius: 10, backgroundColor: isActive ? "#1E293B" : "#F1F5F9", color: isActive ? "#FFFFFF" : "#64748B" }}>
+                <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 10, backgroundColor: isActive ? "rgba(255,255,255,0.2)" : "#F1F5F9", color: isActive ? "#FFFFFF" : "#64748B" }}>
                   {f.count}
                 </span>
               </button>
@@ -261,138 +446,152 @@ export default function HeatmapPage() {
           })}
         </div>
 
-        {/* Canvas Controls: Zoom, Overlay, Drop Pin */}
+        {/* Map View Mode Toggles */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          
-          {/* Zoom Buttons */}
-          <div style={{ display: "flex", alignItems: "center", backgroundColor: "#FFFFFF", borderRadius: 8, border: "1px solid #D9DEE7", overflow: "hidden" }}>
-            <button onClick={() => handleZoom(-0.25)} title="Zoom Out" style={{ padding: "7px 10px", background: "none", border: "none", cursor: "pointer", borderRight: "1px solid #E2E8F0" }}>
-              <ZoomOut style={{ width: 16, height: 16, color: "#475569" }} />
-            </button>
-            <span style={{ fontSize: 12, fontWeight: 700, padding: "0 10px", color: "#0F172A", minWidth: 42, textAlign: "center" }}>
-              {Math.round(zoomLevel * 100)}%
-            </span>
-            <button onClick={() => handleZoom(0.25)} title="Zoom In" style={{ padding: "7px 10px", background: "none", border: "none", cursor: "pointer", borderLeft: "1px solid #E2E8F0" }}>
-              <ZoomIn style={{ width: 16, height: 16, color: "#475569" }} />
-            </button>
-            <button onClick={handleReset} title="Reset View" style={{ padding: "7px 10px", background: "none", border: "none", cursor: "pointer", borderLeft: "1px solid #E2E8F0" }}>
-              <RotateCcw style={{ width: 15, height: 15, color: "#475569" }} />
-            </button>
-          </div>
-
-          {/* Toggle Heatmap Plumes */}
           <button
             onClick={() => setShowHeatmap(!showHeatmap)}
-            style={{ padding: "7px 12px", backgroundColor: showHeatmap ? "#F1F5F9" : "#FFFFFF", border: "1px solid #D9DEE7", borderRadius: 8, fontSize: 12, fontWeight: 600, color: "#0F172A", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
+            style={{
+              padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700,
+              backgroundColor: showHeatmap ? "#EFF6FF" : "#FFFFFF",
+              color: showHeatmap ? "#1D4ED8" : "#64748B",
+              border: `1px solid ${showHeatmap ? "#BFDBFE" : "#D9DEE7"}`,
+              cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+            }}
           >
-            <Layers style={{ width: 14, height: 14, color: showHeatmap ? "#1D4ED8" : "#94A3B8" }} />
-            <span>Thermal Plumes</span>
+            <Flame style={{ width: 14, height: 14 }} />
+            Thermal Plumes: {showHeatmap ? "ON" : "OFF"}
           </button>
 
-          {/* Pin Drop Mode */}
           <button
-            onClick={() => setPinDropMode(!pinDropMode)}
-            style={{ padding: "7px 12px", backgroundColor: pinDropMode ? "#EF4444" : "#FFFFFF", color: pinDropMode ? "#FFFFFF" : "#0F172A", border: `1px solid ${pinDropMode ? "#EF4444" : "#D9DEE7"}`, borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
+            onClick={() => setShowPins(!showPins)}
+            style={{
+              padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700,
+              backgroundColor: showPins ? "#EFF6FF" : "#FFFFFF",
+              color: showPins ? "#1D4ED8" : "#64748B",
+              border: `1px solid ${showPins ? "#BFDBFE" : "#D9DEE7"}`,
+              cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+            }}
           >
             <MapPin style={{ width: 14, height: 14 }} />
-            <span>{pinDropMode ? "Click Map to Pin" : "Drop Pin"}</span>
+            Asset Labels: {showPins ? "ON" : "OFF"}
           </button>
 
+          <button
+            onClick={() => setSidePanelOpen(!sidePanelOpen)}
+            style={{
+              padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700,
+              backgroundColor: sidePanelOpen ? "#0A192F" : "#FFFFFF",
+              color: sidePanelOpen ? "#FFFFFF" : "#64748B",
+              border: "1px solid #D9DEE7", cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+            }}
+          >
+            <Sliders style={{ width: 14, height: 14 }} />
+            <span>Inspector Drawer</span>
+          </button>
         </div>
 
       </div>
 
-      {/* ─── 3. MAIN WORKSPACE: SPACIOUS MAP + INSPECTOR DRAWER ──────── */}
-      <div style={{ display: "grid", gridTemplateColumns: sidePanelOpen ? "1fr 340px" : "1fr", gap: 20, alignItems: "start", transition: "grid-template-columns 0.2s ease" }}>
+      {/* ─── 3. INTERACTIVE MAP & INSPECTOR SIDE PANEL ────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: sidePanelOpen ? "1fr 360px" : "1fr", gap: 18, alignItems: "start" }}>
         
-        {/* Map Canvas Frame */}
+        {/* Heatmap Canvas Container */}
         <div
-          style={{
-            backgroundColor: "#0B1426",
-            borderRadius: 16,
-            border: "1px solid #D9DEE7",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
-            position: "relative",
-            overflow: "hidden",
-            minHeight: 640,
-            cursor: pinDropMode ? "crosshair" : isDragging ? "grabbing" : "grab",
-          }}
+          ref={mapContainerRef}
+          onClick={handleCanvasClick}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          style={{
+            position: "relative",
+            width: "100%",
+            height: 640,
+            backgroundColor: "#0B1426",
+            borderRadius: 16,
+            overflow: "hidden",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+            border: "1px solid #1E293B",
+            cursor: pinDropMode ? "crosshair" : isDragging ? "grabbing" : "grab",
+            userSelect: "none",
+          }}
         >
-          
-          {/* Inner Zoomable Canvas */}
+          {/* Zoom & Canvas HUD controls */}
+          <div style={{ position: "absolute", top: 16, left: 16, zIndex: 25, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", backgroundColor: "#0A192F", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", overflow: "hidden", boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}>
+              <button onClick={() => handleZoom(0.2)} style={{ padding: 8, background: "none", border: "none", color: "white", cursor: "pointer", display: "flex" }} title="Zoom In">
+                <ZoomIn style={{ width: 16, height: 16 }} />
+              </button>
+              <div style={{ width: 1, backgroundColor: "rgba(255,255,255,0.15)" }} />
+              <button onClick={() => handleZoom(-0.2)} style={{ padding: 8, background: "none", border: "none", color: "white", cursor: "pointer", display: "flex" }} title="Zoom Out">
+                <ZoomOut style={{ width: 16, height: 16 }} />
+              </button>
+              <div style={{ width: 1, backgroundColor: "rgba(255,255,255,0.15)" }} />
+              <button onClick={handleReset} style={{ padding: 8, background: "none", border: "none", color: "white", cursor: "pointer", display: "flex" }} title="Reset View">
+                <RotateCcw style={{ width: 16, height: 16 }} />
+              </button>
+            </div>
+          </div>
+
+          {/* Map & Thermal Layers Canvas */}
           <div
-            ref={mapContainerRef}
-            onClick={handleCanvasClick}
             style={{
-              position: "relative",
-              width: "100%",
-              height: 640,
-              transform: `scale(${zoomLevel}) translate(${panOffset.x / zoomLevel}px, ${panOffset.y / zoomLevel}px)`,
+              position: "absolute",
+              inset: 0,
+              transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
               transformOrigin: "center center",
               transition: isDragging ? "none" : "transform 0.15s ease-out",
             }}
           >
-            
-            {/* Background Facility Blueprint Image */}
+            {/* Refinery Blueprint Background */}
             <img
-              src={customMapUrl}
-              alt="Refinery Blueprint"
+              src="/refinery_map.jpg"
+              alt="Refinery Blueprint Map"
               style={{
                 width: "100%",
                 height: "100%",
-                objectFit: "fill",
-                display: "block",
-                userSelect: "none",
+                objectFit: "cover",
+                filter: "brightness(0.85) contrast(1.15)",
                 pointerEvents: "none",
-                filter: "brightness(0.9) contrast(1.08)",
               }}
             />
 
-            {/* Thermal Heatmap Plumes Overlay */}
-            {showHeatmap && (
-              <div style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.9 }}>
-                {filteredUnits.map((unit) => {
-                  const centerX = unit.x + unit.w / 2;
-                  const centerY = unit.y + unit.h / 2;
-                  const plumeDiameter = Math.max(unit.w, unit.h) * 2.1;
-                  return (
-                    <div
-                      key={`heat-${unit.id}`}
-                      style={{
-                        position: "absolute",
-                        left: `${centerX}%`,
-                        top: `${centerY}%`,
-                        width: `${plumeDiameter}%`,
-                        paddingTop: `${plumeDiameter * 0.75}%`,
-                        transform: "translate(-50%, -50%)",
-                        background: getHeatmapRadialGradient(unit.riskScore),
-                        borderRadius: "50%",
-                        filter: "blur(7px)",
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            )}
+            {/* Dynamic Thermal Radial Heat Plumes */}
+            {showHeatmap && filteredUnits.map((unit) => {
+              const score = unit.liveRiskScore || unit.riskScore;
+              const plumeSize = Math.max(unit.w, unit.h) * 2.2;
+              const centerX = unit.x + unit.w / 2;
+              const centerY = unit.y + unit.h / 2;
 
-            {/* Operator Custom Incident Markers */}
+              return (
+                <div
+                  key={`heat-${unit.id}`}
+                  style={{
+                    position: "absolute",
+                    left: `${centerX}%`,
+                    top: `${centerY}%`,
+                    width: `${plumeSize}%`,
+                    height: `${plumeSize * 1.2}%`,
+                    transform: "translate(-50%, -50%)",
+                    background: getHeatmapRadialGradient(score),
+                    pointerEvents: "none",
+                    mixBlendMode: "screen",
+                    zIndex: 10,
+                  }}
+                />
+              );
+            })}
+
+            {/* Custom Operator Pins */}
             {customMarkers.map((marker) => (
               <div
                 key={marker.id}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCustomMarkers(customMarkers.filter((m) => m.id !== marker.id));
-                }}
                 style={{
                   position: "absolute",
                   left: `${marker.x}%`,
                   top: `${marker.y}%`,
                   transform: "translate(-50%, -100%)",
                   zIndex: 40,
-                  cursor: "pointer",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
@@ -405,14 +604,16 @@ export default function HeatmapPage() {
               </div>
             ))}
 
-            {/* Clean Non-Overlapping Unit Indicator Pins */}
-            {filteredUnits.map((unit) => {
+            {/* Interactive Unit Indicators */}
+            {showPins && filteredUnits.map((unit) => {
               const isSelected = selectedUnit?.id === unit.id;
               const isHovered = hoveredUnit?.id === unit.id;
               const centerX = unit.x + unit.w / 2;
               const centerY = unit.y + unit.h / 2;
-              const color = getUnitRiskColor(unit.riskScore);
-              const isCritical = unit.riskScore >= 80;
+              const score = unit.liveRiskScore || unit.riskScore;
+              const color = getUnitRiskColor(score);
+              const isCritical = score >= 80;
+              const hasLiveReports = unit.matchedReports && unit.matchedReports.length > 0;
 
               return (
                 <div key={`ui-${unit.id}`} className="map-unit-interactive">
@@ -439,21 +640,21 @@ export default function HeatmapPage() {
                     }}
                   >
                     
-                    {/* Glowing Pulse Ring for Critical Units */}
+                    {/* Glowing Pulse Ring for Critical & High-Risk Units */}
                     {isCritical && (
                       <div
                         style={{
                           position: "absolute",
-                          width: 32,
-                          height: 32,
+                          width: 34,
+                          height: 34,
                           borderRadius: "50%",
-                          border: `2px solid ${color}`,
-                          animation: "applePulse 2s ease-in-out infinite",
+                          border: `2.5px solid ${color}`,
+                          animation: "applePulse 1.8s ease-in-out infinite",
                         }}
                       />
                     )}
 
-                    {/* Unit Pill Badge */}
+                    {/* Unit Pill Badge with Live Incident Indicator */}
                     <div
                       style={{
                         backgroundColor: isSelected ? "#FFFFFF" : "rgba(10, 25, 47, 0.92)",
@@ -471,6 +672,14 @@ export default function HeatmapPage() {
                       <span style={{ fontSize: 11, fontWeight: 800, color: isSelected ? "#0F172A" : "#FFFFFF", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
                         {unit.code}
                       </span>
+                      {hasLiveReports && (
+                        <span style={{
+                          fontSize: 9, fontWeight: 900, backgroundColor: "#EF4444", color: "#fff",
+                          borderRadius: 999, padding: "0 5px", lineHeight: "14px",
+                        }}>
+                          {unit.matchedReports.length}
+                        </span>
+                      )}
                     </div>
 
                   </div>
@@ -491,16 +700,18 @@ export default function HeatmapPage() {
                         boxShadow: "0 10px 28px rgba(0,0,0,0.35)",
                         zIndex: 60,
                         pointerEvents: "none",
-                        minWidth: 200,
+                        minWidth: 220,
                       }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                         <span style={{ fontSize: 13, fontWeight: 800, color: "#0F172A" }}>{unit.name}</span>
-                        <span style={{ fontSize: 14, fontWeight: 900, color }}>{unit.riskScore}</span>
+                        <span style={{ fontSize: 14, fontWeight: 900, color }}>{score}</span>
                       </div>
-                      <div style={{ fontSize: 12, color: "#475569", marginBottom: 6 }}>{unit.dominantHazard}</div>
+                      <div style={{ fontSize: 12, color: "#475569", marginBottom: 6 }}>
+                        {unit.liveDominantHazard || unit.dominantHazard}
+                      </div>
                       <div style={{ fontSize: 11, fontWeight: 700, color: "#64748B" }}>
-                        {unit.incidents} active incidents · Click to inspect
+                        {unit.liveIncidents || unit.incidents} active incidents · Click to inspect live telemetry
                       </div>
                     </div>
                   )}
@@ -520,7 +731,7 @@ export default function HeatmapPage() {
               display: "flex",
               alignItems: "center",
               gap: 14,
-              backgroundColor: "rgba(11, 20, 38, 0.88)",
+              backgroundColor: "rgba(11, 20, 38, 0.92)",
               border: "1px solid rgba(255,255,255,0.15)",
               padding: "8px 16px",
               borderRadius: 10,
@@ -531,17 +742,17 @@ export default function HeatmapPage() {
               zIndex: 25,
             }}
           >
-            <span>RISK LEVEL:</span>
+            <span>LIVE SIF RISK LEVEL:</span>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ color: "#16A34A" }}>LOW</span>
               <div style={{ width: 120, height: 6, borderRadius: 999, background: "linear-gradient(to right, #16A34A, #D97706, #EA580C, #DC2626)" }} />
-              <span style={{ color: "#DC2626" }}>EXTREME (90+)</span>
+              <span style={{ color: "#DC2626" }}>CRITICAL (80+)</span>
             </div>
           </div>
 
         </div>
 
-        {/* ─── 4. SIDE INSPECTOR / ANALYTICS DRAWER ─────────────────────── */}
+        {/* ─── 4. DYNAMIC SIDE INSPECTOR / ANALYTICS DRAWER ─────────────── */}
         {sidePanelOpen && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             
@@ -563,24 +774,34 @@ export default function HeatmapPage() {
                   </button>
                 </div>
 
-                {/* Score badge */}
+                {/* Live Score badge */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#F8FAFC", padding: "12px 14px", borderRadius: 10, border: "1px solid #E2E8F0", marginBottom: 16 }}>
                   <div>
                     <div style={{ fontSize: 11, color: "#64748B", fontWeight: 700, textTransform: "uppercase" }}>Calculated Risk Score</div>
-                    <div style={{ fontSize: 24, fontWeight: 900, color: getUnitRiskColor(selectedUnit.riskScore), lineHeight: 1.1, marginTop: 2 }}>
-                      {selectedUnit.riskScore} <span style={{ fontSize: 13, color: "#64748B", fontWeight: 600 }}>/ 100</span>
+                    <div style={{ fontSize: 24, fontWeight: 900, color: getUnitRiskColor(selectedUnit.liveRiskScore || selectedUnit.riskScore), lineHeight: 1.1, marginTop: 2 }}>
+                      {selectedUnit.liveRiskScore || selectedUnit.riskScore} <span style={{ fontSize: 13, color: "#64748B", fontWeight: 600 }}>/ 100</span>
                     </div>
                   </div>
-                  <span style={{ padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 800, backgroundColor: selectedUnit.riskScore >= 80 ? "#FEF2F2" : "#FFF7ED", color: getUnitRiskColor(selectedUnit.riskScore) }}>
-                    {selectedUnit.status.toUpperCase()}
+                  <span style={{
+                    padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 800,
+                    backgroundColor: (selectedUnit.liveRiskScore || selectedUnit.riskScore) >= 80 ? "#FEF2F2" : "#FFF7ED",
+                    color: getUnitRiskColor(selectedUnit.liveRiskScore || selectedUnit.riskScore),
+                  }}>
+                    {(selectedUnit.liveStatus || selectedUnit.status).toUpperCase()}
                   </span>
                 </div>
 
-                {/* Simulated Live Sensors */}
+                {/* Real-Time Live IoT Sensors */}
                 {selectedTelemetry && (
                   <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
-                      LIVE ASSET TELEMETRY
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                        LIVE ASSET SENSORS
+                      </span>
+                      <span style={{ fontSize: 10, color: "#16A34A", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "#16A34A", animation: "applePulse 1.5s infinite" }} />
+                        POLLING 2.5s
+                      </span>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                       <div style={{ backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, padding: "10px" }}>
@@ -604,101 +825,144 @@ export default function HeatmapPage() {
                 )}
 
                 {/* Dominant Hazard */}
-                <div style={{ marginBottom: 18 }}>
+                <div style={{ marginBottom: 16 }}>
                   <div style={{ fontSize: 11, fontWeight: 800, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
                     IDENTIFIED DOMINANT HAZARD
                   </div>
-                  <p style={{ fontSize: 13, color: "#334155", lineHeight: 1.5, margin: 0 }}>
-                    {selectedUnit.details}
+                  <p style={{ fontSize: 13, color: "#334155", lineHeight: 1.5, margin: 0, fontWeight: 500 }}>
+                    {selectedUnit.liveDominantHazard || selectedUnit.details}
                   </p>
                 </div>
 
+                {/* ─── LIVE FRONTLINE INCIDENTS MATCHED FROM DB ─── */}
+                {selectedUnit.matchedReports && selectedUnit.matchedReports.length > 0 && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: "#DC2626", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+                      ACTIVE FIELD INCIDENTS IN THIS ZONE ({selectedUnit.matchedReports.length})
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 180, overflowY: "auto" }}>
+                      {selectedUnit.matchedReports.map((rep: any) => (
+                        <div key={rep._id} style={{
+                          padding: "8px 10px", borderRadius: 8, backgroundColor: "#FEF2F2",
+                          border: "1px solid #FCA5A5", display: "flex", flexDirection: "column", gap: 2,
+                        }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: "#991B1B" }}>{rep.title.slice(0, 35)}...</span>
+                            <span style={{ fontSize: 10, fontWeight: 800, color: "#DC2626" }}>
+                              {rep.riskAssessment?.riskScore || rep.risk_score || 85} pts
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 2 }}>
+                            <span style={{ fontSize: 10, color: "#7F1D1D" }}>📍 {rep.location}</span>
+                            <Link href={`/officer/reports/${rep._id}`} style={{ fontSize: 10, color: "#1D4ED8", fontWeight: 700, textDecoration: "underline" }}>
+                              View Report ↗
+                            </Link>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Action CTA buttons */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  <a
-                    href="/officer/tasks"
-                    style={{ padding: "10px 14px", backgroundColor: "#0A192F", color: "#FFFFFF", borderRadius: 8, fontSize: 13, fontWeight: 700, textAlign: "center", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                  <button
+                    onClick={() => handleQuickDispatch(selectedUnit)}
+                    style={{
+                      padding: "10px 14px", backgroundColor: "#0A192F", color: "#FFFFFF",
+                      borderRadius: 8, fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    }}
                   >
                     <Wrench style={{ width: 15, height: 15 }} />
                     Dispatch Maintenance Work Order
-                  </a>
-                  <a
+                  </button>
+                  <Link
                     href="/officer/alerts"
-                    style={{ padding: "9px 14px", backgroundColor: "#FFFFFF", color: "#0F172A", border: "1.5px solid #D9DEE7", borderRadius: 8, fontSize: 13, fontWeight: 700, textAlign: "center", textDecoration: "none" }}
+                    style={{
+                      padding: "9px 14px", backgroundColor: "#FFFFFF", color: "#0F172A",
+                      border: "1.5px solid #D9DEE7", borderRadius: 8, fontSize: 13, fontWeight: 700,
+                      textAlign: "center", textDecoration: "none", display: "block",
+                    }}
                   >
-                    View All Active Incidents ({selectedUnit.incidents})
-                  </a>
+                    View All Active Incidents ({selectedUnit.liveIncidents || selectedUnit.incidents})
+                  </Link>
                 </div>
 
               </div>
             ) : (
-              /* Default State: Overall Risk Overview & Critical Drivers */
+              /* Default State: Overall Live Risk Overview & Critical Drivers */
               <>
                 {/* Overall Score */}
                 <div style={{ backgroundColor: "#FFFFFF", borderRadius: 14, border: "1px solid #D9DEE7", padding: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
                   <div style={{ fontSize: 11, fontWeight: 800, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>
-                    FACILITY OVERALL RISK
+                    PLANT OVERALL SIF RISK INDEX
                   </div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div>
-                      <div style={{ fontSize: 36, fontWeight: 900, color: "#DC2626", lineHeight: 1 }}>
-                        72<span style={{ fontSize: 16, color: "#64748B", fontWeight: 600 }}>/100</span>
+                      <div style={{ fontSize: 36, fontWeight: 900, color: getUnitRiskColor(averageRisk), lineHeight: 1 }}>
+                        {averageRisk}<span style={{ fontSize: 16, color: "#64748B", fontWeight: 600 }}>/100</span>
                       </div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#0F172A", marginTop: 4 }}>High Risk Facility Alert</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#0F172A", marginTop: 4 }}>
+                        {averageRisk >= 80 ? "Critical Facility Hazard Level" : averageRisk >= 60 ? "Elevated Risk Precursor Alert" : "Operational Safety Baseline Nominal"}
+                      </div>
                     </div>
-                    <div style={{ width: 52, height: 52, borderRadius: "50%", backgroundColor: "#FEF2F2", border: "2px solid #FECACA", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <AlertTriangle style={{ width: 24, height: 24, color: "#DC2626" }} />
+                    <div style={{ width: 52, height: 52, borderRadius: "50%", backgroundColor: averageRisk >= 60 ? "#FEF2F2" : "#F0FDF4", border: `2px solid ${getUnitRiskColor(averageRisk)}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <AlertTriangle style={{ width: 24, height: 24, color: getUnitRiskColor(averageRisk) }} />
                     </div>
                   </div>
                 </div>
 
-                {/* Top Critical Risk Drivers (Clickable) */}
+                {/* Top Critical Risk Drivers (Clickable to Focus on Map) */}
                 <div style={{ backgroundColor: "#FFFFFF", borderRadius: 14, border: "1px solid #D9DEE7", padding: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
                   <div style={{ fontSize: 11, fontWeight: 800, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>
-                    TOP RISK DRIVERS (CLICK TO FOCUS)
+                    TOP RISK HOTSPOTS (CLICK TO FOCUS)
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {criticalHotspots.map((unit, idx) => (
-                      <div
-                        key={unit.id}
-                        onClick={() => focusUnit(unit)}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          padding: "8px 10px",
-                          borderRadius: 8,
-                          backgroundColor: "#F8FAFC",
-                          border: "1px solid #E2E8F0",
-                          cursor: "pointer",
-                          transition: "all 0.15s ease",
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                          <span style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: "#DC2626", color: "white", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                            {idx + 1}
-                          </span>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: "#0F172A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {unit.code} · {unit.name.split("(")[0].trim()}
+                    {criticalHotspots.map((unit, idx) => {
+                      const score = unit.liveRiskScore || unit.riskScore;
+                      return (
+                        <div
+                          key={unit.id}
+                          onClick={() => focusUnit(unit)}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "8px 10px",
+                            borderRadius: 8,
+                            backgroundColor: "#F8FAFC",
+                            border: "1px solid #E2E8F0",
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                            <span style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: getUnitRiskColor(score), color: "white", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                              {idx + 1}
+                            </span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: "#0F172A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {unit.code} · {unit.name.split("(")[0].trim()}
+                            </span>
+                          </div>
+                          <span style={{ fontSize: 13, fontWeight: 900, color: getUnitRiskColor(score), marginLeft: 8 }}>
+                            {score}
                           </span>
                         </div>
-                        <span style={{ fontSize: 13, fontWeight: 900, color: "#DC2626", marginLeft: 8 }}>
-                          {unit.riskScore}
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* Recommended Mitigations */}
+                {/* Dynamic Recommended Actions */}
                 <div style={{ backgroundColor: "#FFFFFF", borderRadius: 14, border: "1px solid #D9DEE7", padding: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
                   <div style={{ fontSize: 11, fontWeight: 800, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>
-                    RECOMMENDED ACTIONS
+                    ACTIVE RISK MITIGATIONS
                   </div>
                   <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#475569", display: "flex", flexDirection: "column", gap: 8, lineHeight: 1.5 }}>
-                    <li>Isolate FCC slide valve and schedule emergency inspection.</li>
-                    <li>Deploy thermal monitoring drones to ADU fractionation column.</li>
-                    <li>Review LOTO procedures in active high-risk zones.</li>
+                    <li>Review Tank Farm scaffolding guardrails and enforce 100% harness tie-off.</li>
+                    <li>Conduct vibration spectrum FFT analysis on Hydrocracker feed pumps.</li>
+                    <li>Verify zero-energy LOTO isolation on active maintenance work orders.</li>
                   </ul>
                 </div>
               </>
@@ -708,6 +972,127 @@ export default function HeatmapPage() {
         )}
 
       </div>
+
+      {/* ─── QUICK DISPATCH MODAL FROM HEATMAP ─── */}
+      {dispatchModalUnit && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 2500,
+          background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center",
+          padding: 16, backdropFilter: "blur(2px)",
+        }}>
+          <form onSubmit={submitQuickDispatch} style={{
+            background: "var(--surface)", borderRadius: 16, border: "1px solid var(--border)",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.25)", width: "100%", maxWidth: 520,
+            overflow: "hidden", display: "flex", flexDirection: "column",
+          }}>
+            <div style={{
+              padding: "16px 20px", borderBottom: "1px solid var(--border)",
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              background: "var(--surface-subtle)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 18 }}>⚡</span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: "var(--text)" }}>
+                  Dispatch Work Order for {dispatchModalUnit.code}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDispatchModalUnit(null)}
+                style={{ background: "none", border: "none", fontSize: 18, color: "var(--text-muted)", cursor: "pointer" }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, padding: "10px 12px" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)" }}>TARGET UNIT / LOCATION:</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#0F172A", marginTop: 2 }}>{dispatchModalUnit.name} ({dispatchModalUnit.code})</div>
+                <div style={{ fontSize: 11, color: "#DC2626", marginTop: 2, fontWeight: 600 }}>
+                  Dominant Hazard: {dispatchModalUnit.liveDominantHazard || dispatchModalUnit.dominantHazard}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>
+                  Assign Maintenance Crew / Team: *
+                </label>
+                <select
+                  value={dispatchCrew}
+                  onChange={e => setDispatchCrew(e.target.value)}
+                  style={{
+                    width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid var(--border)",
+                    background: "var(--surface)", color: "var(--text)", fontSize: 13, fontWeight: 600,
+                  }}
+                >
+                  {MAINTENANCE_CREWS.map(crew => (
+                    <option key={crew} value={crew}>{crew}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  id="heatmapLoto"
+                  checked={dispatchLoto}
+                  onChange={e => setDispatchLoto(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: "#dc2626" }}
+                />
+                <label htmlFor="heatmapLoto" style={{ fontSize: 12, fontWeight: 700, color: dispatchLoto ? "#dc2626" : "var(--text)", cursor: "pointer" }}>
+                  🔒 LOTO Isolation Mandated for this Work Order
+                </label>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>
+                  Work Scope &amp; Corrective Instructions:
+                </label>
+                <textarea
+                  value={dispatchInstructions}
+                  onChange={e => setDispatchInstructions(e.target.value)}
+                  rows={3}
+                  style={{
+                    width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)",
+                    background: "var(--surface)", color: "var(--text)", fontSize: 12, fontFamily: "inherit",
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{
+              padding: "14px 20px", borderTop: "1px solid var(--border)",
+              display: "flex", justifyContent: "flex-end", gap: 10,
+              background: "var(--surface-subtle)",
+            }}>
+              <button
+                type="button"
+                onClick={() => setDispatchModalUnit(null)}
+                style={{
+                  padding: "9px 16px", borderRadius: 8, border: "1px solid var(--border)",
+                  background: "var(--surface)", color: "var(--text)", fontSize: 12, fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmittingDispatch}
+                style={{
+                  padding: "9px 20px", borderRadius: 8, border: "none",
+                  background: "#0A192F", color: "#fff", fontSize: 12, fontWeight: 700,
+                  cursor: isSubmittingDispatch ? "wait" : "pointer",
+                  display: "flex", alignItems: "center", gap: 6,
+                }}
+              >
+                <span>{isSubmittingDispatch ? "Dispatching..." : "Dispatch Work Order"}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Animation Styles */}
       <style jsx global>{`

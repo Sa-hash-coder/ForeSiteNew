@@ -117,6 +117,8 @@ export async function getAllReportsApi(filters?: {
   }>(`/reports${query}`);
 }
 
+export const getReportsApi = getAllReportsApi;
+
 export async function getReportByIdApi(id: string) {
   return request<{ success: true; data: ReportDetail }>(`/reports/${id}`);
 }
