@@ -231,7 +231,14 @@ export default function WorkerDashboard() {
 
                   {/* Badges on right */}
                   <div style={styles.reportBadges}>
-                    {r.riskAssessment && <DangerBadge level={r.riskAssessment.riskLevel} />}
+                    <DangerBadge
+                      level={
+                        r.riskAssessment?.riskLevel ||
+                        r.risk_level ||
+                        r.riskLevel ||
+                        (r.severity ? r.severity.toUpperCase() : "MEDIUM")
+                      }
+                    />
                     <StatusBadge status={r.status} />
                   </div>
                 </Link>

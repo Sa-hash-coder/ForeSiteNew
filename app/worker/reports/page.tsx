@@ -97,11 +97,16 @@ export default function MyReportsPage() {
               </span>
             </div>
 
-            {r.riskAssessment && (
-              <div style={s.dangerRow}>
-                <DangerBadge level={r.riskAssessment.riskLevel} />
-              </div>
-            )}
+            <div style={s.dangerRow}>
+              <DangerBadge
+                level={
+                  r.riskAssessment?.riskLevel ||
+                  r.risk_level ||
+                  r.riskLevel ||
+                  (r.severity ? r.severity.toUpperCase() : "MEDIUM")
+                }
+              />
+            </div>
           </Link>
         );
       })}

@@ -68,9 +68,9 @@
       "location": "Boiler Room A",
       "category": "unsafe_condition",
       "severity": "high",
-      "risk_score": 23,
-      "risk_level": "LOW",
-      "sif_probability": 0.14,
+      "risk_score": 72,
+      "risk_level": "HIGH",
+      "sif_probability": 0.65,
       "precursors": [
         "Operational Hazard"
       ],
@@ -219,10 +219,10 @@
       "description": "Worker walkdown observed slight weeping and oily condensation on lower flange joint.",
       "location": "Cracking Platform East",
       "category": "unsafe_condition",
-      "severity": "medium",
-      "risk_score": 45,
-      "risk_level": "MEDIUM",
-      "sif_probability": 0.28,
+      "severity": "high",
+      "risk_score": 76,
+      "risk_level": "HIGH",
+      "sif_probability": 0.68,
       "precursors": [
         "Flange Gasket Degradation"
       ],

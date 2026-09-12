@@ -12,7 +12,7 @@ PRECURSOR_KB = [
         "description": "Worker or equipment is in contact with or near energized electrical parts or bare conductors without proper isolation or barricading.",
         "hazard_category": "Electrocution",
         "base_weight": 0.88,
-        "keywords": ["bare wire", "exposed wiring", "naked cable", "energized", "live wire", "conductor", "copper wiring", "electric shock"],
+        "keywords": ["bare wire", "exposed wiring", "open wiring", "open wire", "naked cable", "energized", "live wire", "conductor", "copper wiring", "electric shock", "wiring", "electrical wire"],
         "remediation_steps": [
             "Immediately de-energize and lock out (LOTO) electrical feed at source breaker.",
             "Install red perimeter barricade tape and 'DANGER - HIGH VOLTAGE' warning signage.",
@@ -38,7 +38,7 @@ PRECURSOR_KB = [
         "description": "Electrical components, panels, or junction boxes exposed to water, damp floors, or conductive fluids creating immediate short circuit or electrocution risk.",
         "hazard_category": "Electrocution",
         "base_weight": 0.86,
-        "keywords": ["water near electrical", "wet floor wire", "water pump wire", "submerged cable", "liquid near panel"],
+        "keywords": ["water near electrical", "wet floor wire", "water pump wire", "submerged cable", "liquid near panel", "wiring is open near water", "wiring near water", "water pool", "standing water"],
         "remediation_steps": [
             "Isolate the electrical junction box immediately and cut power to nearby water pumps.",
             "Deploy submersible sump pumps to clear standing liquid and eliminate water ingress.",
@@ -217,7 +217,7 @@ PRECURSOR_KB = [
         "description": "Hydraulic systems, pneumatic lines, steam pipes, or pressurized vessels serviced without relieving residual pressure, bleeding lines, or blocking mechanisms.",
         "hazard_category": "Explosion",
         "base_weight": 0.88,
-        "keywords": ["hydraulic pressure", "pneumatic line", "steam leak", "pressurized pipe", "bleeder valve", "burst pipe"],
+        "keywords": ["hydraulic pressure", "pneumatic line", "steam leak", "pressurized pipe", "bleeder valve", "burst pipe", "flange leak", "flange line", "corroded flange", "steam pipe"],
         "remediation_steps": [
             "Depressurize lines and verify 0 PSI reading on calibrated gauges before opening couplings.",
             "Insert mechanical safety lock blocks under elevated hydraulic rams/pistons.",

@@ -47,9 +47,9 @@ export default function DangerBadge({
   showSubtext?: boolean;
 }) {
   const { t } = useLanguage();
-  const normalizedLevel = (level?.toUpperCase() || "LOW") as RiskLevel;
-  const cfg = RISK_CONFIG[normalizedLevel] || RISK_CONFIG.LOW;
-  const info = t.dangerLevels[normalizedLevel] || t.dangerLevels.LOW;
+  const normalizedLevel = (level ? level.toUpperCase() : "MEDIUM") as RiskLevel;
+  const cfg = RISK_CONFIG[normalizedLevel] || RISK_CONFIG.MEDIUM;
+  const info = t.dangerLevels[normalizedLevel] || t.dangerLevels.MEDIUM;
 
   return (
     <div style={{ display: "inline-flex", flexDirection: "column", gap: "2px" }}>

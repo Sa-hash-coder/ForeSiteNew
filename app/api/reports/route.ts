@@ -85,46 +85,56 @@ export async function GET(req: NextRequest) {
         UserSubmission.countDocuments(query),
       ]);
 
-      reports = mongoReports.map((r: any) => ({
-        _id: r._id,
-        title: r.title,
-        location: r.location,
-        category: r.category,
-        severity: r.severity,
-        status: r.status,
-        createdAt: r.createdAt,
-        riskAssessment: {
-          riskScore: r.riskScore,
-          riskLevel: r.riskLevel,
-          sifProbability: r.sifProbability,
-          precursors: r.precursors,
-          hazards: r.hazards,
-          explanation: r.explanation,
-        },
-        submittedBy: r.submittedBy,
-      }));
+      reports = mongoReports.map((r: any) => {
+        const computedLevel = r.riskLevel || r.risk_level || (r.severity === "critical" ? "CRITICAL" : r.severity === "high" ? "HIGH" : "MEDIUM");
+        const computedScore = r.riskScore ?? r.risk_score ?? (computedLevel === "CRITICAL" ? 88 : computedLevel === "HIGH" ? 72 : 45);
+        const computedSif = r.sifProbability ?? r.sif_probability ?? (computedLevel === "CRITICAL" ? 0.85 : computedLevel === "HIGH" ? 0.65 : 0.25);
+        return {
+          _id: r._id,
+          title: r.title,
+          location: r.location,
+          category: r.category,
+          severity: r.severity,
+          status: r.status,
+          createdAt: r.createdAt,
+          riskAssessment: {
+            riskScore: computedScore,
+            riskLevel: computedLevel,
+            sifProbability: computedSif,
+            precursors: r.precursors || [],
+            hazards: r.hazards || [],
+            explanation: r.explanation || "",
+          },
+          submittedBy: r.submittedBy,
+        };
+      });
       total = mongoTotal;
     } catch (mongoErr) {
       console.warn("MongoDB unavailable, falling back to local JSON store:", mongoErr);
       const result = await dbReports.list({ status, riskLevel, category, limit, page });
-      reports = result.reports.map((r) => ({
-        _id: r._id,
-        title: r.title,
-        location: r.location,
-        category: r.category,
-        severity: r.severity,
-        status: r.status,
-        createdAt: r.createdAt,
-        riskAssessment: {
-          riskScore: r.risk_score,
-          riskLevel: r.risk_level,
-          sifProbability: r.sif_probability,
-          precursors: r.precursors,
-          hazards: r.hazards,
-          explanation: r.explanation,
-        },
-        submittedBy: r.submittedBy,
-      }));
+      reports = result.reports.map((r) => {
+        const computedLevel = r.risk_level || (r.severity === "critical" ? "CRITICAL" : r.severity === "high" ? "HIGH" : "MEDIUM");
+        const computedScore = r.risk_score ?? (computedLevel === "CRITICAL" ? 88 : computedLevel === "HIGH" ? 72 : 45);
+        const computedSif = r.sif_probability ?? (computedLevel === "CRITICAL" ? 0.85 : computedLevel === "HIGH" ? 0.65 : 0.25);
+        return {
+          _id: r._id,
+          title: r.title,
+          location: r.location,
+          category: r.category,
+          severity: r.severity,
+          status: r.status,
+          createdAt: r.createdAt,
+          riskAssessment: {
+            riskScore: computedScore,
+            riskLevel: computedLevel,
+            sifProbability: computedSif,
+            precursors: r.precursors || [],
+            hazards: r.hazards || [],
+            explanation: r.explanation || "",
+          },
+          submittedBy: r.submittedBy,
+        };
+      });
       total = result.total;
     }
 
@@ -225,22 +235,28 @@ export async function POST(req: NextRequest) {
       }
     } catch {
       // Local fallback heuristics if microservice is offline
+      const combinedText = `${title || ""} ${description || ""}`;
       const isCritical =
         severity === "critical" ||
-        (description && /fall|fire|explosion|collapse|gas|electrocution|leak/i.test(description));
+        /fall|scaffold|scaffolding|wire|wiring|electrocution|electric|water pool|fire|explosion|collapse|gas leak|toxic/i.test(combinedText);
       const isHigh =
-        severity === "high" || (description && /crack|vibration|spill|high pressure/i.test(description));
+        severity === "high" ||
+        /leak|steam|flange|crack|vibration|spill|high pressure|bearing|pump|corrosion|corroded|help/i.test(combinedText);
 
       riskLevel = isCritical ? "CRITICAL" : isHigh ? "HIGH" : severity === "low" ? "LOW" : "MEDIUM";
       riskScore = isCritical ? 88 : isHigh ? 72 : 38;
       sifProbability = isCritical ? 0.85 : isHigh ? 0.62 : 0.25;
       precursors = isCritical
-        ? ["Working at Height / Unsecured Perimeter", "Direct Line of Fire Exposure"]
+        ? (/wire|electr/i.test(combinedText)
+            ? ["Energized Equipment Exposure", "Proximity to Electrical Hazard"]
+            : ["Working at Height / Unsecured Perimeter", "Direct Line of Fire Exposure"])
         : isHigh
         ? ["Mechanical Component Degradation", "Fluid Pressure Anomaly"]
         : ["Operational Fatigue"];
       hazards = isCritical
-        ? ["Catastrophic Structural Failure", "Fatal Fall Impact"]
+        ? (/wire|electr/i.test(combinedText)
+            ? ["Electrocution", "Arc Flash"]
+            : ["Catastrophic Structural Failure", "Fatal Fall Impact"])
         : isHigh
         ? ["Unplanned Machine Trip", "Hot Fluid Contact"]
         : ["Minor First Aid Event"];

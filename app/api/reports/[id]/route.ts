@@ -72,6 +72,9 @@ export async function GET(
       await connectToDatabase();
       report = await UserSubmission.findById(id).lean();
       if (report) {
+        const computedLevel = report.riskLevel || report.risk_level || (report.severity === "critical" ? "CRITICAL" : report.severity === "high" ? "HIGH" : "MEDIUM");
+        const computedScore = report.riskScore ?? report.risk_score ?? (computedLevel === "CRITICAL" ? 88 : computedLevel === "HIGH" ? 72 : 45);
+        const computedSif = report.sifProbability ?? report.sif_probability ?? (computedLevel === "CRITICAL" ? 0.85 : computedLevel === "HIGH" ? 0.65 : 0.25);
         return NextResponse.json({
           success: true,
           data: {
@@ -86,12 +89,12 @@ export async function GET(
             status: report.status,
             submittedBy: report.submittedBy,
             riskAssessment: {
-              riskScore: report.riskScore,
-              riskLevel: report.riskLevel,
-              sifProbability: report.sifProbability,
-              precursors: report.precursors,
-              hazards: report.hazards,
-              explanation: report.explanation,
+              riskScore: computedScore,
+              riskLevel: computedLevel,
+              sifProbability: computedSif,
+              precursors: report.precursors || [],
+              hazards: report.hazards || [],
+              explanation: report.explanation || "",
             },
             createdAt: report.createdAt,
             updatedAt: report.updatedAt,
@@ -112,6 +115,10 @@ export async function GET(
       );
     }
 
+    const computedLevel = (report as any).risk_level || (report as any).riskLevel || ((report as any).severity === "critical" ? "CRITICAL" : (report as any).severity === "high" ? "HIGH" : "MEDIUM");
+    const computedScore = (report as any).risk_score ?? (report as any).riskScore ?? (computedLevel === "CRITICAL" ? 88 : computedLevel === "HIGH" ? 72 : 45);
+    const computedSif = (report as any).sif_probability ?? (report as any).sifProbability ?? (computedLevel === "CRITICAL" ? 0.85 : computedLevel === "HIGH" ? 0.65 : 0.25);
+
     return NextResponse.json({
       success: true,
       data: {
@@ -126,12 +133,12 @@ export async function GET(
         status: report.status,
         submittedBy: report.submittedBy,
         riskAssessment: {
-          riskScore: report.risk_score,
-          riskLevel: report.risk_level,
-          sifProbability: report.sif_probability,
-          precursors: report.precursors,
-          hazards: report.hazards,
-          explanation: report.explanation,
+          riskScore: computedScore,
+          riskLevel: computedLevel,
+          sifProbability: computedSif,
+          precursors: report.precursors || [],
+          hazards: report.hazards || [],
+          explanation: report.explanation || "",
         },
         createdAt: report.createdAt,
         updatedAt: report.updatedAt,
