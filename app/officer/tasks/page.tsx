@@ -2,7 +2,7 @@
 
 import { useEffect, useState, CSSProperties } from 'react';
 import Link from 'next/link';
-import { MAINTENANCE_TASKS, MAINTENANCE_WORKERS, MaintenanceTask, TaskStatus } from '@/app/lib/officerMockData';
+import { MAINTENANCE_TASKS, MaintenanceTask, TaskStatus } from '@/app/lib/officerMockData';
 import { exportToCSV, exportToExcel, ExportColumn } from '@/app/lib/exportUtils';
 
 const TASK_EXPORT_COLUMNS: ExportColumn<MaintenanceTask>[] = [
@@ -48,7 +48,6 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterTab>('all');
   const [tasks, setTasks] = useState<MaintenanceTask[]>([...MAINTENANCE_TASKS]);
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [toast, setToast] = useState('');
   const [showExportMenu, setShowExportMenu] = useState(false);
 
@@ -86,10 +85,9 @@ export default function TasksPage() {
     done: tasks.filter(t => t.status === 'done').length,
   };
 
-  const assign = (taskId: string, worker: string) => {
-    setTasks(prev => prev.map(t => t._id === taskId ? { ...t, assignedTo: worker, status: 'in_progress' } : t));
-    setOpenDropdown(null);
-    setToast(`Task assigned to ${worker}`);
+  const assign = (taskId: string) => {
+    setTasks(prev => prev.map(t => t._id === taskId ? { ...t, assignedTo: 'Assigned', status: 'in_progress' } : t));
+    setToast('Task assigned successfully!');
     setTimeout(() => setToast(''), 2400);
   };
 
@@ -310,45 +308,24 @@ export default function TasksPage() {
                 </div>
               </div>
 
-              {/* Assign button + dropdown */}
+              {/* Direct Assign Action Button */}
               {task.status !== 'done' && (
-                <div style={{ position: 'relative', flexShrink: 0 }}>
+                <div style={{ flexShrink: 0 }}>
                   <button
-                    onClick={() => setOpenDropdown(openDropdown === task._id ? null : task._id)}
+                    onClick={() => assign(task._id)}
                     style={{
-                      padding: '8px 16px', border: '1px solid var(--primary)', borderRadius: 10,
-                      background: 'var(--surface)', color: 'var(--primary)', fontSize: 12, fontWeight: 600,
+                      padding: '8px 18px', border: '1px solid var(--primary)', borderRadius: 10,
+                      background: task.status === 'in_progress' ? 'var(--primary-light)' : 'var(--surface)',
+                      color: 'var(--primary)', fontSize: 12, fontWeight: 700,
                       transition: 'all 0.15s ease', whiteSpace: 'nowrap' as const,
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
                     }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--primary-light)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = task.status === 'in_progress' ? 'var(--primary-light)' : 'var(--surface)'; }}
+                    title="Assign maintenance task"
                   >
-                    🔧 Assign
+                    🔧 {task.status === 'in_progress' ? 'Reassign Task' : 'Assign Task'}
                   </button>
-                  {openDropdown === task._id && (
-                    <div style={{
-                      position: 'absolute', right: 0, top: 40, zIndex: 100,
-                      background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.12)', minWidth: 200, overflow: 'hidden',
-                    }}>
-                      <div style={{ padding: '8px 12px', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, borderBottom: '1px solid var(--border)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
-                        Select Assignee
-                      </div>
-                      {MAINTENANCE_WORKERS.map(w => (
-                        <button key={w} onClick={() => assign(task._id, w)} style={{
-                          display: 'block', width: '100%', padding: '9px 14px',
-                          border: 'none', background: 'var(--surface)', textAlign: 'left',
-                          fontSize: 13, color: 'var(--text)', transition: 'background 0.12s ease',
-                          cursor: 'pointer',
-                        }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--primary-light)'; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}
-                        >
-                          {w}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
             </div>
