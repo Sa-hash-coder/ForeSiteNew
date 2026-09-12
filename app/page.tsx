@@ -9,7 +9,6 @@ import {
   TrendingUp, Users, Shield, ArrowUpRight, Flame, Factory,
   BookOpen, Layers
 } from "lucide-react";
-import ThemeToggle from "./components/ThemeToggle";
 import { loginApi, registerApi } from "@/app/lib/api";
 import { saveAuth } from "@/app/lib/auth";
 
@@ -112,6 +111,7 @@ export default function ForeSiteLanding() {
   ];
 
   useEffect(() => {
+    document.documentElement.setAttribute("data-theme", "light");
     const handleScroll = () => {
       const scrollPos = window.scrollY + 120;
       const sections = [
@@ -225,7 +225,6 @@ export default function ForeSiteLanding() {
 
           {/* Actions */}
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <ThemeToggle />
             <button
               onClick={() => openAuth("login")}
               style={{ padding: "9px 20px", fontSize: 14, fontWeight: 600, borderRadius: 6, color: "var(--text)", backgroundColor: "var(--surface)", border: "1.5px solid var(--border)", cursor: "pointer" }}
