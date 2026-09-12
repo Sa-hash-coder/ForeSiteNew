@@ -7,7 +7,7 @@ import {
   LogIn, UserPlus, X, Zap, BarChart2, Bell, FileCheck,
   Check, Activity, Cpu, Radio, Menu, ChevronRight, FileText,
   TrendingUp, Users, Shield, ArrowUpRight, Flame, Factory,
-  BookOpen, Download, Layers
+  BookOpen, Layers
 } from "lucide-react";
 import ThemeToggle from "./components/ThemeToggle";
 import { loginApi, registerApi } from "@/app/lib/api";
@@ -108,7 +108,6 @@ export default function ForeSiteLanding() {
     { label: "Platform", href: "#portals" },
     { label: "Features", href: "#features" },
     { label: "Solutions", href: "#solutions" },
-    { label: "Resources", href: "#resources" },
     { label: "About", href: "#about" },
   ];
 
@@ -120,7 +119,6 @@ export default function ForeSiteLanding() {
         { label: "Platform", id: "portals" },
         { label: "Features", id: "features" },
         { label: "Solutions", id: "solutions" },
-        { label: "Resources", id: "resources" },
         { label: "About", id: "about" },
       ];
       for (let i = sections.length - 1; i >= 0; i--) {
@@ -682,84 +680,7 @@ export default function ForeSiteLanding() {
         </div>
       </section>
 
-      {/* ─── 5. RESOURCES SECTION (#resources) ──────────────────────────── */}
-      <section id="resources" className="scroll-target" style={{ backgroundColor: "white", borderTop: "1px solid #E2E8F0", borderBottom: "1px solid #E2E8F0", padding: "88px 0" }}>
-        <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 32px" }}>
-          <div style={{ marginBottom: 48 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", color: "#1D4ED8", display: "block", marginBottom: 10 }}>TECHNICAL KNOWLEDGE & COMPLIANCE</span>
-            <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.6rem)", fontWeight: 900, color: "#0F172A", letterSpacing: "-0.5px" }}>Safety Whitepapers, Specs &amp; Guidelines</h2>
-            <p style={{ fontSize: 16, color: "#64748B", marginTop: 8, maxWidth: 640 }}>Access technical frameworks, regulatory audit blueprints, and engineering documentation.</p>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24 }} className="resource-grid">
-            {[
-              {
-                category: "REGULATORY COMPLIANCE",
-                title: "OSHA 1910 & PSM Audit Handbook",
-                format: "PDF GUIDE",
-                pages: "24 Pages",
-                desc: "Complete operational blueprint for structuring digital safety reports to meet OSHA inspection standards."
-              },
-              {
-                category: "AI ARCHITECTURE",
-                title: "SIF Precursor Detection Whitepaper",
-                format: "TECHNICAL PAPER",
-                pages: "36 Pages",
-                desc: "Statistical analysis of unsafe conditions and NLP vector modeling for fatal precursor early detection."
-              },
-              {
-                category: "FIELD AUDIO ENGINEERING",
-                title: "High-Noise Speech Recognition Spec",
-                format: "BENCHMARK SPEC",
-                pages: "18 Pages",
-                desc: "Performance benchmarks of multilingual acoustic models in >95dB continuous industrial noise."
-              },
-              {
-                category: "INTEGRATION",
-                title: "SCADA & Telemetry API Reference",
-                format: "DEVELOPER SPEC",
-                pages: "REST & Modbus",
-                desc: "Integration protocol schemas for connecting ForeSite risk triage to distributed control systems."
-              },
-            ].map(({ category, title, format, pages, desc }) => (
-              <div
-                key={title}
-                style={{
-                  backgroundColor: "#F8FAFC",
-                  border: "1px solid #E2E8F0",
-                  borderRadius: 12,
-                  padding: "26px 22px",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between"
-                }}
-              >
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                    <span style={{ fontSize: 10, fontWeight: 800, color: "#1D4ED8", letterSpacing: "0.1em", textTransform: "uppercase" }}>{category}</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "#64748B", backgroundColor: "#E2E8F0", padding: "2px 6px", borderRadius: 4 }}>{format}</span>
-                  </div>
-                  <h4 style={{ fontSize: 16, fontWeight: 800, color: "var(--text)", marginBottom: 10, lineHeight: 1.3 }}>{title}</h4>
-                  <p style={{ fontSize: 13, color: "#64748B", lineHeight: 1.6, marginBottom: 16 }}>{desc}</p>
-                </div>
-
-                <div style={{ paddingTop: 14, borderTop: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600 }}>{pages}</span>
-                  <a
-                    href="#hero"
-                    onClick={(e) => { e.preventDefault(); openAuth("signup"); }}
-                    style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", display: "inline-flex", alignItems: "center", gap: 5, textDecoration: "none" }}
-                  >
-                    Download <Download style={{ width: 14, height: 14, color: "#1D4ED8" }} />
-                  </a>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── 6. ABOUT SECTION (#about) ──────────────────────────────────── */}
+      {/* ─── 5. ABOUT SECTION (#about) ──────────────────────────────────── */}
       <section id="about" className="scroll-target" style={{ padding: "88px 0 96px", backgroundColor: "var(--bg)" }}>
         <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 32px" }}>
           
@@ -944,7 +865,6 @@ export default function ForeSiteLanding() {
           .hero-grid { grid-template-columns: 1fr !important; gap: 40px !important; }
           .feature-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 20px !important; }
           .solutions-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
-          .resource-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 20px !important; }
           .portal-grid { grid-template-columns: 1fr !important; gap: 20px !important; }
           .about-grid { grid-template-columns: 1fr !important; gap: 36px !important; }
           .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
@@ -952,7 +872,6 @@ export default function ForeSiteLanding() {
         @media (max-width: 640px) {
           .hero-grid { gap: 28px !important; }
           .feature-grid { grid-template-columns: 1fr !important; }
-          .resource-grid { grid-template-columns: 1fr !important; }
           .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
           .hide-mobile { display: none !important; }
           .hide-mobile-sm { display: none !important; }
