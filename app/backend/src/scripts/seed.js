@@ -240,7 +240,7 @@ const SAMPLE_REPORTS = [
 
 async function seed() {
   try {
-    const mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017/foresite";
+    const mongoUri = process.env.MONGO_URI || "mongodb+srv://anikettiwari25000_db_user:sihhackathonforesite2026@cluster0.7kwyqof.mongodb.net/";
     console.log(`🌱 Connecting to MongoDB at ${mongoUri.replace(/:[^:@]+@/, ":****@")}...`);
     await mongoose.connect(mongoUri);
     console.log("✅ Connected");

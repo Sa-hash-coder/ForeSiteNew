@@ -107,7 +107,7 @@ const startServer = async () => {
       console.log("✅ MongoDB connected");
     } else {
       try {
-        const defaultUri = "mongodb://localhost:27017/foresite";
+        const defaultUri = "mongodb+srv://anikettiwari25000_db_user:sihhackathonforesite2026@cluster0.7kwyqof.mongodb.net/";
         console.warn("⚠️  MONGO_URI not set — attempting local default: " + defaultUri);
         await mongoose.connect(defaultUri, { serverSelectionTimeoutMS: 2000 });
         console.log("✅ MongoDB connected (local default)");

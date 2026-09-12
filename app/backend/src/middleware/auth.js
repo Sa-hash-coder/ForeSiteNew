@@ -2,10 +2,6 @@ const jwt = require("jsonwebtoken");
 const ApiError = require("../utils/ApiError");
 const User = require("../models/User");
 
-/**
- * Middleware: Verifies the JWT Bearer token in the Authorization header.
- * Attaches the full user document to req.user.
- */
 const auth = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;

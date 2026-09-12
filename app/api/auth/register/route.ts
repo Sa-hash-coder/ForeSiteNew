@@ -1,6 +1,56 @@
 import { NextRequest, NextResponse } from "next/server";
-import { dbUsers } from "@/app/lib/db";
+import { dbUsers, connectToDatabase } from "@/app/lib/db";
 import { hashPassword, createToken } from "@/app/lib/security";
+import mongoose from "mongoose";
+
+// MongoDB User Model
+const UserSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+      minlength: 2,
+      maxlength: 100,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    password: {
+      type: String,
+      required: true,
+      minlength: 6,
+    },
+    role: {
+      type: String,
+      enum: ["admin", "safety_officer", "officer", "worker", "maintenance", "manager", "technician"],
+      default: "worker",
+    },
+    department: {
+      type: String,
+      default: "Safety Operations",
+    },
+    badgeId: {
+      type: String,
+      unique: true,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    lastLogin: {
+      type: Date,
+      default: null,
+    },
+  },
+  { timestamps: true }
+);
+
+const User = mongoose.models.User || mongoose.model("User", UserSchema, "userinfo");
 
 export async function POST(req: NextRequest) {
   try {
@@ -37,27 +87,58 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check existing email
-    const existing = await dbUsers.findByEmail(email);
-    if (existing) {
-      return NextResponse.json(
-        { success: false, message: "An account with this email address already exists." },
-        { status: 409 }
-      );
-    }
-
     // Generate badge ID based on role
     const badgePrefix = normalizedRole === "officer" ? "SAF" : normalizedRole === "maintenance" ? "MNT" : "WRK";
     const badgeId = `${badgePrefix}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const newUser = await dbUsers.create({
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      password: hashPassword(password),
-      role: normalizedRole as any,
-      department: department?.trim() || (normalizedRole === "officer" ? "HSE Inspection" : normalizedRole === "maintenance" ? "Plant Reliability" : "Operations Unit"),
-      badgeId,
-    });
+    let newUser = null;
+
+    // Try MongoDB first
+    try {
+      await connectToDatabase();
+      
+      // Check existing email in MongoDB
+      const existingMongo = await User.findOne({ email: email.toLowerCase().trim() });
+      if (existingMongo) {
+        return NextResponse.json(
+          { success: false, message: "An account with this email address already exists." },
+          { status: 409 }
+        );
+      }
+
+      // Create user in MongoDB
+      const mongoUser = await User.create({
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password: hashPassword(password),
+        role: normalizedRole as any,
+        department: department?.trim() || (normalizedRole === "officer" ? "HSE Inspection" : normalizedRole === "maintenance" ? "Plant Reliability" : "Operations Unit"),
+        badgeId,
+      });
+
+      newUser = mongoUser.toObject();
+      console.log("✅ User registered in MongoDB:", mongoUser._id);
+    } catch (mongoErr) {
+      // Fallback to local JSON store
+      console.warn("MongoDB registration failed, falling back to local JSON store:", mongoErr);
+      
+      const existing = await dbUsers.findByEmail(email);
+      if (existing) {
+        return NextResponse.json(
+          { success: false, message: "An account with this email address already exists." },
+          { status: 409 }
+        );
+      }
+
+      newUser = await dbUsers.create({
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password: hashPassword(password),
+        role: normalizedRole as any,
+        department: department?.trim() || (normalizedRole === "officer" ? "HSE Inspection" : normalizedRole === "maintenance" ? "Plant Reliability" : "Operations Unit"),
+        badgeId,
+      });
+    }
 
     const token = createToken({
       _id: newUser._id,
@@ -68,27 +149,27 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(
-      {
-        success: true,
-        data: {
-          user: {
-            _id: newUser._id,
-            name: newUser.name,
-            email: newUser.email,
-            role: newUser.role,
-            department: newUser.department,
-            badgeId: newUser.badgeId,
-          },
-          token,
-        },
+  {
+    success: true,
+    data: {
+      user: {
+        _id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        department: newUser.department,
+        badgeId: newUser.badgeId,
       },
-      { status: 201 }
-    );
-  } catch (error: any) {
-    console.error("Registration error:", error);
-    return NextResponse.json(
-      { success: false, message: error.message || "Failed to register user" },
-      { status: 500 }
-    );
-  }
+      token,
+    },
+  },
+  { status: 201 }
+);
+} catch (error: any) {
+  console.error("Registration error:", error);
+  return NextResponse.json(
+    { success: false, message: error.message || "Registration failed" },
+    { status: 500 }
+  );
+}
 }

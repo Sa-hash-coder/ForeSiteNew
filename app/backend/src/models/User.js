@@ -35,7 +35,10 @@ const userSchema = new mongoose.Schema(
     },
     department: {
       type: String,
+<<<<<<< HEAD
       trim: true,
+=======
+>>>>>>> 576e47a (Database fix)
       default: "Safety Operations",
     },
     isActive: {

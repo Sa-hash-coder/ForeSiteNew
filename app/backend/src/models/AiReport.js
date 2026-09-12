@@ -20,7 +20,7 @@ const aiReportSchema = new mongoose.Schema(
     },
     severity: {
       type: String,
-      default: "medium",
+      default: "low",
     },
     risk_score: {
       type: Number,

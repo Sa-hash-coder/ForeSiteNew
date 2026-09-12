@@ -1,6 +1,63 @@
 import { NextRequest, NextResponse } from "next/server";
-import { dbReports, dbAlerts } from "@/app/lib/db";
+import { dbReports, dbAlerts, connectToDatabase } from "@/app/lib/db";
 import { verifyToken } from "@/app/lib/security";
+import mongoose from "mongoose";
+
+// MongoDB Models
+const UserSubmissionSchema = new mongoose.Schema(
+  {
+    title: { type: String, trim: true },
+    description: { type: String, trim: true },
+    location: { type: String, trim: true },
+    category: {
+      type: String,
+      enum: [
+        "near_miss",
+        "unsafe_condition",
+        "unsafe_act",
+        "equipment_failure",
+        "chemical_exposure",
+        "other",
+      ],
+      default: "other",
+    },
+    severity: {
+      type: String,
+      enum: ["low", "medium", "high", "critical"],
+      default: "medium",
+    },
+    imageUrl: { type: String, default: null },
+    audioUrl: { type: String, default: null },
+    submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    userName: { type: String, default: null },
+    userEmail: { type: String, default: null },
+    department: { type: String, default: null },
+    status: {
+      type: String,
+      enum: [
+        "pending_analysis",
+        "analysis_complete",
+        "under_review",
+        "action_assigned",
+        "resolved",
+        "closed",
+      ],
+      default: "pending_analysis",
+    },
+    riskScore: { type: Number, default: 0 },
+    riskLevel: { type: String, default: "MEDIUM" },
+    sifProbability: { type: Number, default: 0 },
+    precursors: { type: [String], default: [] },
+    hazards: { type: [String], default: [] },
+    recommendations: { type: [String], default: [] },
+    explanation: { type: String, default: "" },
+    rawData: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+  { timestamps: true }
+);
+
+const UserSubmission =
+  mongoose.models.UserSubmission || mongoose.model("UserSubmission", UserSubmissionSchema, "test");
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,11 +68,46 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "50", 10);
     const page = parseInt(searchParams.get("page") || "1", 10);
 
-    const result = await dbReports.list({ status, riskLevel, category, limit, page });
+    // Try MongoDB first, fallback to local JSON
+    let reports = [];
+    let total = 0;
 
-    return NextResponse.json({
-      success: true,
-      data: result.reports.map((r) => ({
+    try {
+      await connectToDatabase();
+      const query: any = {};
+      if (status) query.status = status;
+      if (riskLevel) query.riskLevel = riskLevel;
+      if (category) query.category = category;
+
+      const skip = (page - 1) * limit;
+      const [mongoReports, mongoTotal] = await Promise.all([
+        UserSubmission.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+        UserSubmission.countDocuments(query),
+      ]);
+
+      reports = mongoReports.map((r: any) => ({
+        _id: r._id,
+        title: r.title,
+        location: r.location,
+        category: r.category,
+        severity: r.severity,
+        status: r.status,
+        createdAt: r.createdAt,
+        riskAssessment: {
+          riskScore: r.riskScore,
+          riskLevel: r.riskLevel,
+          sifProbability: r.sifProbability,
+          precursors: r.precursors,
+          hazards: r.hazards,
+          explanation: r.explanation,
+        },
+        submittedBy: r.submittedBy,
+      }));
+      total = mongoTotal;
+    } catch (mongoErr) {
+      console.warn("MongoDB unavailable, falling back to local JSON store:", mongoErr);
+      const result = await dbReports.list({ status, riskLevel, category, limit, page });
+      reports = result.reports.map((r) => ({
         _id: r._id,
         title: r.title,
         location: r.location,
@@ -32,12 +124,18 @@ export async function GET(req: NextRequest) {
           explanation: r.explanation,
         },
         submittedBy: r.submittedBy,
-      })),
+      }));
+      total = result.total;
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: reports,
       pagination: {
-        total: result.total,
-        page: result.page,
-        limit: result.limit,
-        totalPages: result.totalPages,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       },
     });
   } catch (error: any) {
@@ -83,7 +181,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Call the fine-tuned AI microservice on localhost:8000 with resilient heuristic fallback
     let riskLevel: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" = "MEDIUM";
     let riskScore = 45;
     let sifProbability = 0.35;
@@ -102,7 +199,10 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           report_id: `rep_${Date.now()}`,
           title: title || "Hazard Report",
-          description: description && description.length >= 10 ? description : `${description || "Hazard reported"} in ${location || "plant"}`,
+          description:
+            description && description.length >= 10
+              ? description
+              : `${description || "Hazard reported"} in ${location || "plant"}`,
           location: location || "Plant Sector 4",
           category: category || "unsafe_condition",
           severity: severity || "medium",
@@ -129,8 +229,14 @@ export async function POST(req: NextRequest) {
       
       const isCritical =
         severity === "critical" ||
+<<<<<<< HEAD
         /fall|fire|explosion|collapse|gas|electrocution|leak|acid|fatal|crush/i.test(text);
       const isHigh = severity === "high" || /crack|vibration|spill|high pressure|flange|bearing|steam/i.test(text);
+=======
+        (description && /fall|fire|explosion|collapse|gas|electrocution|leak/i.test(description));
+      const isHigh =
+        severity === "high" || (description && /crack|vibration|spill|high pressure/i.test(description));
+>>>>>>> 576e47a (Database fix)
 
       riskLevel = isCritical ? "CRITICAL" : isHigh ? "HIGH" : severity === "low" ? "LOW" : "MEDIUM";
       riskScore = isCritical ? 88 : isHigh ? 72 : 38;
@@ -203,27 +309,66 @@ export async function POST(req: NextRequest) {
 
     const reportTitle = title || (description ? description.slice(0, 60) : `Hazard Report - ${location || "Sector 4"}`);
 
-    const newReport = await dbReports.create({
-      title: reportTitle,
-      description: description || "Hazard observation submitted from field.",
-      location: location || "Industrial Facility",
-      category,
-      severity: severity as any,
-      risk_score: riskScore,
-      risk_level: riskLevel,
-      sif_probability: sifProbability,
-      precursors,
-      hazards,
-      explanation,
-      recommendations,
-      imageUrl,
-      audioUrl,
-      status: riskLevel === "CRITICAL" ? "under_review" : "analysis_complete",
-      submittedBy: user,
-    });
+    let savedReport: any = null;
+
+    // Try to save to MongoDB first
+    try {
+      await connectToDatabase();
+      const mongoReport = await UserSubmission.create({
+        title: reportTitle,
+        description: description || "Hazard observation submitted from field.",
+        location: location || "Industrial Facility",
+        category,
+        severity: severity as any,
+        riskScore,
+        riskLevel,
+        sifProbability,
+        precursors,
+        hazards,
+        recommendations,
+        explanation,
+        imageUrl,
+        audioUrl,
+        status: riskLevel === "CRITICAL" ? "under_review" : "analysis_complete",
+        submittedBy: user._id !== "usr_guest" ? user._id : null,
+        userName: user.name,
+        userEmail: user._id !== "usr_guest" ? undefined : null,
+        department: user.department,
+        rawData: body,
+      });
+
+      savedReport = mongoReport.toObject();
+      console.log("✅ Report saved to MongoDB:", mongoReport._id);
+    } catch (mongoErr) {
+      // Fallback to local JSON store if MongoDB fails
+      console.warn("MongoDB save failed, falling back to local JSON store:", mongoErr);
+
+      const newReport = await dbReports.create({
+        title: reportTitle,
+        description: description || "Hazard observation submitted from field.",
+        location: location || "Industrial Facility",
+        category,
+        severity: severity as any,
+        risk_score: riskScore,
+        risk_level: riskLevel,
+        sif_probability: sifProbability,
+        precursors,
+        hazards,
+        recommendations,
+        explanation,
+        imageUrl,
+        audioUrl,
+        status: riskLevel === "CRITICAL" ? "under_review" : "analysis_complete",
+        submittedBy: user,
+      });
+
+      savedReport = newReport;
+      console.log("⚠️  Report saved to local JSON store:", newReport._id);
+    }
 
     // Auto-generate high-risk alert for Safety Officer dashboard if Critical or High
     if (riskLevel === "CRITICAL" || riskLevel === "HIGH") {
+<<<<<<< HEAD
       await dbAlerts.create({
         reportId: newReport._id,
         reportTitle: newReport.title,
@@ -241,12 +386,33 @@ export async function POST(req: NextRequest) {
         submittedBy: user.name,
         isAcknowledged: false,
       });
+=======
+      try {
+        await dbAlerts.create({
+          reportId: savedReport._id,
+          reportTitle: reportTitle,
+          riskLevel: riskLevel as "CRITICAL" | "HIGH",
+          riskScore: riskScore,
+          sifProbability: sifProbability,
+          message: `${riskLevel} SIF HAZARD: ${reportTitle} at ${location}`,
+          precursors,
+          hazards,
+          recommendations,
+          explanation,
+          location,
+          submittedBy: user.name,
+          isAcknowledged: false,
+        });
+      } catch (alertErr) {
+        console.warn("Failed to create alert:", alertErr);
+      }
+>>>>>>> 576e47a (Database fix)
     }
 
     return NextResponse.json(
       {
         success: true,
-        data: newReport,
+        data: savedReport,
       },
       { status: 201 }
     );
