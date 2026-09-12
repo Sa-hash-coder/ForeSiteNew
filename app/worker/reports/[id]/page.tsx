@@ -1,19 +1,64 @@
 "use client";
 
-import { use } from "react";
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { MOCK_REPORT_DETAIL } from "@/app/lib/mockData";
 import { useLanguage } from "@/app/lib/LanguageContext";
 import StatusBadge from "@/app/components/StatusBadge";
 import DangerBadge from "@/app/components/DangerBadge";
 import VoiceReadAloudButton from "@/app/components/VoiceReadAloudButton";
+import { getReportByIdApi } from "@/app/lib/api";
 
 export default function ReportDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { lang, t } = useLanguage();
 
-  // Get from mock data or fallback to first report
-  const report = MOCK_REPORT_DETAIL[id] || Object.values(MOCK_REPORT_DETAIL)[0];
+  const [report, setReport] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const res = await getReportByIdApi(id);
+        if (res?.data) {
+          const d: any = res.data;
+          setReport({
+            _id: d._id,
+            title: d.title,
+            description: d.description,
+            location: d.location,
+            status: d.status,
+            createdAt: d.createdAt,
+            imageUrl: d.imageUrl,
+            riskAssessment: d.riskAssessment,
+            suggestions: d.recommendations || d.riskAssessment?.recommendations || [
+              "Halt hazardous operation immediately under Stop-Work Authority.",
+              "Report situation to unit supervisor and maintain safe distance.",
+            ],
+            maintenanceTasks: [],
+          });
+          return;
+        }
+      } catch (err) {
+        console.warn("Could not load report from API, checking mock data:", err);
+      }
+
+      // Fallback to mock data
+      const fallback = MOCK_REPORT_DETAIL[id] || Object.values(MOCK_REPORT_DETAIL)[0];
+      setReport(fallback);
+      setLoading(false);
+    }
+
+    loadData().finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div style={{ padding: 24, textAlign: "center", color: "var(--text-muted)" }}>
+        <p>Loading hazard report...</p>
+      </div>
+    );
+  }
 
   if (!report) {
     return (
@@ -78,7 +123,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             <h2 style={s.sectionTitle}>{t.suggestionsTitle}</h2>
           </div>
           <div style={s.suggestionList}>
-            {suggestions.map((item, idx) => (
+            {suggestions.map((item: string, idx: number) => (
               <div key={idx} style={s.suggestionItem}>
                 <span style={s.bulletPoint}>{item}</span>
               </div>
@@ -94,7 +139,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             <span style={{ fontSize: "18px" }}>🔧</span>
             <h2 style={s.sectionTitle}>{t.actionTakenTitle}</h2>
           </div>
-          {report.maintenanceTasks.map((task) => (
+          {report.maintenanceTasks.map((task: any) => (
             <div key={task._id} style={s.taskCard}>
               <div style={s.taskTop}>
                 <span style={s.taskTitle}>{task.title}</span>

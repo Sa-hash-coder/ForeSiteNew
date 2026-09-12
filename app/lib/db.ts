@@ -643,7 +643,9 @@ export const dbReports = {
     try {
       const conn = await connectToDatabase();
       if (conn) {
-        const r = await ReportModel.findOne({ _id: id }).lean();
+        const isObjId = mongoose.Types.ObjectId.isValid(id);
+        const query = isObjId ? { $or: [{ _id: new mongoose.Types.ObjectId(id) }, { _id: id }] } : { _id: id };
+        const r = await ReportModel.findOne(query).lean();
         if (r) return r as StoredReport;
       }
     } catch {
@@ -691,8 +693,10 @@ export const dbReports = {
     try {
       const conn = await connectToDatabase();
       if (conn) {
+        const isObjId = mongoose.Types.ObjectId.isValid(id);
+        const query = isObjId ? { $or: [{ _id: new mongoose.Types.ObjectId(id) }, { _id: id }] } : { _id: id };
         await ReportModel.updateOne(
-          { _id: id },
+          query,
           { $set: { ...updates, updatedAt: new Date().toISOString() } }
         );
       }
@@ -761,8 +765,10 @@ export const dbAlerts = {
     try {
       const conn = await connectToDatabase();
       if (conn) {
+        const isObjId = mongoose.Types.ObjectId.isValid(id);
+        const query = isObjId ? { $or: [{ _id: new mongoose.Types.ObjectId(id) }, { _id: id }] } : { _id: id };
         await AlertModel.updateOne(
-          { _id: id },
+          query,
           {
             $set: {
               isAcknowledged: state,
@@ -795,8 +801,12 @@ export const dbAlerts = {
     try {
       const conn = await connectToDatabase();
       if (conn) {
+        const isObjId = mongoose.Types.ObjectId.isValid(reportId);
+        const query = isObjId
+          ? { $or: [{ reportId: new mongoose.Types.ObjectId(reportId) }, { reportId }], isAcknowledged: false }
+          : { reportId, isAcknowledged: false };
         await AlertModel.updateMany(
-          { reportId, isAcknowledged: false },
+          query,
           {
             $set: {
               isAcknowledged: true,
@@ -836,7 +846,11 @@ export const dbTasks = {
     try {
       const conn = await connectToDatabase();
       if (conn) {
-        const task = await TaskModel.findOne({ $or: [{ _id: id }, { orderNumber: id }] }).lean();
+        const isObjId = mongoose.Types.ObjectId.isValid(id);
+        const query = isObjId
+          ? { $or: [{ _id: new mongoose.Types.ObjectId(id) }, { _id: id }, { orderNumber: id }] }
+          : { $or: [{ _id: id }, { orderNumber: id }] };
+        const task = await TaskModel.findOne(query).lean();
         if (task) return task as StoredTask;
       }
     } catch {
@@ -887,8 +901,12 @@ export const dbTasks = {
     try {
       const conn = await connectToDatabase();
       if (conn) {
+        const isObjId = mongoose.Types.ObjectId.isValid(id);
+        const query = isObjId
+          ? { $or: [{ _id: new mongoose.Types.ObjectId(id) }, { _id: id }, { orderNumber: id }] }
+          : { $or: [{ _id: id }, { orderNumber: id }] };
         await TaskModel.updateOne(
-          { $or: [{ _id: id }, { orderNumber: id }] },
+          query,
           {
             $set: {
               ...updates,
