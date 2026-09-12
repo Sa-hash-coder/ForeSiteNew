@@ -174,7 +174,7 @@
         "Fatal Traumatic Impact"
       ],
       "explanation": "Tier 3 elevation lacking certified guardrails poses immediate SIF risk under OSHA 1926.451.",
-      "status": "action_assigned",
+      "status": "resolved",
       "submittedBy": {
         "_id": "usr_worker_01",
         "name": "Rajan Mehta",
@@ -182,7 +182,7 @@
         "department": "Boiler Room B"
       },
       "createdAt": "2026-09-11T18:51:23.501Z",
-      "updatedAt": "2026-09-11T20:51:23.426Z"
+      "updatedAt": "2026-09-12T09:30:22.973Z"
     },
     {
       "_id": "rep_002",
@@ -301,7 +301,7 @@
       "riskScore": 92,
       "sifProbability": 0.88,
       "message": "CRITICAL SIF PRECURSOR: Working at height without certified perimeter guardrail in Sector 4.",
-      "isAcknowledged": false,
+      "isAcknowledged": true,
       "createdAt": "2026-09-11T18:51:23.501Z",
       "precursors": [
         "Working at Height Exposure",
@@ -316,7 +316,9 @@
         "Secure all loose scaffolding planks with certified locking pins and clamps.",
         "Enforce 100% tie-off using dual self-retracting lifelines (SRLs) anchored to tested points."
       ],
-      "explanation": "Loose scaffolding planks at elevation create an immediate high-severity SIF fall hazard."
+      "explanation": "Loose scaffolding planks at elevation create an immediate high-severity SIF fall hazard.",
+      "acknowledgedBy": "Officer & Maintenance Sign-off",
+      "acknowledgedAt": "2026-09-12T09:04:23.486Z"
     },
     {
       "_id": "alt_002",
@@ -347,6 +349,168 @@
     }
   ],
   "tasks": [
+    {
+      "title": "Work Order: TK-80 Scaffolding – Missing handrail & perime",
+      "description": "Frontline walkdown noticed 3 meters of perimeter kickboards and outer handrail absent on Tier 3 scaffolding. High fall hazard (SIF Precursor).",
+      "equipmentId": "EQ-481",
+      "equipmentName": "TK-80 Scaffolding – Missing handrail & perimeter barrier",
+      "location": "Sector 4 North, Tank Farm",
+      "zone": "Zone 4",
+      "severity": "critical",
+      "status": "in_progress",
+      "assignedCrew": "Rotating Machinery Team M-4",
+      "dispatchedBy": {
+        "name": "Officer Command",
+        "role": "Safety Supervisor",
+        "badgeId": "SAF-4019"
+      },
+      "safetyPermitId": "PTW-3105",
+      "lotoRequired": true,
+      "reportId": "rep_001",
+      "orderNumber": "WO-9053",
+      "_id": "tsk_88kv68la",
+      "createdAt": "2026-09-12T09:30:19.350Z",
+      "updatedAt": "2026-09-12T09:32:31.751Z"
+    },
+    {
+      "title": "Work Order: The wiring is open near the water pool.",
+      "description": "Conduct on-site supervisor inspection and log incident in daily hazard register.\n\nGenerated from fine-tuned SIF precursor assessment for Electrical Panel Room.",
+      "equipmentId": "EQ-167",
+      "equipmentName": "The wiring is open near the water pool.",
+      "location": "Electrical Panel Room",
+      "zone": "Zone 4",
+      "severity": "critical",
+      "status": "dispatched",
+      "assignedCrew": "Rotating Machinery Team M-4",
+      "dispatchedBy": {
+        "name": "Officer Command",
+        "role": "Safety Supervisor",
+        "badgeId": "SAF-4019"
+      },
+      "safetyPermitId": "PTW-4353",
+      "lotoRequired": true,
+      "reportId": "6aa503d40d078a0e237fb5b3",
+      "orderNumber": "WO-9050",
+      "_id": "tsk_wz36wiil",
+      "createdAt": "2026-09-12T09:27:59.822Z",
+      "updatedAt": "2026-09-12T09:27:59.822Z"
+    },
+    {
+      "title": "Corrective Action: TK-80 Scaffolding – Missing handrail & perimeter b",
+      "description": "Red-tag scaffolding and suspend elevated work until re-certified (OSHA 1926.451).\n\nIdentified via automated SIF precursor analysis under OSHA 1910 standards.",
+      "equipmentId": "EQ-127",
+      "equipmentName": "TK-80 Scaffolding – Missing handrail & perimeter barrier",
+      "location": "Plant Sector 4 North",
+      "zone": "Zone 4",
+      "severity": "critical",
+      "status": "officer_verified",
+      "assignedCrew": "Reliability & Safety Team M-4",
+      "dispatchedBy": {
+        "name": "Officer Command",
+        "role": "Safety Supervisor",
+        "badgeId": "SAF-4019"
+      },
+      "safetyPermitId": "PTW-5704",
+      "lotoRequired": true,
+      "reportId": "rep_001",
+      "orderNumber": "WO-9073",
+      "_id": "tsk_wppe1a1f",
+      "createdAt": "2026-09-12T08:54:06.340Z",
+      "updatedAt": "2026-09-12T09:04:23.368Z",
+      "clearanceNote": "Physical repair certified & cleared."
+    },
+    {
+      "title": "Work Order: The wiring is open near the water pool.",
+      "description": "Conduct on-site supervisor inspection and log incident in daily hazard register.\n\nGenerated from fine-tuned SIF precursor assessment for Electrical Panel Room.",
+      "equipmentId": "EQ-382",
+      "equipmentName": "The wiring is open near the water pool.",
+      "location": "Electrical Panel Room",
+      "zone": "Zone 4",
+      "severity": "critical",
+      "status": "dispatched",
+      "assignedCrew": "Rotating Machinery Team M-4",
+      "dispatchedBy": {
+        "name": "Officer Command",
+        "role": "Safety Supervisor",
+        "badgeId": "SAF-4019"
+      },
+      "safetyPermitId": "PTW-1679",
+      "lotoRequired": true,
+      "reportId": "6aa503d40d078a0e237fb5b3",
+      "orderNumber": "WO-9085",
+      "_id": "tsk_c6jydr2o",
+      "createdAt": "2026-09-12T08:44:48.604Z",
+      "updatedAt": "2026-09-12T08:44:48.604Z"
+    },
+    {
+      "title": "Work Order: The wiring is open near the water pool.",
+      "description": "Conduct on-site supervisor inspection and log incident in daily hazard register.\n\nGenerated from fine-tuned SIF precursor assessment for Electrical Panel Room.",
+      "equipmentId": "EQ-411",
+      "equipmentName": "The wiring is open near the water pool.",
+      "location": "Electrical Panel Room",
+      "zone": "Zone 4",
+      "severity": "critical",
+      "status": "dispatched",
+      "assignedCrew": "Rotating Machinery Team M-4",
+      "dispatchedBy": {
+        "name": "Officer Command",
+        "role": "Safety Supervisor",
+        "badgeId": "SAF-4019"
+      },
+      "safetyPermitId": "PTW-7739",
+      "lotoRequired": true,
+      "reportId": "6aa503d40d078a0e237fb5b3",
+      "orderNumber": "WO-9082",
+      "_id": "tsk_lhsjo6zg",
+      "createdAt": "2026-09-12T08:44:46.349Z",
+      "updatedAt": "2026-09-12T08:44:46.349Z"
+    },
+    {
+      "title": "Work Order: The wiring is open near the water pool.",
+      "description": "Verify area is cordoned off if active risk persists.\n\nGenerated from fine-tuned SIF precursor assessment for Electrical Panel Room.",
+      "equipmentId": "EQ-223",
+      "equipmentName": "The wiring is open near the water pool.",
+      "location": "Electrical Panel Room",
+      "zone": "Zone 4",
+      "severity": "critical",
+      "status": "dispatched",
+      "assignedCrew": "Rotating Machinery Team M-4",
+      "dispatchedBy": {
+        "name": "Officer Command",
+        "role": "Safety Supervisor",
+        "badgeId": "SAF-4019"
+      },
+      "safetyPermitId": "PTW-4619",
+      "lotoRequired": true,
+      "reportId": "6aa503d40d078a0e237fb5b3",
+      "orderNumber": "WO-9065",
+      "_id": "tsk_6qmjew57",
+      "createdAt": "2026-09-12T08:24:05.955Z",
+      "updatedAt": "2026-09-12T08:24:05.955Z"
+    },
+    {
+      "title": "Work Order: The wiring is open near the water pool.",
+      "description": "Conduct on-site supervisor inspection and log incident in daily hazard register.\n\nGenerated from fine-tuned SIF precursor assessment for Electrical Panel Room.",
+      "equipmentId": "EQ-660",
+      "equipmentName": "The wiring is open near the water pool.",
+      "location": "Electrical Panel Room",
+      "zone": "Zone 4",
+      "severity": "critical",
+      "status": "dispatched",
+      "assignedCrew": "Rotating Machinery Team M-4",
+      "dispatchedBy": {
+        "name": "Officer Command",
+        "role": "Safety Supervisor",
+        "badgeId": "SAF-4019"
+      },
+      "safetyPermitId": "PTW-9243",
+      "lotoRequired": true,
+      "reportId": "6aa503d40d078a0e237fb5b3",
+      "orderNumber": "WO-9043",
+      "_id": "tsk_pgoee8xk",
+      "createdAt": "2026-09-12T08:24:03.175Z",
+      "updatedAt": "2026-09-12T08:24:03.175Z"
+    },
     {
       "title": "Repair Corroded Steam Flange",
       "description": "Isolate high pressure steam line under LOTO. Replace damaged gasket.",
