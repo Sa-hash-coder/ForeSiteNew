@@ -52,11 +52,11 @@ const UserSubmissionSchema = new mongoose.Schema(
     explanation: { type: String, default: "" },
     rawData: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
-  { timestamps: true }
+  { timestamps: true, strict: false }
 );
 
 const UserSubmission =
-  mongoose.models.UserSubmission || mongoose.model("UserSubmission", UserSubmissionSchema, "test");
+  mongoose.models.UserSubmission || mongoose.model("UserSubmission", UserSubmissionSchema, "reports");
 
 export async function GET(
   req: NextRequest,
