@@ -336,7 +336,7 @@ export async function POST(req: NextRequest) {
       recommendations = getSmartRemediationTasks(category, `${title || ""} ${description || ""}`, precursors);
     }
 
-    const reportTitle = title || (description ? description.slice(0, 60) : `Hazard Report - ${location || "Sector 4"}`);
+    const reportTitle = (title && title.trim()) || (description && description.trim()) || `Hazard Report - ${location || "Sector 4"}`;
 
     let savedReport: any = null;
 

@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       report_id = `rep_${Date.now()}`
     } = body;
 
-    const reportTitle = title || (transcript ? transcript.slice(0, 60) : "Visual Hazard Inspection");
+    const reportTitle = (title && title.trim()) || (transcript && transcript.trim()) || "Visual Hazard Inspection";
     const reportDesc = description || (transcript && transcript.length >= 10
       ? transcript
       : `${transcript || "Visual hazard inspection reported"} at ${location}.`);

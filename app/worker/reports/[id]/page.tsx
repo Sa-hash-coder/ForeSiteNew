@@ -34,7 +34,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
           const d: any = res.data;
           setReport({
             _id: d._id,
-            title: d.title,
+            title: (d.description && d.description.length > (d.title || "").length) ? d.description : (d.title || d.description || "Hazard Report"),
             description: d.description,
             location: d.location,
             status: d.status,

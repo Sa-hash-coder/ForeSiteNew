@@ -125,10 +125,12 @@ export default function OfficerReportsPage() {
       try {
         const res = await getAllReportsApi();
         if (res.data && res.data.length > 0 && isMounted) {
-          const mapped: OfficerReport[] = res.data.map((r: any) => ({
-            _id: r._id,
-            title: r.title,
-            category: (r.category || "machinery") as any,
+          const mapped: OfficerReport[] = res.data.map((r: any) => {
+            const fullTitle = (r.description && r.description.length > (r.title || "").length) ? r.description : (r.title || r.description || "Hazard Report");
+            return {
+              _id: r._id,
+              title: fullTitle,
+              category: (r.category || "machinery") as any,
             severity: (r.severity?.toLowerCase() || "high") as any,
             status: (r.status || "analysis_complete") as any,
             riskScore: r.riskAssessment?.riskScore ?? (r.risk_score || 75),
@@ -142,7 +144,8 @@ export default function OfficerReportsPage() {
             recommendations: r.recommendations || ["Supervisor review"],
             hasImage: Boolean(r.imageUrl),
             hasAudio: Boolean(r.audioUrl),
-          }));
+          };
+        });
 
           const liveIds = new Set(mapped.map(m => m._id));
           const rest = MOCK_REPORTS.filter(m => !liveIds.has(m._id));

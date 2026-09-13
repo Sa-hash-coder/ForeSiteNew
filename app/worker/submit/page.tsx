@@ -48,9 +48,10 @@ export default function SubmitReportPage() {
     setError("");
 
     try {
+      const cleanDesc = description.trim();
       await submitReportApi({
-        title: description.slice(0, 50) || "Worker Field Hazard Report",
-        description,
+        title: cleanDesc || "Worker Field Hazard Report",
+        description: cleanDesc,
         location: location || "Plant Floor",
         category: "unsafe_condition",
         severity: "high",

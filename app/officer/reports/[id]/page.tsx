@@ -264,7 +264,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
 
           loadedReport = {
             _id: d._id,
-            title: d.title,
+            title: (d.description && d.description.length > (d.title || "").length) ? d.description : (d.title || d.description || "Hazard Report"),
             category: d.category || "machinery",
             severity: d.severity || "high",
             status: d.status || "analysis_complete",

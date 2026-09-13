@@ -199,7 +199,8 @@ export default function WorkerDashboard() {
 
           <div style={styles.reportsList}>
             {recent.map((r) => {
-              const displayTitle = lang === "hi" ? (r.titleHi || translateSafetyText(r.title, "hi")) : r.title;
+              const fullText = (r.description && r.description.length > (r.title || "").length) ? r.description : (r.title || r.description || "Hazard Report");
+              const displayTitle = lang === "hi" ? (r.titleHi || translateSafetyText(fullText, "hi")) : fullText;
               const displayLocation = lang === "hi" ? (r.locationHi || translateLocation(r.location, "hi")) : r.location;
 
               return (

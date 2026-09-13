@@ -77,7 +77,8 @@ export default function MyReportsPage() {
       )}
 
       {filtered.map((r, idx) => {
-        const displayTitle = lang === "hi" ? (r.titleHi || translateSafetyText(r.title, "hi")) : r.title;
+        const fullText = (r.description && r.description.length > (r.title || "").length) ? r.description : (r.title || r.description || "Hazard Report");
+        const displayTitle = lang === "hi" ? (r.titleHi || translateSafetyText(fullText, "hi")) : fullText;
         const displayLocation = lang === "hi" ? (r.locationHi || translateLocation(r.location, "hi")) : r.location;
         const delayClass = `delay-${(idx % 4) + 1}`;
 
