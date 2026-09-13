@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState, CSSProperties } from 'react';
-import { getAlertsApi, acknowledgeAlertApi, createTaskApi, getTasksApi } from '@/app/lib/api';
+import { getAlertsApi, acknowledgeAlertApi, createTaskApi, getTasksApi, updateTaskApi } from '@/app/lib/api';
 import Link from 'next/link';
-import { ACTIVE_ALERTS, ActiveAlert } from '@/app/lib/officerMockData';
+import { ACTIVE_ALERTS } from '@/app/lib/officerMockData';
 import { MAINTENANCE_CREWS } from '@/app/officer/tasks/page';
 import {
   CheckCircle2,
@@ -11,7 +11,6 @@ import {
   AlertTriangle,
   Check,
   MapPin,
-  User,
   Clock,
   Eye,
   Bot,
@@ -19,6 +18,12 @@ import {
   Wrench,
   X,
   Loader2,
+  RefreshCw,
+  FileText,
+  Filter,
+  Layers,
+  ShieldAlert,
+  Flame,
 } from 'lucide-react';
 
 import { useLanguage } from '@/app/lib/LanguageContext';
@@ -31,19 +36,20 @@ import {
   translateCrew,
 } from '@/app/lib/hindiTranslator';
 
-// ─── Extended Alert with AI Suggestions ──────────────────────────────────────
+// ─── Interfaces ───────────────────────────────────────────────────────────────
 
 interface LiveAlertItem {
   _id: string;
   reportId?: string;
   title: string;
   category: any;
-  severity: any;
+  severity: 'critical' | 'high' | 'medium' | 'low';
   riskScore: number;
   sifProbability?: number;
   zone: string;
   location: string;
   timeAgo: string;
+  createdAt?: string;
   acknowledged: boolean;
   submittedBy: string;
   precursors?: string[];
@@ -51,6 +57,33 @@ interface LiveAlertItem {
   recommendations?: string[];
   explanation?: string;
 }
+
+interface LiveTaskItem {
+  _id: string;
+  orderNumber?: string;
+  title: string;
+  description?: string;
+  equipmentId?: string;
+  equipmentName?: string;
+  location?: string;
+  zone?: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  priority?: 'critical' | 'high' | 'medium' | 'low';
+  status: 'dispatched' | 'in_progress' | 'clearance_submitted' | 'officer_verified' | 'done' | 'verified';
+  assignedCrew?: string;
+  assignedTo?: string;
+  safetyPermitId?: string;
+  lotoRequired?: boolean;
+  reportId?: string;
+  reportTitle?: string;
+  clearanceNote?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+type ItemTypeFilter = 'all' | 'alerts' | 'tasks';
+type SeverityFilter = 'all' | 'critical' | 'high' | 'medium' | 'low';
+type SortOption = 'highest_risk' | 'newest';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -76,19 +109,13 @@ function timeAgo(iso?: string) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-function catLabel(c: string, lang: any = 'en') {
-  return translateCategory(c, lang);
-}
-
-function catStyle(c: string): CSSProperties {
-  const m: Record<string, { bg: string; color: string }> = {
-    electrical: { bg: '#fef3c7', color: '#92400e' }, fall: { bg: 'var(--primary-light)', color: 'var(--primary)' },
-    chemical: { bg: '#ede9fe', color: '#5b21b6' }, fire: { bg: '#fee2e2', color: '#991b1b' },
-    machinery: { bg: '#e0e7ff', color: '#3730a3' }, structural: { bg: '#f5f5f4', color: '#44403c' },
-    ppe: { bg: '#dcfce7', color: '#14532d' },
-  };
-  const s = m[c] || { bg: '#f3f4f6', color: '#374151' };
-  return { background: s.bg, color: s.color, borderRadius: 999, padding: '2px 10px', fontSize: 11, fontWeight: 500, display: 'inline-block' };
+function normalizeSeverity(sev?: string): 'critical' | 'high' | 'medium' | 'low' {
+  const s = (sev || '').toLowerCase();
+  if (s === 'critical') return 'critical';
+  if (s === 'high') return 'high';
+  if (s === 'medium' || s === 'mid') return 'medium';
+  if (s === 'low') return 'low';
+  return 'medium';
 }
 
 function resolveRecommendations(alert: LiveAlertItem): string[] {
@@ -131,20 +158,6 @@ function resolveRecommendations(alert: LiveAlertItem): string[] {
       "Replace compromised gasket with high-temp spiral-wound metallic gasket under hot-work permit."
     ];
   }
-  if (/fire|explosion|flammable|gas|cylinder/i.test(text)) {
-    return [
-      "Isolate flammable gas supply lines and initiate continuous LEL combustible gas monitoring.",
-      "Verify dry chemical fire suppression systems are armed and clear emergency access paths.",
-      "Eliminate all ignition sources within 35 feet and ground metal structures."
-    ];
-  }
-  if (/crack|structural|column|foundation|concrete/i.test(text)) {
-    return [
-      "Erect temporary heavy-duty steel shoring towers around affected structural members.",
-      "Cordon off areas directly above and below the compromised zone to prevent load hazard.",
-      "Engage certified structural reliability engineer for ultrasonic integrity assessment."
-    ];
-  }
   return [
     "Conduct immediate frontline supervisor hazard walkthrough and isolate active work zone.",
     "Log incident in plant EHS register and verify operational PPE compliance.",
@@ -172,21 +185,72 @@ function inferSuggestedCrew(title: string, precursors?: string[]): string {
   return "General Plant Reliability Team G-5";
 }
 
-// ─── Main Page ───────────────────────────────────────────────────────────────
+function taskStatusBadge(s: string): CSSProperties {
+  if (s === 'done' || s === 'officer_verified' || s === 'verified') {
+    return { background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 };
+  }
+  if (s === 'clearance_submitted') {
+    return { background: '#faf5ff', color: '#7e22ce', border: '1px solid #e9d5ff', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 };
+  }
+  if (s === 'in_progress') {
+    return { background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 };
+  }
+  return { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 };
+}
 
-type Tab = 'all' | 'critical' | 'high';
-type SortOpt = 'newest' | 'highest_risk';
+function taskStatusLabel(s: string, lang: string): string {
+  if (s === 'done' || s === 'officer_verified' || s === 'verified') return lang === 'hi' ? 'सत्यापित व हल' : 'Verified & Cleared';
+  if (s === 'clearance_submitted') return lang === 'hi' ? 'निकासी समीक्षा' : 'Clearance Review';
+  if (s === 'in_progress') return lang === 'hi' ? 'प्रगति पर है' : 'In Progress';
+  return lang === 'hi' ? 'प्रेषित' : 'Dispatched';
+}
 
-export default function AlertsPage() {
+function severityPill(sev: 'critical' | 'high' | 'medium' | 'low', lang: string) {
+  const styles: Record<string, CSSProperties> = {
+    critical: { background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca' },
+    high: { background: '#ffedd5', color: '#ea580c', border: '1px solid #fed7aa' },
+    medium: { background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd' },
+    low: { background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' },
+  };
+  const labels: Record<string, { en: string; hi: string }> = {
+    critical: { en: 'CRITICAL', hi: 'अति-गंभीर' },
+    high: { en: 'HIGH', hi: 'उच्च' },
+    medium: { en: 'MID', hi: 'मध्यम' },
+    low: { en: 'LOW', hi: 'निम्न' },
+  };
+  return {
+    style: {
+      borderRadius: 999,
+      padding: '2px 9px',
+      fontSize: 11,
+      fontWeight: 800,
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 4,
+      ...styles[sev],
+    },
+    label: lang === 'hi' ? labels[sev].hi : labels[sev].en,
+  };
+}
+
+// ─── Main Component ──────────────────────────────────────────────────────────
+
+export default function AlertsAndTasksPage() {
   const { lang } = useLanguage();
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>('all');
-  const [sort, setSort] = useState<SortOpt>('highest_risk');
+  const [typeFilter, setTypeFilter] = useState<ItemTypeFilter>('all');
+  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
+  const [sortOpt, setSortOpt] = useState<SortOption>('highest_risk');
+  const [searchQuery, setSearchQuery] = useState('');
+
   const [alerts, setAlerts] = useState<LiveAlertItem[]>([]);
+  const [tasks, setTasks] = useState<LiveTaskItem[]>([]);
   const [toast, setToast] = useState<string | null>(null);
 
-  // Dispatch Modal State
+  // Modal State for Assigning / Reassigning Tasks
+  const [modalMode, setModalMode] = useState<'assign_alert' | 'reassign_task'>('assign_alert');
   const [selectedAlertForDispatch, setSelectedAlertForDispatch] = useState<LiveAlertItem | null>(null);
+  const [selectedTaskForReassign, setSelectedTaskForReassign] = useState<LiveTaskItem | null>(null);
   const [dispatchCrew, setDispatchCrew] = useState<string>(MAINTENANCE_CREWS[0]);
   const [dispatchInstructions, setDispatchInstructions] = useState<string>('');
   const [dispatchSeverity, setDispatchSeverity] = useState<string>('high');
@@ -194,139 +258,209 @@ export default function AlertsPage() {
   const [isDispatching, setIsDispatching] = useState<boolean>(false);
   const [assignedAlerts, setAssignedAlerts] = useState<Record<string, { orderNumber: string; crew: string }>>({});
 
-  useEffect(() => {
-    let isMounted = true;
+  // ─── Data Loaders ─────────────────────────────────────────────────────────
 
-    async function loadAlerts() {
-      try {
-        const res = await getAlertsApi();
-        if (res.data && res.data.length > 0 && isMounted) {
-          const mapped: LiveAlertItem[] = res.data.map((a: any) => ({
-            _id: a._id,
-            reportId: a.reportId,
-            title: a.reportTitle || a.message,
-            category: a.category || inferCategory(a.reportTitle || a.message, a.precursors),
-            severity: (a.riskLevel?.toLowerCase() === "critical" ? "critical" : "high") as any,
-            riskScore: a.riskScore || 85,
-            sifProbability: a.sifProbability,
-            zone: a.zone || (a.location ? a.location.split(',')[0].trim() : "Sector 4"),
-            location: a.location || "Plant Sector 4 North",
-            timeAgo: timeAgo(a.createdAt),
-            acknowledged: !!a.isAcknowledged,
-            submittedBy: a.submittedBy || "Site Worker",
-            precursors: a.precursors || [],
-            hazards: a.hazards || [],
-            recommendations: a.recommendations || [],
-            explanation: a.explanation,
+  const loadData = async () => {
+    try {
+      const [alertsRes, tasksRes] = await Promise.allSettled([
+        getAlertsApi(),
+        getTasksApi(),
+      ]);
+
+      if (alertsRes.status === 'fulfilled' && alertsRes.value.data && alertsRes.value.data.length > 0) {
+        const mapped: LiveAlertItem[] = alertsRes.value.data.map((a: any) => ({
+          _id: a._id,
+          reportId: a.reportId,
+          title: a.reportTitle || a.message,
+          category: a.category || inferCategory(a.reportTitle || a.message, a.precursors),
+          severity: normalizeSeverity(a.riskLevel || a.severity),
+          riskScore: a.riskScore || 85,
+          sifProbability: a.sifProbability,
+          zone: a.zone || (a.location ? a.location.split(',')[0].trim() : "Sector 4"),
+          location: a.location || "Plant Sector 4 North",
+          timeAgo: timeAgo(a.createdAt),
+          createdAt: a.createdAt,
+          acknowledged: !!a.isAcknowledged,
+          submittedBy: a.submittedBy || "Site Worker",
+          precursors: a.precursors || [],
+          hazards: a.hazards || [],
+          recommendations: a.recommendations || [],
+          explanation: a.explanation,
+        }));
+        setAlerts(mapped);
+      } else if (alerts.length === 0) {
+        setAlerts([...ACTIVE_ALERTS].map(a => ({
+          ...a,
+          severity: normalizeSeverity(a.severity),
+          category: a.category as any,
+        })));
+      }
+
+      if (tasksRes.status === 'fulfilled' && tasksRes.value.data && Array.isArray(tasksRes.value.data)) {
+        const activeOnly: LiveTaskItem[] = tasksRes.value.data
+          .filter((t: any) => t.status !== 'officer_verified' && t.status !== 'done')
+          .map((t: any) => ({
+            _id: t._id,
+            orderNumber: t.orderNumber || 'WO-Task',
+            title: t.title,
+            description: t.description,
+            equipmentId: t.equipmentId,
+            equipmentName: t.equipmentName,
+            location: t.location || 'Plant Sector 4',
+            zone: t.zone || 'Sector 4',
+            severity: normalizeSeverity(t.severity || t.priority),
+            priority: normalizeSeverity(t.priority || t.severity),
+            status: t.status || 'dispatched',
+            assignedCrew: t.assignedCrew || t.assignedTo || 'Maintenance Response Team',
+            assignedTo: t.assignedTo || t.assignedCrew,
+            safetyPermitId: t.safetyPermitId,
+            lotoRequired: !!t.lotoRequired,
+            reportId: t.reportId,
+            reportTitle: t.reportTitle,
+            clearanceNote: t.clearanceNote,
+            createdAt: t.createdAt,
+            updatedAt: t.updatedAt,
           }));
-          setAlerts(mapped);
-        } else if (isMounted && alerts.length === 0) {
-          setAlerts([...ACTIVE_ALERTS]);
-        }
-      } catch (err) {
-        console.warn("Using fallback alerts:", err);
-        if (isMounted && alerts.length === 0) setAlerts([...ACTIVE_ALERTS]);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    }
+        setTasks(activeOnly);
 
-    async function loadTasks() {
-      try {
-        const tRes = await getTasksApi();
-        if (tRes.data && Array.isArray(tRes.data) && isMounted) {
-          const map: Record<string, { orderNumber: string; crew: string }> = {};
-          tRes.data.forEach((t: any) => {
-            const info = { orderNumber: t.orderNumber || "WO-Task", crew: t.assignedCrew || t.assignedTo || "Maintenance" };
-            if (t.reportId) map[t.reportId] = info;
-            if (t.equipmentName) map[t.equipmentName] = info;
-          });
-          setAssignedAlerts(prev => ({ ...map, ...prev }));
-        }
-      } catch (tErr) {
-        console.warn("Could not preload tasks:", tErr);
+        // Preload map of assigned tasks
+        const map: Record<string, { orderNumber: string; crew: string }> = {};
+        tasksRes.value.data.forEach((t: any) => {
+          const info = { orderNumber: t.orderNumber || "WO-Task", crew: t.assignedCrew || t.assignedTo || "Maintenance" };
+          if (t.reportId) map[t.reportId] = info;
+          if (t.equipmentName) map[t.equipmentName] = info;
+        });
+        setAssignedAlerts(prev => ({ ...map, ...prev }));
       }
+    } catch (err) {
+      console.warn("Error refreshing alerts and tasks:", err);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    loadAlerts();
-    loadTasks();
-    // Real-time live polling every 3.5 seconds
-    const interval = setInterval(loadAlerts, 3500);
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
+  useEffect(() => {
+    loadData();
+    const interval = setInterval(loadData, 4000);
+    return () => clearInterval(interval);
   }, []);
 
-  const openDispatchModal = (alert: LiveAlertItem) => {
+  // ─── Modal Handlers ───────────────────────────────────────────────────────
+
+  const openDispatchModalForAlert = (alert: LiveAlertItem) => {
+    setModalMode('assign_alert');
     setSelectedAlertForDispatch(alert);
+    setSelectedTaskForReassign(null);
     setDispatchCrew(inferSuggestedCrew(alert.title, alert.precursors));
     const rec = (alert.recommendations && alert.recommendations.length > 0)
       ? alert.recommendations[0]
       : `Implement immediate safety isolation and physical inspection for: ${alert.title}`;
     setDispatchInstructions(rec);
-    setDispatchSeverity(alert.severity || 'high');
+    setDispatchSeverity(alert.severity);
     setDispatchLoto(alert.severity === 'critical');
   };
 
-  const handleConfirmDispatch = async (e: React.FormEvent) => {
+  const openReassignModalForTask = (task: LiveTaskItem) => {
+    setModalMode('reassign_task');
+    setSelectedTaskForReassign(task);
+    setSelectedAlertForDispatch(null);
+    setDispatchCrew(task.assignedCrew || MAINTENANCE_CREWS[0]);
+    setDispatchInstructions(task.description || task.title);
+    setDispatchSeverity(task.severity);
+    setDispatchLoto(!!task.lotoRequired);
+  };
+
+  const handleConfirmModalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedAlertForDispatch) return;
     setIsDispatching(true);
+
     try {
-      const res = await createTaskApi({
-        title: `Corrective Action: ${selectedAlertForDispatch.title.slice(0, 50)}`,
-        description: `${dispatchInstructions}\n\nIdentified via automated SIF precursor analysis under OSHA 1910 standards.`,
-        equipmentId: "EQ-" + Math.floor(100 + Math.random() * 900),
-        equipmentName: selectedAlertForDispatch.title,
-        location: selectedAlertForDispatch.location,
-        severity: dispatchSeverity,
-        assignedCrew: dispatchCrew,
-        lotoRequired: dispatchLoto,
-        reportId: selectedAlertForDispatch.reportId,
-      });
+      if (modalMode === 'assign_alert' && selectedAlertForDispatch) {
+        const res = await createTaskApi({
+          title: `Corrective Action: ${selectedAlertForDispatch.title.slice(0, 50)}`,
+          description: `${dispatchInstructions}\n\nIdentified via automated SIF precursor analysis under OSHA 1910 standards.`,
+          equipmentId: "EQ-" + Math.floor(100 + Math.random() * 900),
+          equipmentName: selectedAlertForDispatch.title,
+          location: selectedAlertForDispatch.location,
+          severity: dispatchSeverity,
+          assignedCrew: dispatchCrew,
+          lotoRequired: dispatchLoto,
+          reportId: selectedAlertForDispatch.reportId,
+        });
 
-      const orderNumber = res.data?.orderNumber || "WO-" + Math.floor(9040 + Math.random() * 50);
+        const orderNumber = res.data?.orderNumber || "WO-" + Math.floor(9040 + Math.random() * 50);
 
-      // Mark assigned locally
-      setAssignedAlerts(prev => ({
-        ...prev,
-        [selectedAlertForDispatch._id]: { orderNumber, crew: dispatchCrew },
-        ...(selectedAlertForDispatch.reportId ? { [selectedAlertForDispatch.reportId]: { orderNumber, crew: dispatchCrew } } : {}),
-        [selectedAlertForDispatch.title]: { orderNumber, crew: dispatchCrew },
-      }));
+        setAssignedAlerts(prev => ({
+          ...prev,
+          [selectedAlertForDispatch._id]: { orderNumber, crew: dispatchCrew },
+          ...(selectedAlertForDispatch.reportId ? { [selectedAlertForDispatch.reportId]: { orderNumber, crew: dispatchCrew } } : {}),
+          [selectedAlertForDispatch.title]: { orderNumber, crew: dispatchCrew },
+        }));
 
-      // Auto-acknowledge alert if not already
-      if (!selectedAlertForDispatch.acknowledged) {
-        toggle(selectedAlertForDispatch._id);
+        if (!selectedAlertForDispatch.acknowledged) {
+          toggleAlertAck(selectedAlertForDispatch._id);
+        }
+
+        setToast(
+          lang === 'hi'
+            ? `कार्य आदेश [${orderNumber}] सफलतापूर्वक ${translateCrew(dispatchCrew, lang)} को भेजा गया!`
+            : `Work Order [${orderNumber}] assigned to ${dispatchCrew}!`
+        );
+        setSelectedAlertForDispatch(null);
+      } else if (modalMode === 'reassign_task' && selectedTaskForReassign) {
+        await updateTaskApi(selectedTaskForReassign._id, {
+          assignedCrew: dispatchCrew,
+          severity: dispatchSeverity,
+          description: dispatchInstructions,
+          lotoRequired: dispatchLoto,
+        });
+
+        setTasks(prev => prev.map(t => t._id === selectedTaskForReassign._id ? {
+          ...t,
+          assignedCrew: dispatchCrew,
+          assignedTo: dispatchCrew,
+          severity: dispatchSeverity as any,
+          description: dispatchInstructions,
+          lotoRequired: dispatchLoto,
+        } : t));
+
+        setToast(
+          lang === 'hi'
+            ? `कार्य [${selectedTaskForReassign.orderNumber}] ${translateCrew(dispatchCrew, lang)} को पुनः सौंपा गया!`
+            : `Task [${selectedTaskForReassign.orderNumber}] reassigned to ${dispatchCrew}!`
+        );
+        setSelectedTaskForReassign(null);
       }
-
-      setToast(
-        lang === 'hi'
-          ? `मेंटेनेंस कार्य सौंपा गया [${orderNumber}]: ${translateCrew(dispatchCrew, lang)}`
-          : `Work Order [${orderNumber}] assigned to ${dispatchCrew}!`
-      );
-      setSelectedAlertForDispatch(null);
-      setTimeout(() => setToast(null), 5000);
+      setTimeout(() => setToast(null), 4000);
+      loadData();
     } catch (err) {
-      console.warn("Failed to dispatch task:", err);
-      setToast(lang === 'hi' ? "मेंटेनेंस कार्य कतार में दर्ज किया गया।" : "Maintenance task logged to dispatch queue.");
+      console.warn("Failed to dispatch/reassign task:", err);
+      setToast(lang === 'hi' ? "कार्य कतार में अपडेट किया गया।" : "Task logged to queue.");
       setTimeout(() => setToast(null), 3000);
     } finally {
       setIsDispatching(false);
     }
   };
 
-  const filtered = alerts
-    .filter(a => tab === 'all' || a.severity === tab)
-    .sort((a, b) => {
-      if (sort === 'highest_risk') return b.riskScore - a.riskScore;
-      return 0;
-    });
+  const handleVerifyAndClearTask = async (task: LiveTaskItem) => {
+    setTasks(prev => prev.filter(t => t._id !== task._id));
+    try {
+      await updateTaskApi(task._id, { status: 'officer_verified' });
+      setToast(
+        lang === 'hi'
+          ? `कार्य ${task.orderNumber || task.title} सत्यापित व हल हो गया!`
+          : `Task ${task.orderNumber || task.title} verified & cleared!`
+      );
+    } catch (err) {
+      console.warn("Failed to verify task:", err);
+      setToast(lang === 'hi' ? 'कार्य हल चिह्नित किया गया।' : 'Task marked as cleared.');
+    } finally {
+      setTimeout(() => setToast(null), 3500);
+      loadData();
+    }
+  };
 
-  const unackCount = alerts.filter(a => !a.acknowledged).length;
-
-  const toggle = async (id: string) => {
+  const toggleAlertAck = async (id: string) => {
     const target = alerts.find(a => a._id === id);
     const nextState = !target?.acknowledged;
     setAlerts(prev => prev.map(a => a._id === id ? { ...a, acknowledged: nextState } : a));
@@ -337,17 +471,54 @@ export default function AlertsPage() {
     }
   };
 
-  const card: CSSProperties = {
-    background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)',
+  // ─── Filter & Categorization Engine ───────────────────────────────────────
+
+  const filteredAlerts = alerts.filter(a => {
+    if (severityFilter !== 'all' && a.severity !== severityFilter) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      return a.title.toLowerCase().includes(q) || a.location.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  const filteredTasks = tasks.filter(t => {
+    if (severityFilter !== 'all' && t.severity !== severityFilter) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      return (
+        t.title.toLowerCase().includes(q) ||
+        (t.orderNumber || '').toLowerCase().includes(q) ||
+        (t.assignedCrew || '').toLowerCase().includes(q) ||
+        (t.location || '').toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+
+  // Severity counts across all active items (Alerts + Tasks)
+  const allSeveritiesCount = {
+    all: alerts.length + tasks.length,
+    critical: alerts.filter(a => a.severity === 'critical').length + tasks.filter(t => t.severity === 'critical').length,
+    high: alerts.filter(a => a.severity === 'high').length + tasks.filter(t => t.severity === 'high').length,
+    medium: alerts.filter(a => a.severity === 'medium').length + tasks.filter(t => t.severity === 'medium').length,
+    low: alerts.filter(a => a.severity === 'low').length + tasks.filter(t => t.severity === 'low').length,
+  };
+
+  const cardStyle: CSSProperties = {
+    background: 'var(--surface)',
+    borderRadius: 16,
+    border: '1px solid var(--border)',
     boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+    overflow: 'hidden',
   };
 
   if (loading) {
     return (
       <div>
-        <div className="skeleton" style={{ height: 32, width: 240, marginBottom: 20, borderRadius: 12 }} />
-        <div className="skeleton" style={{ height: 40, borderRadius: 12, marginBottom: 16 }} />
-        {[0,1,2,3,4].map(i => <div key={i} className="skeleton" style={{ height: 110, borderRadius: 16, marginBottom: 12 }} />)}
+        <div className="skeleton" style={{ height: 36, width: 280, marginBottom: 20, borderRadius: 12 }} />
+        <div className="skeleton" style={{ height: 44, borderRadius: 12, marginBottom: 16 }} />
+        {[0, 1, 2, 3, 4].map(i => <div key={i} className="skeleton" style={{ height: 120, borderRadius: 16, marginBottom: 12 }} />)}
       </div>
     );
   }
@@ -357,307 +528,466 @@ export default function AlertsPage() {
       {/* Toast Notification */}
       {toast && (
         <div style={{
-          position: 'fixed', top: 24, right: 24, zIndex: 1000,
-          backgroundColor: '#0A192F', color: '#FFFFFF', padding: '12px 20px',
-          borderRadius: 8, boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+          position: 'fixed', top: 24, right: 24, zIndex: 3000,
+          backgroundColor: '#0A192F', color: '#FFFFFF', padding: '14px 22px',
+          borderRadius: 10, boxShadow: '0 15px 35px rgba(0,0,0,0.35)',
           display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 700,
+          border: '1px solid rgba(255,255,255,0.15)',
         }}>
-          <CheckCircle2 size={16} color="#10b981" /> <span>{toast}</span>
+          <CheckCircle2 size={18} color="#10b981" /> <span>{toast}</span>
         </div>
       )}
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{lang === 'hi' ? 'सक्रिय अलर्ट' : 'Active Alerts'}</h2>
-          <span style={{ background: '#dc2626', color: '#fff', borderRadius: 999, fontSize: 12, fontWeight: 700, padding: '2px 10px' }}>
-            {unackCount}
-          </span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', border: '1px solid #86EFAC', borderRadius: 6, padding: '2px 8px', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#15803D', display: 'inline-block' }}></span>
-            {lang === 'hi' ? 'रीयल-टाइम AI सक्रिय' : 'Real-time AI Active'}
-          </span>
-        </div>
-        <select value={sort} onChange={e => setSort(e.target.value as SortOpt)} style={{
-          padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 10, fontSize: 13,
-          background: 'var(--surface)', color: 'var(--text)', outline: 'none', cursor: 'pointer',
-        }}>
-          <option value="highest_risk">{lang === 'hi' ? 'उच्चतम जोखिम पहले' : 'Highest Risk First'}</option>
-          <option value="newest">{lang === 'hi' ? 'नवीनतम पहले' : 'Newest First'}</option>
-        </select>
-      </div>
-
-      {/* Info bar */}
-      <div style={{
-        background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 14,
-        padding: '12px 18px', marginBottom: 20, fontSize: 13, color: '#991b1b',
-        display: 'flex', alignItems: 'center', gap: 8,
-      }}>
-        <Zap size={16} style={{ flexShrink: 0 }} />
-        <span>{lang === 'hi' ? 'OSHA सिफारिशों और AI जोखिम मॉडल द्वारा पहचाने गए रीयल-टाइम SIF खतरे दिखाए जा रहे हैं।' : 'Showing real-time automated SIF hazard detections with model-generated OSHA recommendations.'}</span>
-      </div>
-
-      {/* Filter tabs */}
-      <div style={{
-        display: 'flex', gap: 0, marginBottom: 20, background: 'var(--surface)',
-        border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', width: 'fit-content',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-      }}>
-        {(['all', 'critical', 'high'] as Tab[]).map((t, i) => {
-          const count = alerts.filter(a => t === 'all' || a.severity === t).length;
-          return (
-            <button key={t} onClick={() => setTab(t)} style={{
-              padding: '9px 18px', border: 'none', fontSize: 13, fontWeight: 600,
-              background: tab === t ? 'var(--primary)' : 'var(--surface)',
-              color: tab === t ? '#fff' : 'var(--text-muted)',
-              transition: 'all 0.15s ease',
-              borderRight: i < 2 ? '1px solid var(--border)' : 'none',
-              display: 'flex', alignItems: 'center', gap: 7,
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            {lang === 'hi' ? 'सक्रिय चेतावनियाँ एवं मेंटेनेंस कार्य' : 'Active Hazard Alerts & Maintenance Tasks'}
+            <span style={{
+              background: '#0A192F', color: '#fff', borderRadius: 999,
+              fontSize: 12, fontWeight: 800, padding: '2px 10px'
             }}>
-              {t === 'all' ? (lang === 'hi' ? 'सभी' : 'All') : t === 'critical' ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#dc2626', display: 'inline-block' }}></span>
-                  {lang === 'hi' ? 'अति गंभीर' : 'Critical'}
-                </span>
-              ) : (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#ea580c', display: 'inline-block' }}></span>
-                  {lang === 'hi' ? 'उच्च' : 'High'}
-                </span>
-              )}
-              <span style={{
-                background: tab === t ? 'rgba(255,255,255,0.25)' : 'var(--surface-subtle)',
-                color: tab === t ? '#fff' : 'var(--text-muted)',
-                borderRadius: 999, fontSize: 11, padding: '0 8px',
-              }}>{count}</span>
-            </button>
-          );
-        })}
+              {allSeveritiesCount.all}
+            </span>
+          </h2>
+          <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--text-muted)' }}>
+            {lang === 'hi'
+              ? 'रीयल-टाइम SIF चेतावनियाँ और ऑन-ग्राउंड मेंटेनेंस कार्य आदेशों की एकीकृत कमांड'
+              : 'Unified operational command: Real-time SIF hazard alerts & on-ground maintenance work orders'}
+          </p>
+        </div>
+
+        {/* Search input */}
+        <div style={{ position: 'relative', minWidth: 240 }}>
+          <input
+            type="text"
+            placeholder={lang === 'hi' ? 'खोजें (खतरा, क्रू, वर्क आर्डर)...' : 'Search alerts, tasks, crews...'}
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            style={{
+              padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border)',
+              background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%',
+            }}
+          />
+        </div>
       </div>
 
-      {/* Alert list */}
-      {filtered.length === 0 ? (
+      {/* ─── Filter Bar 1: Type Selector (All Items / Alerts / Tasks) ─── */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{
-          ...card, padding: '48px', textAlign: 'center', color: 'var(--text-muted)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          display: 'flex', background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 12, overflow: 'hidden', padding: 3,
         }}>
-          <CheckCircle2 size={36} color="#10b981" style={{ marginBottom: 12 }} />
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{lang === 'hi' ? 'इस श्रेणी में कोई अलर्ट नहीं है' : 'No alerts for this category'}</div>
-          <div style={{ fontSize: 12, marginTop: 4 }}>{lang === 'hi' ? 'इस गंभीरता स्तर के सभी जोखिमों का समाधान किया जा चुका है।' : 'All risks in this severity level have been addressed.'}</div>
+          <button
+            onClick={() => setTypeFilter('all')}
+            style={{
+              padding: '7px 16px', border: 'none', borderRadius: 9, fontSize: 12, fontWeight: 700,
+              background: typeFilter === 'all' ? '#0A192F' : 'transparent',
+              color: typeFilter === 'all' ? '#FFFFFF' : 'var(--text-muted)',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            <Layers size={13} />
+            <span>{lang === 'hi' ? 'सभी' : 'All Items'} ({allSeveritiesCount.all})</span>
+          </button>
+          <button
+            onClick={() => setTypeFilter('alerts')}
+            style={{
+              padding: '7px 16px', border: 'none', borderRadius: 9, fontSize: 12, fontWeight: 700,
+              background: typeFilter === 'alerts' ? '#0A192F' : 'transparent',
+              color: typeFilter === 'alerts' ? '#FFFFFF' : 'var(--text-muted)',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            <ShieldAlert size={13} />
+            <span>{lang === 'hi' ? 'ख़तरा चेतावनियाँ' : 'Hazard Alerts'} ({alerts.length})</span>
+          </button>
+          <button
+            onClick={() => setTypeFilter('tasks')}
+            style={{
+              padding: '7px 16px', border: 'none', borderRadius: 9, fontSize: 12, fontWeight: 700,
+              background: typeFilter === 'tasks' ? '#0A192F' : 'transparent',
+              color: typeFilter === 'tasks' ? '#FFFFFF' : 'var(--text-muted)',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            <Wrench size={13} />
+            <span>{lang === 'hi' ? 'सक्रिय कार्य' : 'Active Tasks'} ({tasks.length})</span>
+          </button>
+        </div>
+
+        {/* Severity Filter Pills: Critical, High, Mid, Low */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+          {(['all', 'critical', 'high', 'medium', 'low'] as SeverityFilter[]).map(sev => {
+            const isSelected = severityFilter === sev;
+            const count = allSeveritiesCount[sev];
+            const labels: Record<SeverityFilter, { en: string; hi: string; dotColor: string }> = {
+              all: { en: 'All Priorities', hi: 'सभी प्राथमिकता', dotColor: '#0A192F' },
+              critical: { en: 'Critical', hi: 'अति-गंभीर', dotColor: '#dc2626' },
+              high: { en: 'High', hi: 'उच्च', dotColor: '#ea580c' },
+              medium: { en: 'Mid', hi: 'मध्यम', dotColor: '#0284c7' },
+              low: { en: 'Low', hi: 'निम्न', dotColor: '#64748b' },
+            };
+            const meta = labels[sev];
+            return (
+              <button
+                key={sev}
+                onClick={() => setSeverityFilter(sev)}
+                style={{
+                  padding: '6px 13px', borderRadius: 999, border: `1px solid ${isSelected ? meta.dotColor : 'var(--border)'}`,
+                  background: isSelected ? meta.dotColor : 'var(--surface)',
+                  color: isSelected ? '#FFFFFF' : 'var(--text)',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {!isSelected && (
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: meta.dotColor }} />
+                )}
+                <span>{lang === 'hi' ? meta.hi : meta.en}</span>
+                <span style={{
+                  fontSize: 11, padding: '1px 6px', borderRadius: 999,
+                  background: isSelected ? 'rgba(255,255,255,0.25)' : 'var(--surface-subtle)',
+                  color: isSelected ? '#fff' : 'var(--text-muted)',
+                }}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ─── Content List ─── */}
+      {filteredAlerts.length === 0 && filteredTasks.length === 0 ? (
+        <div style={{ ...cardStyle, padding: 48, textAlign: 'center', color: 'var(--text-muted)' }}>
+          <CheckCircle2 size={40} color="#16a34a" style={{ margin: '0 auto 12px', opacity: 0.8 }} />
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>
+            {lang === 'hi' ? 'इस श्रेणी में कोई सक्रिय चेतावनी या कार्य नहीं है' : 'No active alerts or tasks in this filter category'}
+          </div>
+          <div style={{ fontSize: 12, marginTop: 4 }}>
+            {lang === 'hi' ? 'कृपया अन्य प्राथमिकता या फ़िल्टर चुनें।' : 'Select another priority or filter tab.'}
+          </div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {filtered.map(alert => (
-            <div key={alert._id} style={{
-              ...card,
-              opacity: alert.acknowledged ? 0.65 : 1,
-              transition: 'opacity 0.2s ease',
-              overflow: 'hidden',
-              border: alert.severity === 'critical' ? '1.5px solid #FCA5A5' : '1px solid var(--border)',
-            }}>
-              <div style={{ padding: '18px 20px' }}>
-                <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-                  {/* Risk score circle */}
-                  <div style={{
-                    width: 56, height: 56, borderRadius: '50%', flexShrink: 0,
-                    background: alert.severity === 'critical' ? '#fef2f2' : '#fff7ed',
-                    border: `3px solid ${alert.severity === 'critical' ? '#dc2626' : '#ea580c'}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
+          {/* Render Alerts (if typeFilter is 'all' or 'alerts') */}
+          {(typeFilter === 'all' || typeFilter === 'alerts') && filteredAlerts.map(alert => {
+            const assignedInfo =
+              assignedAlerts[alert._id] ||
+              (alert.reportId ? assignedAlerts[alert.reportId] : null) ||
+              assignedAlerts[alert.title];
+            const sevBadge = severityPill(alert.severity, lang);
+
+            return (
+              <div key={alert._id} style={cardStyle}>
+                <div style={{ padding: '18px 20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+                    {/* Left Risk Score Circle */}
                     <div style={{
-                      fontSize: 18, fontWeight: 800, lineHeight: 1,
-                      color: alert.severity === 'critical' ? '#dc2626' : '#ea580c',
+                      width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
+                      background: alert.riskScore >= 75 ? '#fee2e2' : '#ffedd5',
+                      color: alert.riskScore >= 75 ? '#dc2626' : '#ea580c',
+                      border: `2px solid ${alert.riskScore >= 75 ? '#fca5a5' : '#fed7aa'}`,
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      fontWeight: 800, fontSize: 18, lineHeight: 1,
                     }}>
                       {alert.riskScore}
+                      <span style={{ fontSize: 9, fontWeight: 700, opacity: 0.8 }}>SIF</span>
+                    </div>
+
+                    {/* Middle Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                        <span style={sevBadge.style}>{sevBadge.label}</span>
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
+                          background: 'var(--surface-subtle)', color: 'var(--text-muted)', border: '1px solid var(--border)',
+                        }}>
+                          {alert.category ? translateCategory(alert.category, lang) : 'Hazard'}
+                        </span>
+                        {alert.sifProbability !== undefined && (
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
+                            SIF Prob: {Math.round(alert.sifProbability * 100)}%
+                          </span>
+                        )}
+                        {alert.acknowledged && (
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, color: '#16a34a', background: '#dcfce7',
+                            padding: '2px 8px', borderRadius: 999, display: 'inline-flex', alignItems: 'center', gap: 4,
+                          }}>
+                            <Check size={11} strokeWidth={2.5} /> {lang === 'hi' ? 'स्वीकृत' : 'Acknowledged'}
+                          </span>
+                        )}
+                      </div>
+
+                      <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 6px 0', lineHeight: 1.4 }}>
+                        {translateSafetyText(alert.title, lang)}
+                      </h3>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 12, color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><MapPin size={12} /> {translateLocation(alert.location, lang)}</span>
+                        <span>·</span>
+                        <span>{alert.submittedBy}</span>
+                        <span>·</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Clock size={12} /> {translateTimeAgo(alert.timeAgo, lang)}</span>
+                      </div>
+
+                      {/* Precursor Tags */}
+                      {alert.precursors && alert.precursors.length > 0 && (
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                          {alert.precursors.map((p, idx) => (
+                            <span key={idx} style={{
+                              fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
+                              backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A',
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
+                            }}>
+                              <AlertTriangle size={11} /> {lang === 'hi' ? `संकेतक: ${translateSafetyText(p, lang)}` : `Precursor: ${p}`}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* AI Solution Box */}
+                      <div style={{
+                        marginTop: 10, padding: '10px 14px', borderRadius: 8,
+                        backgroundColor: 'var(--surface-subtle)', border: '1px solid var(--border)',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                          <Bot size={14} style={{ color: 'var(--primary)' }} />
+                          <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text)' }}>
+                            {lang === 'hi' ? 'AI अनुशंसित समाधान (OSHA 1910):' : 'AI Recommended Solution (OSHA 1910):'}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 600, lineHeight: 1.4 }}>
+                          {translateSafetyText(resolveRecommendations(alert)[0], lang)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right Actions */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+                      <Link href={`/officer/reports/${alert.reportId || alert._id}`}>
+                        <button style={{
+                          width: '100%', padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 8,
+                          background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontWeight: 600,
+                          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                          whiteSpace: 'nowrap',
+                        }}>
+                          <Eye size={13} /> {lang === 'hi' ? 'रिपोर्ट देखें' : 'View Report'}
+                        </button>
+                      </Link>
+
+                      {assignedInfo ? (
+                        <button
+                          onClick={() => setTypeFilter('tasks')}
+                          style={{
+                            width: '100%', padding: '8px 14px', border: '1px solid #16a34a', borderRadius: 8,
+                            background: '#f0fdf4', color: '#16a34a', fontSize: 12, fontWeight: 700,
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                            whiteSpace: 'nowrap',
+                          }}
+                          title="View in Tasks"
+                        >
+                          <CheckCircle2 size={13} color="#16a34a" />
+                          <span>{assignedInfo.orderNumber ? `[${assignedInfo.orderNumber}] ` : ''}{lang === 'hi' ? 'कार्य सौंपा गया' : 'Task Assigned'}</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => openDispatchModalForAlert(alert)}
+                          style={{
+                            width: '100%', padding: '8px 16px', border: 'none', borderRadius: 8,
+                            background: '#0A192F', color: '#fff', fontSize: 12, fontWeight: 700,
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          <Zap size={13} /> {lang === 'hi' ? 'कार्य सौंपें' : 'Assign Task'}
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => toggleAlertAck(alert._id)}
+                        style={{
+                          padding: '8px 16px', border: `1px solid ${alert.acknowledged ? 'var(--border)' : '#16a34a'}`,
+                          borderRadius: 8, background: 'var(--surface)',
+                          color: alert.acknowledged ? 'var(--text-muted)' : '#16a34a',
+                          fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {alert.acknowledged ? (
+                          <>
+                            <Undo2 size={12} /> {lang === 'hi' ? 'अस्वीकृत करें' : 'Unacknowledge'}
+                          </>
+                        ) : (
+                          <>
+                            <Check size={12} strokeWidth={2.5} /> {lang === 'hi' ? 'स्वीकार करें' : 'Acknowledge'}
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
+                </div>
 
-                  {/* Content */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 6, alignItems: 'center' }}>
-                      <span style={{
-                        background: alert.severity === 'critical' ? '#fef2f2' : '#fff7ed',
-                        color: alert.severity === 'critical' ? '#dc2626' : '#ea580c',
-                        borderRadius: 999, padding: '2px 10px', fontSize: 11, fontWeight: 700,
-                        textTransform: 'uppercase' as const, letterSpacing: '0.05em',
-                      }}>
-                        {translateSeverity(alert.severity, lang)}
-                      </span>
-                      <span style={catStyle(alert.category)}>{catLabel(alert.category, lang)}</span>
-                      {alert.sifProbability && (
-                        <span style={{
-                          backgroundColor: '#F1F5F9', color: '#0F172A',
-                          borderRadius: 999, padding: '2px 10px', fontSize: 11, fontWeight: 700,
-                          border: '1px solid #E2E8F0',
-                        }}>
-                          {lang === 'hi' ? `SIF संभावना: ${Math.round(alert.sifProbability * 100)}%` : `SIF Probability: ${Math.round(alert.sifProbability * 100)}%`}
-                        </span>
-                      )}
-                      {alert.acknowledged && (
-                        <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
-                          <Check size={12} strokeWidth={2.5} /> {lang === 'hi' ? 'स्वीकृत' : 'Acknowledged'}
-                        </span>
-                      )}
-                    </div>
+                {alert.severity === 'critical' && !alert.acknowledged && (
+                  <div style={{
+                    background: '#fef2f2', borderTop: '1px solid #fca5a5',
+                    padding: '6px 18px', fontSize: 12, fontWeight: 700, color: '#dc2626',
+                    display: 'flex', alignItems: 'center', gap: 6,
+                  }}>
+                    <Zap size={12} /> {lang === 'hi' ? 'अति-गंभीर SIF अलर्ट — OSHA 1910 तत्काल पर्यवेक्षक सत्यापन अनिवार्य' : 'High-priority SIF alert — Immediate supervisor verification required'}
+                  </div>
+                )}
+              </div>
+            );
+          })}
 
-                    <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', marginBottom: 4 }}>
-                      {translateSafetyText(alert.title, lang)}
-                    </div>
-                    
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><MapPin size={12} /> {translateLocation(alert.location || alert.zone, lang)}</span>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><User size={12} /> {alert.submittedBy === 'Site Worker' && lang === 'hi' ? 'साइट कर्मचारी' : alert.submittedBy}</span>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Clock size={12} /> {translateTimeAgo(alert.timeAgo, lang)}</span>
-                    </div>
+          {/* Render Active Maintenance Tasks (if typeFilter is 'all' or 'tasks') */}
+          {(typeFilter === 'all' || typeFilter === 'tasks') && filteredTasks.map(task => {
+            const sevBadge = severityPill(task.severity, lang);
 
-                    {/* Precursor Tags */}
-                    {alert.precursors && alert.precursors.length > 0 && (
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-                        {alert.precursors.map((p, idx) => (
-                          <span key={idx} style={{
-                            fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
-                            backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A',
-                            display: 'inline-flex', alignItems: 'center', gap: 4,
-                          }}>
-                            <AlertTriangle size={11} /> {lang === 'hi' ? `संकेतक: ${translateSafetyText(p, lang)}` : `Precursor: ${p}`}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* ─── REAL-TIME AI SOLUTION BOX ─── */}
+            return (
+              <div key={task._id} style={{ ...cardStyle, borderLeft: '4px solid #0A192F' }}>
+                <div style={{ padding: '18px 20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+                    {/* Left Icon Badge for Task */}
                     <div style={{
-                      marginTop: 12,
-                      padding: '12px 14px',
-                      borderRadius: 8,
-                      backgroundColor: 'var(--surface-subtle)',
-                      border: '1px solid var(--border)',
+                      width: 52, height: 52, borderRadius: 12, flexShrink: 0,
+                      background: '#0A192F', color: '#FFFFFF',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      gap: 2,
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                        <Bot size={15} style={{ color: 'var(--primary)' }} />
-                        <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text)' }}>
-                          {lang === 'hi' ? 'AI अनुशंसित समाधान व निवारण (OSHA 1910):' : 'AI Recommended Solutions & Remediation (OSHA 1910):'}
+                      <Wrench size={20} />
+                      <span style={{ fontSize: 9, fontWeight: 800 }}>TASK</span>
+                    </div>
+
+                    {/* Middle Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                        <span style={{
+                          fontFamily: 'monospace', fontSize: 11, fontWeight: 800,
+                          background: '#0A192F', color: '#fff', padding: '2px 8px', borderRadius: 6,
+                        }}>
+                          {task.orderNumber || 'WO-Task'}
                         </span>
+                        <span style={sevBadge.style}>{sevBadge.label}</span>
+                        <span style={taskStatusBadge(task.status)}>
+                          {taskStatusLabel(task.status, lang)}
+                        </span>
+                        {task.lotoRequired && (
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, background: '#fef2f2', color: '#dc2626',
+                            border: '1px solid #fecaca', padding: '2px 8px', borderRadius: 999,
+                          }}>
+                            🔒 LOTO
+                          </span>
+                        )}
                       </div>
 
-                      {(() => {
-                        const recs = resolveRecommendations(alert);
-                        return (
-                          <ul style={{ margin: '4px 0 0 0', paddingLeft: 18, fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>
-                            {recs.map((rec, i) => (
-                              <li key={i} style={{ fontWeight: 600, marginBottom: 2 }}>{translateSafetyText(rec, lang)}</li>
-                            ))}
-                          </ul>
-                        );
-                      })()}
+                      <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 6px 0', lineHeight: 1.4 }}>
+                        {translateSafetyText(task.title, lang)}
+                      </h3>
 
-                      {alert.explanation && (
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, fontStyle: 'italic' }}>
-                          {lang === 'hi' ? `विश्लेषण: ${translateSafetyText(alert.explanation, lang)}` : `Analysis: ${alert.explanation}`}
+                      {task.description && (
+                        <p style={{ fontSize: 13, color: 'var(--text)', margin: '0 0 8px 0', lineHeight: 1.4, opacity: 0.9 }}>
+                          {translateSafetyText(task.description, lang)}
+                        </p>
+                      )}
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 12, color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <Wrench size={12} />
+                          <strong>{lang === 'hi' ? 'सौंपी गई टीम:' : 'Assigned Crew:'}</strong>{' '}
+                          <span style={{ color: 'var(--text)', fontWeight: 700 }}>
+                            {translateCrew(task.assignedCrew || task.assignedTo, lang)}
+                          </span>
+                        </span>
+                        <span>·</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <MapPin size={12} /> {translateLocation(task.location || 'Plant Floor', lang)}
+                        </span>
+                        {task.createdAt && (
+                          <>
+                            <span>·</span>
+                            <span><Clock size={12} /> {timeAgo(task.createdAt)}</span>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Clearance Note if maintenance submitted */}
+                      {task.clearanceNote && (
+                        <div style={{
+                          marginTop: 10, padding: '8px 12px', background: '#faf5ff',
+                          border: '1px solid #e9d5ff', borderRadius: 8, fontSize: 12, color: '#6b21a8',
+                          display: 'flex', alignItems: 'center', gap: 8,
+                        }}>
+                          <FileText size={15} style={{ flexShrink: 0 }} />
+                          <div>
+                            <strong>{lang === 'hi' ? 'मेंटेनेंस निकासी नोट:' : 'Maintenance Clearance Note:'}</strong>{' '}
+                            {translateSafetyText(task.clearanceNote, lang)}
+                          </div>
                         </div>
                       )}
                     </div>
 
-                  </div>
-
-                  {/* Actions */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-                    <Link href={`/officer/reports/${alert.reportId || alert._id}`}>
-                      <button style={{
-                        width: '100%',
-                        padding: '8px 16px', border: '1px solid var(--border)', borderRadius: 8,
-                        background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontWeight: 600,
-                        transition: 'all 0.15s ease', whiteSpace: 'nowrap' as const, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                      }}>
-                        <Eye size={13} /> {lang === 'hi' ? 'रिपोर्ट देखें' : 'View Report'}
-                      </button>
-                    </Link>
-                    {(() => {
-                      const assignedInfo =
-                        assignedAlerts[alert._id] ||
-                        (alert.reportId ? assignedAlerts[alert.reportId] : null) ||
-                        assignedAlerts[alert.title];
-
-                      if (assignedInfo) {
-                        return (
-                          <Link href="/officer/tasks" style={{ textDecoration: 'none' }}>
-                            <button
-                              style={{
-                                width: '100%',
-                                padding: '8px 14px', border: '1px solid #16a34a', borderRadius: 8,
-                                background: '#f0fdf4', color: '#16a34a', fontSize: 12, fontWeight: 700,
-                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                                whiteSpace: 'nowrap' as const,
-                              }}
-                              title={lang === 'hi' ? 'मेंटेनेंस कार्य सूची देखें' : 'View dispatched task in Tasks list'}
-                            >
-                              <CheckCircle2 size={13} color="#16a34a" />
-                              <span>{assignedInfo.orderNumber ? `[${assignedInfo.orderNumber}] ` : ''}{lang === 'hi' ? 'कार्य सौंपा गया' : 'Task Assigned'}</span>
-                            </button>
-                          </Link>
-                        );
-                      }
-
-                      return (
+                    {/* Right Actions for Task */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+                      {task.status === 'clearance_submitted' && (
                         <button
-                          onClick={() => openDispatchModal(alert)}
+                          onClick={() => handleVerifyAndClearTask(task)}
                           style={{
-                            width: '100%',
-                            padding: '8px 16px', border: 'none', borderRadius: 8,
-                            background: '#0A192F', color: '#fff', fontSize: 12, fontWeight: 700,
-                            transition: 'all 0.15s ease', whiteSpace: 'nowrap' as const, cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                            width: '100%', padding: '9px 16px', border: 'none', borderRadius: 8,
+                            background: '#16a34a', color: '#fff', fontSize: 12, fontWeight: 700,
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                            boxShadow: '0 2px 6px rgba(22,163,74,0.3)', whiteSpace: 'nowrap',
                           }}
-                          title={lang === 'hi' ? 'AI सुझावों के आधार पर मेंटेनेंस कार्य सौंपें' : 'Assign maintenance task based on AI suggestions'}
                         >
-                          <Zap size={13} /> {lang === 'hi' ? 'कार्य सौंपें' : 'Assign Task'}
+                          <CheckCircle2 size={14} />
+                          <span>{lang === 'hi' ? 'सत्यापित व हल करें' : 'Verify & Clear'}</span>
                         </button>
-                      );
-                    })()}
-                    <button
-                      onClick={() => toggle(alert._id)}
-                      style={{
-                        padding: '8px 16px', border: `1px solid ${alert.acknowledged ? 'var(--border)' : '#16a34a'}`,
-                        borderRadius: 8, background: 'var(--surface)',
-                        color: alert.acknowledged ? 'var(--text-muted)' : '#16a34a',
-                        fontSize: 12, fontWeight: 600, transition: 'all 0.15s ease', whiteSpace: 'nowrap' as const, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                      }}
-                    >
-                      {alert.acknowledged ? (
-                        <>
-                          <Undo2 size={12} /> {lang === 'hi' ? 'अस्वीकृत करें' : 'Unacknowledge'}
-                        </>
-                      ) : (
-                        <>
-                          <Check size={12} strokeWidth={2.5} /> {lang === 'hi' ? 'स्वीकार करें' : 'Acknowledge'}
-                        </>
                       )}
-                    </button>
+
+                      <button
+                        onClick={() => openReassignModalForTask(task)}
+                        style={{
+                          width: '100%', padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 8,
+                          background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontWeight: 600,
+                          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <Wrench size={13} />
+                        <span>{lang === 'hi' ? 'टीम बदलें' : 'Reassign Crew'}</span>
+                      </button>
+
+                      {task.reportId && (
+                        <Link href={`/officer/reports/${task.reportId}`}>
+                          <button style={{
+                            width: '100%', padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 8,
+                            background: 'var(--surface-subtle)', color: 'var(--text)', fontSize: 12, fontWeight: 600,
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                            whiteSpace: 'nowrap',
+                          }}>
+                            <Eye size={13} /> {lang === 'hi' ? 'रिपोर्ट देखें' : 'View Report'}
+                          </button>
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-
-              {/* Critical strip */}
-              {alert.severity === 'critical' && !alert.acknowledged && (
-                <div style={{
-                  background: '#fef2f2', borderTop: '1px solid #fca5a5',
-                  padding: '7px 18px', fontSize: 12, fontWeight: 700, color: '#dc2626',
-                  display: 'flex', alignItems: 'center', gap: 6,
-                }}>
-                  <Zap size={13} /> {lang === 'hi' ? 'अति-गंभीर SIF अलर्ट — OSHA 1910 के तहत तत्काल पर्यवेक्षक सत्यापन आवश्यक' : 'High-priority SIF alert — Immediate supervisor verification required under OSHA 1910'}
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {/* ─── MODAL: Assign Maintenance Task to Crew ─── */}
-      {selectedAlertForDispatch && (
+      {/* ─── MODAL: Assign / Reassign Maintenance Work Order ─── */}
+      {(selectedAlertForDispatch || selectedTaskForReassign) && (
         <div style={{
-          position: 'fixed', inset: 0, zIndex: 2000,
+          position: 'fixed', inset: 0, zIndex: 3000,
           backgroundColor: 'rgba(0, 0, 0, 0.65)',
           backdropFilter: 'blur(4px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -674,7 +1004,7 @@ export default function AlertsPage() {
             display: 'flex',
             flexDirection: 'column',
           }}>
-            {/* Header */}
+            {/* Modal Header */}
             <div style={{
               padding: '16px 20px',
               borderBottom: '1px solid var(--border)',
@@ -686,38 +1016,43 @@ export default function AlertsPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Wrench size={18} style={{ color: '#0A192F' }} />
                 <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>
-                  {lang === 'hi' ? 'मेंटेनेंस टीम को कार्य सौंपें' : 'Assign Maintenance Work Order'}
+                  {modalMode === 'assign_alert'
+                    ? (lang === 'hi' ? 'मेंटेनेंस टीम को नया कार्य आदेश भेजें' : 'Dispatch Maintenance Work Order')
+                    : (lang === 'hi' ? 'मेंटेनेंस टीम व प्राथमिकता पुनः सौंपें' : 'Reassign Maintenance Team & Priority')}
                 </span>
               </div>
               <button
-                onClick={() => setSelectedAlertForDispatch(null)}
+                onClick={() => {
+                  setSelectedAlertForDispatch(null);
+                  setSelectedTaskForReassign(null);
+                }}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}
               >
                 <X size={18} />
               </button>
             </div>
 
-            {/* Content */}
-            <form onSubmit={handleConfirmDispatch} style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {/* Alert Summary Box */}
+            {/* Modal Form */}
+            <form onSubmit={handleConfirmModalSubmit} style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Context Summary Box */}
               <div style={{ padding: 12, borderRadius: 10, background: 'var(--surface-subtle)', border: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                    {lang === 'hi' ? 'संबंधित अलर्ट / खतरा' : 'Target Hazard Observation'}
+                    {modalMode === 'assign_alert' ? 'Target Hazard Observation' : 'Target Maintenance Work Order'}
                   </span>
                   <span style={{
                     fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 999,
-                    background: selectedAlertForDispatch.severity === 'critical' ? '#fee2e2' : '#fef3c7',
-                    color: selectedAlertForDispatch.severity === 'critical' ? '#dc2626' : '#d97706',
+                    background: dispatchSeverity === 'critical' ? '#fee2e2' : dispatchSeverity === 'high' ? '#ffedd5' : '#e0f2fe',
+                    color: dispatchSeverity === 'critical' ? '#dc2626' : dispatchSeverity === 'high' ? '#ea580c' : '#0369a1',
                   }}>
-                    {selectedAlertForDispatch.severity?.toUpperCase()} ({selectedAlertForDispatch.riskScore}/100)
+                    {dispatchSeverity.toUpperCase()}
                   </span>
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', lineHeight: 1.4 }}>
-                  {translateSafetyText(selectedAlertForDispatch.title, lang)}
+                  {translateSafetyText(selectedAlertForDispatch?.title || selectedTaskForReassign?.title || '', lang)}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <MapPin size={11} /> {translateLocation(selectedAlertForDispatch.location, lang)}
+                  <MapPin size={11} /> {translateLocation(selectedAlertForDispatch?.location || selectedTaskForReassign?.location || 'Plant Floor', lang)}
                 </div>
               </div>
 
@@ -778,7 +1113,7 @@ export default function AlertsPage() {
                   >
                     <option value="critical">Critical (Immediate SIF)</option>
                     <option value="high">High Priority</option>
-                    <option value="medium">Medium</option>
+                    <option value="medium">Medium / Mid</option>
                     <option value="low">Low / Routine</option>
                   </select>
                 </div>
@@ -803,7 +1138,10 @@ export default function AlertsPage() {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
                 <button
                   type="button"
-                  onClick={() => setSelectedAlertForDispatch(null)}
+                  onClick={() => {
+                    setSelectedAlertForDispatch(null);
+                    setSelectedTaskForReassign(null);
+                  }}
                   style={{
                     padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)',
                     background: 'transparent', color: 'var(--text)', fontSize: 12, fontWeight: 600,
@@ -826,12 +1164,12 @@ export default function AlertsPage() {
                   {isDispatching ? (
                     <>
                       <Loader2 size={14} className="animate-spin" />
-                      <span>{lang === 'hi' ? 'सौंपा जा रहा है...' : 'Dispatching Work Order...'}</span>
+                      <span>{lang === 'hi' ? 'अपडेट किया जा रहा है...' : 'Dispatching...'}</span>
                     </>
                   ) : (
                     <>
                       <Zap size={14} />
-                      <span>{lang === 'hi' ? 'कार्य आदेश भेजें' : 'Dispatch Work Order'}</span>
+                      <span>{modalMode === 'assign_alert' ? (lang === 'hi' ? 'कार्य आदेश भेजें' : 'Dispatch Work Order') : (lang === 'hi' ? 'अपडेट सहेजें' : 'Save Assignment')}</span>
                     </>
                   )}
                 </button>

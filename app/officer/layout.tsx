@@ -43,12 +43,8 @@ function OfficerLayoutContent({ children }: { children: React.ReactNode }) {
       icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
     },
     {
-      label: t.navAlerts, href: '/officer/alerts', exact: false,
+      label: lang === 'hi' ? 'चेतावनियाँ व कार्य' : 'Alerts & Tasks', href: '/officer/alerts', exact: false,
       icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-    },
-    {
-      label: t.navTasks, href: '/officer/tasks', exact: false,
-      icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
     },
   ];
 
@@ -58,8 +54,7 @@ function OfficerLayoutContent({ children }: { children: React.ReactNode }) {
     if (pathname.startsWith('/officer/reports')) return lang === 'hi' ? 'घटना एवं ख़तरा रिपोर्ट्स' : 'Incident & Hazard Reports';
     if (pathname.startsWith('/officer/heatmap')) return lang === 'hi' ? 'रिफाइनरी सुविधा हीटमैप' : 'Refinery Facility Heatmap';
     if (pathname.startsWith('/officer/analytics')) return lang === 'hi' ? 'जोखिम विश्लेषण एवं रुझान' : 'Risk Analytics & Trends';
-    if (pathname.startsWith('/officer/alerts')) return lang === 'hi' ? 'सक्रिय ख़तरा चेतावनियाँ' : 'Active Hazard Alerts';
-    if (pathname.startsWith('/officer/tasks')) return lang === 'hi' ? 'आवंटित सुधार कार्य' : 'Assigned Maintenance Tasks';
+    if (pathname.startsWith('/officer/alerts') || pathname.startsWith('/officer/tasks')) return lang === 'hi' ? 'सक्रिय चेतावनियाँ एवं मेंटेनेंस कार्य' : 'Active Hazard Alerts & Maintenance Tasks';
     return lang === 'hi' ? 'सुरक्षा कमांड सेंटर' : 'Safety Command';
   })();
 
