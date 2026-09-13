@@ -186,9 +186,9 @@ export default function WorkerDashboard() {
         </div>
       </div>
 
-      {/* ── Bottom Row: Recent Reports + AI Insights ─────────────────── */}
-      <div className="bottom-row-responsive" style={styles.bottomRow}>
-        {/* Left: Recent Reports List */}
+      {/* ── Bottom Row: Recent Reports ─────────────────── */}
+      <div style={styles.bottomRow}>
+        {/* Recent Reports List */}
         <div className="apple-card animate-apple-fade-up delay-4" style={styles.recentSection}>
           <div style={styles.sectionHeader}>
             <h3 style={styles.sectionTitle}>{lang === "hi" ? "हालिया रिपोर्ट्स" : "Recent Reports"}</h3>
@@ -252,61 +252,6 @@ export default function WorkerDashboard() {
             })}
           </div>
         </div>
-
-        {/* Right: AI Insights Donut Chart Card */}
-        <div className="apple-card animate-apple-fade-up delay-5" style={styles.insightsCard}>
-          <h3 style={styles.sectionTitle}>{lang === "hi" ? "AI अंतर्दृष्टि" : "AI Insights"}</h3>
-
-          {/* Donut Graphic */}
-          <div style={styles.donutContainer}>
-            <svg width="150" height="150" viewBox="0 0 42 42">
-              <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#f1f5f9" strokeWidth="4" />
-              {/* Electrical Hazards 35% */}
-              <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#ef4444" strokeWidth="4" strokeDasharray="35 65" strokeDashoffset="25" />
-              {/* Fall from Height 25% */}
-              <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#f59e0b" strokeWidth="4" strokeDasharray="25 75" strokeDashoffset="90" />
-              {/* Machine Guarding 18% */}
-              <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#2563eb" strokeWidth="4" strokeDasharray="18 82" strokeDashoffset="65" />
-              {/* Chemical Exposure 12% */}
-              <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#10b981" strokeWidth="4" strokeDasharray="12 88" strokeDashoffset="47" />
-              {/* Fire & Pressure 10% */}
-              <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#8b5cf6" strokeWidth="4" strokeDasharray="10 90" strokeDashoffset="35" />
-            </svg>
-            <div style={styles.donutCenter}>
-              <div style={styles.donutNum}>{total}</div>
-              <div style={styles.donutLabel}>{lang === "hi" ? "रिपोर्ट्स" : "Reports"}</div>
-            </div>
-          </div>
-
-          {/* Legend breakdown */}
-          <div style={styles.legendGrid}>
-            <div style={styles.legendItem}>
-              <span style={{ ...styles.dot, backgroundColor: "#ef4444" }} />
-              <span style={styles.legendName}>{lang === "hi" ? "विद्युत खतरे" : "Electrical"}</span>
-              <span style={styles.legendPct}>35%</span>
-            </div>
-            <div style={styles.legendItem}>
-              <span style={{ ...styles.dot, backgroundColor: "#f59e0b" }} />
-              <span style={styles.legendName}>{lang === "hi" ? "ऊंचाई से गिरना" : "Fall Hazards"}</span>
-              <span style={styles.legendPct}>25%</span>
-            </div>
-            <div style={styles.legendItem}>
-              <span style={{ ...styles.dot, backgroundColor: "#2563eb" }} />
-              <span style={styles.legendName}>{lang === "hi" ? "मशीन सुरक्षा" : "Machine Guard"}</span>
-              <span style={styles.legendPct}>18%</span>
-            </div>
-            <div style={styles.legendItem}>
-              <span style={{ ...styles.dot, backgroundColor: "#10b981" }} />
-              <span style={styles.legendName}>{lang === "hi" ? "रासायनिक जोखिम" : "Chemical"}</span>
-              <span style={styles.legendPct}>12%</span>
-            </div>
-            <div style={styles.legendItem}>
-              <span style={{ ...styles.dot, backgroundColor: "#8b5cf6" }} />
-              <span style={styles.legendName}>{lang === "hi" ? "अग्नि और दबाव" : "Fire & Pressure"}</span>
-              <span style={styles.legendPct}>10%</span>
-            </div>
-          </div>
-        </div>
       </div>
 
       <style jsx global>{`
@@ -324,8 +269,7 @@ export default function WorkerDashboard() {
             grid-template-columns: repeat(2, 1fr) !important;
             gap: 12px !important;
           }
-          .middle-row-responsive,
-          .bottom-row-responsive {
+          .middle-row-responsive {
             grid-template-columns: 1fr !important;
             gap: 16px !important;
           }
@@ -538,8 +482,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 800,
   },
   bottomRow: {
-    display: "grid",
-    gap: 20,
+    width: "100%",
   },
   recentSection: {
     backgroundColor: "var(--surface)",
@@ -630,68 +573,5 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "flex-end",
     gap: 4,
     flexShrink: 0,
-  },
-  insightsCard: {
-    backgroundColor: "var(--surface)",
-    border: "1px solid var(--border)",
-    borderRadius: 16,
-    padding: 24,
-    boxShadow: "var(--shadow-sm)",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "space-between",
-  },
-  donutContainer: {
-    position: "relative",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    margin: "16px 0",
-  },
-  donutCenter: {
-    position: "absolute",
-    textAlign: "center",
-  },
-  donutNum: {
-    fontSize: 22,
-    fontWeight: 800,
-    color: "var(--text)",
-    lineHeight: 1,
-  },
-  donutLabel: {
-    fontSize: 11,
-    color: "var(--text-muted)",
-    fontWeight: 600,
-    marginTop: 2,
-  },
-  legendGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 10,
-    marginTop: 8,
-  },
-  legendItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    fontSize: 12,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: "50%",
-    flexShrink: 0,
-  },
-  legendName: {
-    color: "var(--text)",
-    fontWeight: 600,
-    flex: 1,
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  },
-  legendPct: {
-    color: "var(--text-muted)",
-    fontWeight: 700,
   },
 };
