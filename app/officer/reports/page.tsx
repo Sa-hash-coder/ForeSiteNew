@@ -6,6 +6,8 @@ import { MOCK_REPORTS, OfficerReport, ReportStatus, Severity } from '@/app/lib/o
 import { exportToCSV, exportToExcel, ExportColumn } from '@/app/lib/exportUtils';
 import { getAllReportsApi } from '@/app/lib/api';
 import { FileSpreadsheet, FileText, Download, Eye } from 'lucide-react';
+import { useLanguage } from '@/app/lib/LanguageContext';
+import { translateSafetyText, translateLocation, translateCategory, translateStatus } from '@/app/lib/hindiTranslator';
 
 const REPORT_EXPORT_COLUMNS: ExportColumn<OfficerReport>[] = [
   { header: 'Report ID', accessor: r => r._id },
@@ -33,7 +35,8 @@ function riskPillStyle(score: number): CSSProperties {
   return { background: bg, color, border: `1px solid ${border}`, borderRadius: 999, padding: '3px 10px', fontSize: 13, fontWeight: 700, display: 'inline-block' };
 }
 
-function statusLabel(s: ReportStatus) {
+function statusLabel(s: ReportStatus, lang: string = 'en') {
+  if (lang === 'hi') return translateStatus(s, 'hi');
   const map: Record<ReportStatus, string> = {
     pending: 'Pending', under_review: 'Under Review', action_assigned: 'Action Assigned',
     analysis_complete: 'Analysis Complete', resolved: 'Resolved',
@@ -53,7 +56,8 @@ function statusBadgeStyle(status: ReportStatus): CSSProperties {
   return { background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: 999, padding: '3px 10px', fontSize: 12, fontWeight: 700, display: 'inline-block', whiteSpace: 'nowrap' as const };
 }
 
-function categoryLabel(c: string) {
+function categoryLabel(c: string, lang: string = 'en') {
+  if (lang === 'hi') return translateCategory(c, 'hi');
   const map: Record<string, string> = {
     electrical: 'Electrical', fall: 'Fall Risk', chemical: 'Chemical',
     fire: 'Fire', machinery: 'Machinery', structural: 'Structural', ppe: 'PPE',
@@ -75,12 +79,14 @@ function catColor(c: string): CSSProperties {
   return { background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: 999, padding: '2px 10px', fontSize: 12, fontWeight: 600, display: 'inline-block' };
 }
 
-function timeAgo(iso: string) {
+function timeAgo(iso: string, lang: string = 'en') {
   const diff = Date.now() - new Date(iso).getTime();
-  const hrs = Math.floor(diff / 3600000);
-  if (hrs < 1) return 'Just now';
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return lang === 'hi' ? 'अभी' : 'Just now';
+  if (mins < 60) return `${mins}${lang === 'hi' ? ' मिनट पहले' : 'm ago'}`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}${lang === 'hi' ? ' घंटे पहले' : 'h ago'}`;
+  return `${Math.floor(hrs / 24)}${lang === 'hi' ? ' दिन पहले' : 'd ago'}`;
 }
 
 const PAGE_SIZE = 8;
@@ -99,9 +105,11 @@ function SkeletonRow() {
   );
 }
 
-// ─── Main Page ───────────────────────────────────────────────────────────────
+// ─── Main Component ──────────────────────────────────────────────────────────
 
-export default function ReportsPage() {
+export default function OfficerReportsPage() {
+  const { lang, t } = useLanguage();
+  const [reportsList, setReportsList] = useState<OfficerReport[]>(MOCK_REPORTS);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -110,7 +118,6 @@ export default function ReportsPage() {
   const [page, setPage] = useState(1);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const [reportsList, setReportsList] = useState<OfficerReport[]>(MOCK_REPORTS);
 
   useEffect(() => {
     let isMounted = true;
@@ -361,32 +368,32 @@ export default function ReportsPage() {
           </span>
           <input
             type="text"
-            placeholder="Search by title, location, zone..."
+            placeholder={t.searchReportsPlaceholder}
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
             style={{ ...inputStyle, paddingLeft: 36, width: '100%', height: 38 }}
           />
         </div>
         <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} style={{...selectStyle, height: 38}}>
-          <option value="all">All Statuses</option>
-          <option value="pending">Pending</option>
-          <option value="under_review">Under Review</option>
-          <option value="action_assigned">Action Assigned</option>
-          <option value="analysis_complete">Analysis Complete</option>
-          <option value="resolved">Resolved</option>
+          <option value="all">{lang === 'hi' ? 'सभी स्थितियां' : 'All Statuses'}</option>
+          <option value="pending">{lang === 'hi' ? 'लंबित' : 'Pending'}</option>
+          <option value="under_review">{lang === 'hi' ? 'जांच के अधीन' : 'Under Review'}</option>
+          <option value="action_assigned">{lang === 'hi' ? 'सुधार कार्य जारी है' : 'Action Assigned'}</option>
+          <option value="analysis_complete">{lang === 'hi' ? 'सत्यापित' : 'Analysis Complete'}</option>
+          <option value="resolved">{lang === 'hi' ? 'हल किया गया' : 'Resolved'}</option>
         </select>
         <select value={severityFilter} onChange={e => { setSeverityFilter(e.target.value); setPage(1); }} style={{...selectStyle, height: 38}}>
-          <option value="all">All Severities</option>
-          <option value="critical">Critical</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
+          <option value="all">{lang === 'hi' ? 'सभी गंभीरता' : 'All Severities'}</option>
+          <option value="critical">{lang === 'hi' ? 'गंभीर' : 'Critical'}</option>
+          <option value="high">{lang === 'hi' ? 'उच्च' : 'High'}</option>
+          <option value="medium">{lang === 'hi' ? 'मध्यम' : 'Medium'}</option>
+          <option value="low">{lang === 'hi' ? 'कम' : 'Low'}</option>
         </select>
         <select value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)} style={{...selectStyle, height: 38}}>
-          <option value="newest">Newest First</option>
-          <option value="oldest">Oldest First</option>
-          <option value="highest_risk">Highest Risk</option>
-          <option value="lowest_risk">Lowest Risk</option>
+          <option value="newest">{lang === 'hi' ? 'नवीनतम पहले' : 'Newest First'}</option>
+          <option value="oldest">{lang === 'hi' ? 'पुराने पहले' : 'Oldest First'}</option>
+          <option value="highest_risk">{lang === 'hi' ? 'उच्चतम जोखिम' : 'Highest Risk'}</option>
+          <option value="lowest_risk">{lang === 'hi' ? 'न्यूनतम जोखिम' : 'Lowest Risk'}</option>
         </select>
       </div>
 
@@ -400,14 +407,14 @@ export default function ReportsPage() {
             <thead>
               <tr style={{ background: 'var(--surface-subtle)', borderBottom: '2px solid var(--border)' }}>
                 <th style={thStyle}>#</th>
-                <th style={thStyle}>Report Title</th>
-                <th style={thStyle}>Location / Zone</th>
-                <th style={thStyle}>Category</th>
-                <th style={thStyle}>Risk</th>
-                <th style={thStyle}>Status</th>
-                <th style={thStyle}>Submitted By</th>
-                <th style={thStyle}>Date</th>
-                <th style={{ ...thStyle, textAlign: 'center' }}>Action</th>
+                <th style={thStyle}>{t.tableColTitle}</th>
+                <th style={thStyle}>{t.tableColLocation}</th>
+                <th style={thStyle}>{t.tableColCategory}</th>
+                <th style={thStyle}>{t.tableColRiskScore}</th>
+                <th style={thStyle}>{t.tableColStatus}</th>
+                <th style={thStyle}>{lang === 'hi' ? 'रिपोर्टकर्ता' : 'Submitted By'}</th>
+                <th style={thStyle}>{t.tableColTime}</th>
+                <th style={{ ...thStyle, textAlign: 'center' }}>{t.tableColAction}</th>
               </tr>
             </thead>
             <tbody>
@@ -419,8 +426,12 @@ export default function ReportsPage() {
                     <div style={{ display: 'inline-block', marginBottom: 12, padding: 16, background: 'var(--surface-subtle)', borderRadius: '50%' }}>
                       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                     </div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>No reports match your filters.</div>
-                    <div style={{ marginTop: 6, fontSize: 13 }}>Try adjusting the search or filter options above.</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
+                      {lang === 'hi' ? 'कोई रिपोर्ट आपके फ़िल्टर से मेल नहीं खाती।' : 'No reports match your filters.'}
+                    </div>
+                    <div style={{ marginTop: 6, fontSize: 13 }}>
+                      {lang === 'hi' ? 'कृपया ऊपर दिए गए फ़िल्टर विकल्प बदलें।' : 'Try adjusting the search or filter options above.'}
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -434,18 +445,18 @@ export default function ReportsPage() {
                     </td>
                     <td style={{ ...tdStyle, maxWidth: 220 }}>
                       <div style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>
-                        {r.title}
+                        {translateSafetyText(r.title, lang)}
                       </div>
                     </td>
                     <td style={tdStyle}>
-                      <div style={{ fontSize: 13, color: 'var(--text)' }}>{r.location}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{r.zone}</div>
+                      <div style={{ fontSize: 13, color: 'var(--text)' }}>{translateLocation(r.location, lang)}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{translateLocation(r.zone, lang)}</div>
                     </td>
-                    <td style={tdStyle}><span style={catColor(r.category)}>{categoryLabel(r.category)}</span></td>
+                    <td style={tdStyle}><span style={catColor(r.category)}>{categoryLabel(r.category, lang)}</span></td>
                     <td style={tdStyle}><span style={riskPillStyle(r.riskScore)}>{r.riskScore}</span></td>
-                    <td style={tdStyle}><span style={statusBadgeStyle(r.status)}>{statusLabel(r.status)}</span></td>
+                    <td style={tdStyle}><span style={statusBadgeStyle(r.status)}>{statusLabel(r.status, lang)}</span></td>
                     <td style={{ ...tdStyle, color: 'var(--text-muted)', fontSize: 12 }}>{r.submittedBy}</td>
-                    <td style={{ ...tdStyle, color: 'var(--text-muted)', fontSize: 12, whiteSpace: 'nowrap' }}>{timeAgo(r.createdAt)}</td>
+                    <td style={{ ...tdStyle, color: 'var(--text-muted)', fontSize: 12, whiteSpace: 'nowrap' }}>{timeAgo(r.createdAt, lang)}</td>
                     <td style={{ ...tdStyle, textAlign: 'center' }}>
                       <Link href={`/officer/reports/${r._id}`}>
                         <button style={{
@@ -456,7 +467,7 @@ export default function ReportsPage() {
                         }}
                           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--primary-light)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary)'; }}
                           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#fff'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
-                          title="View Report"
+                          title={t.viewDetailsBtn}
                         >
                           <Eye size={15} color="var(--primary)" />
                         </button>

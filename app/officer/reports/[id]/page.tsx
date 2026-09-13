@@ -18,6 +18,15 @@ import {
   Lock,
   RefreshCw,
 } from 'lucide-react';
+import { useLanguage } from '@/app/lib/LanguageContext';
+import {
+  translateSafetyText,
+  translateLocation,
+  translateCategory,
+  translateStatus,
+  translateSeverity,
+  translateCrew,
+} from '@/app/lib/hindiTranslator';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -34,7 +43,8 @@ function riskBg(score: number) {
   return '#f0fdf4';
 }
 
-function statusLabel(s: string) {
+function statusLabel(s: string, lang: string = 'en') {
+  if (lang === 'hi') return translateStatus(s, 'hi');
   const map: Record<string, string> = {
     pending: 'Pending', under_review: 'Under Review', action_assigned: 'Action Assigned',
     analysis_complete: 'Analysis Complete', resolved: 'Resolved',
@@ -59,7 +69,8 @@ function taskStatusStyle(s: string): CSSProperties {
   return { background: 'var(--warning-light)', color: 'var(--warning)', borderRadius: 999, padding: '2px 9px', fontSize: 11, fontWeight: 600, display: 'inline-block' };
 }
 
-function catLabel(c: string) {
+function catLabel(c: string, lang: string = 'en') {
+  if (lang === 'hi') return translateCategory(c, 'hi');
   const map: Record<string, string> = {
     electrical: 'Electrical', fall: 'Fall Risk', chemical: 'Chemical',
     fire: 'Fire', machinery: 'Machinery', structural: 'Structural', ppe: 'PPE',
@@ -77,12 +88,14 @@ function catBg(c: string) {
   return map[c] || { bg: '#f3f4f6', color: '#374151' };
 }
 
-function timeAgo(iso: string) {
+function timeAgo(iso: string, lang: string = 'en') {
   const diff = Date.now() - new Date(iso).getTime();
-  const hrs = Math.floor(diff / 3600000);
-  if (hrs < 1) return 'Just now';
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return lang === 'hi' ? 'अभी' : 'Just now';
+  if (mins < 60) return `${mins}${lang === 'hi' ? ' मिनट पहले' : 'm ago'}`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}${lang === 'hi' ? ' घंटे पहले' : 'h ago'}`;
+  return `${Math.floor(hrs / 24)}${lang === 'hi' ? ' दिन पहले' : 'd ago'}`;
 }
 
 function getDynamicTasks(
@@ -209,6 +222,7 @@ function getDynamicTasks(
 
 export default function ReportDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const { lang, t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
   const [report, setReport] = useState<any>(null);
@@ -417,10 +431,10 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
 
       {/* Breadcrumb */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20, fontSize: 13, color: 'var(--text-muted)' }}>
-        <Link href="/officer/reports" style={{ color: 'var(--primary)', fontWeight: 500 }}>Reports</Link>
+        <Link href="/officer/reports" style={{ color: 'var(--primary)', fontWeight: 500 }}>{lang === 'hi' ? 'रिपोर्ट्स' : 'Reports'}</Link>
         <span>›</span>
         <span style={{ color: 'var(--text)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 400 }}>
-          {report.title}
+          {translateSafetyText(report.title, lang)}
         </span>
       </div>
 
@@ -429,30 +443,30 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
         <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-              <span style={{ ...statusBadgeStyle(report.status) }}>{statusLabel(report.status)}</span>
+              <span style={{ ...statusBadgeStyle(report.status) }}>{statusLabel(report.status, lang)}</span>
               <span style={{ background: cat.bg, color: cat.color, borderRadius: 999, padding: '3px 12px', fontSize: 12, fontWeight: 600 }}>
-                {catLabel(report.category)}
+                {catLabel(report.category, lang)}
               </span>
               <span style={{
                 background: report.severity === 'critical' ? '#fef2f2' : report.severity === 'high' ? '#fff7ed' : '#fffbeb',
                 color: report.severity === 'critical' ? '#dc2626' : report.severity === 'high' ? '#ea580c' : '#d97706',
                 borderRadius: 10, padding: '3px 11px', fontSize: 12, fontWeight: 600, textTransform: 'capitalize' as const,
               }}>
-                {report.severity}
+                {translateSeverity(report.severity, lang)}
               </span>
             </div>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', margin: '0 0 10px 0', lineHeight: 1.3 }}>
-              {report.title}
+              {translateSafetyText(report.title, lang)}
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div style={{ fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                <MapPin size={13} /> {report.location} · {report.zone}
+                <MapPin size={13} /> {translateLocation(report.location, lang)} · {translateLocation(report.zone, lang)}
               </div>
               <div style={{ fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
                 <User size={13} /> {report.submittedBy} · {report.department}
               </div>
               <div style={{ fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                <Clock size={13} /> {timeAgo(report.createdAt)}
+                <Clock size={13} /> {timeAgo(report.createdAt, lang)}
               </div>
             </div>
           </div>
@@ -466,7 +480,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               {report.riskScore}
             </div>
             <div style={{ fontSize: 9, fontWeight: 600, color: riskColor(report.riskScore), textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
-              Risk Score
+              {lang === 'hi' ? 'जोखिम स्कोर' : 'Risk Score'}
             </div>
           </div>
         </div>
@@ -484,7 +498,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             </div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
-                Fine-Tuned AI Precursor Classification
+                {lang === 'hi' ? 'AI SIF पूर्वसूचक वर्गीकरण' : 'Fine-Tuned AI Precursor Classification'}
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                 OSHA 1910 Metric Contrastive Learning Evaluation
@@ -497,7 +511,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               borderRadius: 999, padding: '3px 12px', fontSize: 12, fontWeight: 700,
               border: '1px solid #E2E8F0',
             }}>
-              SIF Probability: {Math.round(report.sifProbability * 100)}%
+              {lang === 'hi' ? 'SIF संभावना' : 'SIF Probability'}: {Math.round(report.sifProbability * 100)}%
             </span>
           )}
         </div>
@@ -506,7 +520,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
         {report.precursors && report.precursors.length > 0 && (
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
-              Detected SIF Precursors:
+              {lang === 'hi' ? 'पहचाने गए SIF पूर्वसूचक:' : 'Detected SIF Precursors:'}
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {report.precursors.map((p: string, i: number) => (
@@ -515,7 +529,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                   backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A',
                   display: 'inline-flex', alignItems: 'center', gap: 4,
                 }}>
-                  <AlertTriangle size={11} /> {p}
+                  <AlertTriangle size={11} /> {translateSafetyText(p, lang)}
                 </span>
               ))}
             </div>
@@ -524,12 +538,12 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
 
         {/* AI Explanation */}
         <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.6, marginBottom: 16 }}>
-          {report.explanation}
+          {translateSafetyText(report.explanation, lang)}
         </div>
 
         {/* AI Recommendations with Instant Dispatch Buttons */}
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>
-          Recommended Corrective Tasks:
+          {lang === 'hi' ? 'अनुशंसित सुधारात्मक कार्य:' : 'Recommended Corrective Tasks:'}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {report.recommendations.map((rec: string, i: number) => (
@@ -546,7 +560,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                   {i + 1}
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.5, fontWeight: 500 }}>
-                  {rec}
+                  {translateSafetyText(rec, lang)}
                 </div>
               </div>
               <button
@@ -558,7 +572,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                 }}
                 title="Assign Maintenance Task from this recommendation"
               >
-                <Zap size={12} /> Assign Task
+                <Zap size={12} /> {lang === 'hi' ? 'कार्य सौंपें' : 'Assign Task'}
               </button>
             </div>
           ))}
@@ -569,7 +583,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       <div style={card}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Wrench size={16} /> Assigned Maintenance Tasks ({tasksToDisplay.length})
+            <Wrench size={16} /> {lang === 'hi' ? `सौंपे गए मेंटेनेंस कार्य (${tasksToDisplay.length})` : `Assigned Maintenance Tasks (${tasksToDisplay.length})`}
           </div>
           <button
             onClick={() => setShowDispatchModal(true)}
@@ -579,13 +593,13 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               display: 'flex', alignItems: 'center', gap: 6,
             }}
           >
-            <span>+ Assign Task</span>
+            <span>{lang === 'hi' ? '+ कार्य सौंपें' : '+ Assign Task'}</span>
           </button>
         </div>
 
         {tasksToDisplay.length === 0 ? (
           <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '24px 0', textAlign: 'center' }}>
-            No maintenance tasks dispatched for this hazard yet. Click "Assign Task" below to dispatch to a maintenance team.
+            {lang === 'hi' ? 'इस खतरे के लिए अभी तक कोई मेंटेनेंस कार्य नहीं सौंपा गया है। मेंटेनेंस टीम को भेजने के लिए नीचे "कार्य सौंपें" पर क्लिक करें।' : 'No maintenance tasks dispatched for this hazard yet. Click "Assign Task" below to dispatch to a maintenance team.'}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -596,30 +610,30 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               }}>
                 <span style={{ ...taskStatusStyle(task.status), display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   {task.status === 'done' || task.status === 'officer_verified' ? (
-                    <><CheckCircle2 size={11} strokeWidth={2.5} /> Cleared &amp; Resolved</>
+                    <><CheckCircle2 size={11} strokeWidth={2.5} /> {lang === 'hi' ? 'सत्यापित व हल' : 'Cleared & Resolved'}</>
                   ) : task.status === 'clearance_submitted' ? (
-                    <><Zap size={11} /> Clearance Review</>
+                    <><Zap size={11} /> {lang === 'hi' ? 'निकासी समीक्षा' : 'Clearance Review'}</>
                   ) : task.status === 'in_progress' ? (
-                    <><RefreshCw size={11} /> In Progress</>
+                    <><RefreshCw size={11} /> {lang === 'hi' ? 'प्रगति पर है' : 'In Progress'}</>
                   ) : (
-                    <><Clock size={11} /> Dispatched</>
+                    <><Clock size={11} /> {lang === 'hi' ? 'प्रेषित' : 'Dispatched'}</>
                   )}
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
-                    {task.orderNumber ? `[${task.orderNumber}] ` : ''}{task.title}
+                    {task.orderNumber ? `[${task.orderNumber}] ` : ''}{translateSafetyText(task.title, lang)}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                    Assigned Crew: <strong style={{ color: '#0F172A' }}>{task.assignedCrew || task.assignedTo || 'Maintenance Response Team'}</strong>
+                    {lang === 'hi' ? 'सौंपी गई टीम:' : 'Assigned Crew:'} <strong style={{ color: '#0F172A' }}>{translateCrew(task.assignedCrew || task.assignedTo || 'Maintenance Response Team', lang)}</strong>
                     {task.location && (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                        · <MapPin size={10} /> {task.location}
+                        · <MapPin size={10} /> {translateLocation(task.location, lang)}
                       </span>
                     )}
                   </div>
                 </div>
                 <Link href="/officer/tasks">
-                  <span style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>Manage ↗</span>
+                  <span style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>{lang === 'hi' ? 'प्रबंधन करें ↗' : 'Manage ↗'}</span>
                 </Link>
               </div>
             ))}
@@ -641,7 +655,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             display: 'flex', alignItems: 'center', gap: 8,
           }}
         >
-          <Wrench size={16} /> Assign Maintenance Task
+          <Wrench size={16} /> {lang === 'hi' ? 'मेंटेनेंस कार्य सौंपें' : 'Assign Maintenance Task'}
         </button>
         <button
           onClick={handleMarkResolved}
@@ -651,11 +665,11 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
           }}
         >
-          <CheckCircle2 size={16} strokeWidth={2.4} /> Mark Report Resolved
+          <CheckCircle2 size={16} strokeWidth={2.4} /> {lang === 'hi' ? 'रिपोर्ट को हल चिह्नित करें' : 'Mark Report Resolved'}
         </button>
         <div style={{ marginLeft: 'auto' }}>
           <Link href="/officer/reports" style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>
-            ← Back to Reports
+            {lang === 'hi' ? '← रिपोर्ट सूची पर वापस' : '← Back to Reports'}
           </Link>
         </div>
       </div>
@@ -680,7 +694,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Wrench size={18} style={{ color: '#0A192F' }} />
                 <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>
-                  Assign Maintenance Task to Crew
+                  {lang === 'hi' ? 'मेंटेनेंस टीम को कार्य सौंपें' : 'Assign Maintenance Task to Crew'}
                 </span>
               </div>
               <button
@@ -696,16 +710,16 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               <div style={{
                 background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: '10px 12px',
               }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>REPORT INCIDENT:</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginTop: 2 }}>{report.title}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>{lang === 'hi' ? 'रिपोर्ट की गई घटना:' : 'REPORT INCIDENT:'}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginTop: 2 }}>{translateSafetyText(report.title, lang)}</div>
                 <div style={{ fontSize: 11, color: '#64748B', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <MapPin size={11} /> {report.location}
+                  <MapPin size={11} /> {translateLocation(report.location, lang)}
                 </div>
               </div>
 
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-                  Assign Maintenance Crew / Department: *
+                  {lang === 'hi' ? 'मेंटेनेंस क्रू / विभाग सौंपें: *' : 'Assign Maintenance Crew / Department: *'}
                 </label>
                 <select
                   value={dispatchCrew}
@@ -716,7 +730,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                   }}
                 >
                   {MAINTENANCE_CREWS.map(crew => (
-                    <option key={crew} value={crew}>{crew}</option>
+                    <option key={crew} value={crew}>{translateCrew(crew, lang)}</option>
                   ))}
                 </select>
               </div>
@@ -724,7 +738,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-                    Priority Level:
+                    {lang === 'hi' ? 'प्राथमिकता स्तर:' : 'Priority Level:'}
                   </label>
                   <select
                     value={dispatchSeverity}
@@ -734,10 +748,10 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                       background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontWeight: 600,
                     }}
                   >
-                    <option value="critical">CRITICAL (Immediate)</option>
-                    <option value="high">HIGH (Next shift)</option>
-                    <option value="medium">MEDIUM (Standard)</option>
-                    <option value="low">LOW (Routine)</option>
+                    <option value="critical">{lang === 'hi' ? 'अति गंभीर (तत्काल)' : 'CRITICAL (Immediate)'}</option>
+                    <option value="high">{lang === 'hi' ? 'उच्च (अगली शिफ्ट)' : 'HIGH (Next shift)'}</option>
+                    <option value="medium">{lang === 'hi' ? 'मध्यम (मानक)' : 'MEDIUM (Standard)'}</option>
+                    <option value="low">{lang === 'hi' ? 'कम (नियमित)' : 'LOW (Routine)'}</option>
                   </select>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', marginTop: 18 }}>
@@ -749,7 +763,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                       style={{ width: 16, height: 16, accentColor: '#dc2626' }}
                     />
                     <span style={{ fontSize: 12, fontWeight: 700, color: dispatchLoto ? '#dc2626' : 'var(--text)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                      <Lock size={12} /> LOTO Required
+                      <Lock size={12} /> {lang === 'hi' ? 'LOTO (तालाबंदी) आवश्यक' : 'LOTO Required'}
                     </span>
                   </label>
                 </div>
@@ -757,12 +771,12 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
 
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-                  Work Scope &amp; Safety Instructions:
+                  {lang === 'hi' ? 'कार्य का दायरा और सुरक्षा निर्देश:' : 'Work Scope & Safety Instructions:'}
                 </label>
                 <textarea
                   value={dispatchInstructions}
                   onChange={e => setDispatchInstructions(e.target.value)}
-                  placeholder={report.recommendations?.[0] || "Specify maintenance tasks, replacement parts, or lockout requirements..."}
+                  placeholder={lang === 'hi' ? 'विशिष्ट मेंटेनेंस कार्य, बदलने वाले पुर्जे या तालाबंदी आवश्यकताओं का विवरण दें...' : (report.recommendations?.[0] || "Specify maintenance tasks, replacement parts, or lockout requirements...")}
                   rows={3}
                   style={{
                     width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)',
@@ -786,7 +800,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                   cursor: 'pointer',
                 }}
               >
-                Cancel
+                {lang === 'hi' ? 'रद्द करें' : 'Cancel'}
               </button>
               <button
                 type="submit"
@@ -797,7 +811,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                   cursor: isDispatching ? 'wait' : 'pointer',
                 }}
               >
-                <span>{isDispatching ? 'Dispatching...' : 'Dispatch to Maintenance Team'}</span>
+                <span>{isDispatching ? (lang === 'hi' ? 'भेजा जा रहा है...' : 'Dispatching...') : (lang === 'hi' ? 'मेंटेनेंस टीम को कार्य भेजें' : 'Dispatch to Maintenance Team')}</span>
               </button>
             </div>
           </form>

@@ -29,6 +29,14 @@ import {
   downloadAIMaintenanceExcelReport,
   ReportTaskItem,
 } from '@/app/lib/aiReportGenerator';
+import { useLanguage } from '@/app/lib/LanguageContext';
+import {
+  translateSafetyText,
+  translateLocation,
+  translateCrew,
+  translateStatus,
+  translateSeverity,
+} from '@/app/lib/hindiTranslator';
 
 const TASK_EXPORT_COLUMNS: ExportColumn<MaintenanceTask>[] = [
   { header: 'Task ID', accessor: (t: MaintenanceTask) => t._id },
@@ -60,11 +68,11 @@ function taskStatusBadge(s: TaskStatus): CSSProperties {
   return { background: 'var(--warning-light)', color: 'var(--warning)', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 };
 }
 
-function taskStatusLabel(s: TaskStatus) {
-  if (s === 'done') return 'Done & Cleared';
-  if (s === 'clearance_submitted') return 'Clearance Submitted';
-  if (s === 'in_progress') return 'In Progress';
-  return 'Pending';
+function taskStatusLabel(s: TaskStatus, lang: string = 'en') {
+  if (s === 'done') return lang === 'hi' ? 'सत्यापित व हल' : 'Done & Cleared';
+  if (s === 'clearance_submitted') return lang === 'hi' ? 'निकासी समीक्षा प्रस्तुत' : 'Clearance Submitted';
+  if (s === 'in_progress') return lang === 'hi' ? 'प्रगति पर है' : 'In Progress';
+  return lang === 'hi' ? 'लंबित' : 'Pending';
 }
 
 function taskStatusIcon(s: TaskStatus) {
@@ -89,6 +97,7 @@ function isOverdue(dueDate: string) {
 type FilterTab = 'all' | 'pending' | 'in_progress' | 'clearance_submitted' | 'done';
 
 export default function TasksPage() {
+  const { lang } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterTab>('all');
   const [tasks, setTasks] = useState<MaintenanceTask[]>([...MAINTENANCE_TASKS]);
@@ -165,10 +174,10 @@ export default function TasksPage() {
       await updateTaskApi(taskId, {
         status: 'officer_verified',
       });
-      setToast(`Task ${task.orderNumber || task.title} verified & cleared! Linked hazard report marked resolved.`);
+      setToast(lang === 'hi' ? `कार्य ${task.orderNumber || task.title} सत्यापित व हल हो गया! लिंक की गई खतरा रिपोर्ट हल चिह्नित हुई।` : `Task ${task.orderNumber || task.title} verified & cleared! Linked hazard report marked resolved.`);
     } catch (err) {
       console.warn("Failed to verify task on server:", err);
-      setToast(`Task marked as cleared.`);
+      setToast(lang === 'hi' ? 'कार्य हल चिह्नित किया गया।' : `Task marked as cleared.`);
     } finally {
       setTimeout(() => setToast(''), 3500);
       loadTasks();
@@ -181,7 +190,7 @@ export default function TasksPage() {
     const filename = `ForeSite_Tasks_${scope === 'filtered' && filter !== 'all' ? filter + '_' : ''}${dateStr}`;
     exportToCSV(filename, TASK_EXPORT_COLUMNS, data);
     setShowExportMenu(false);
-    setToast(`Downloaded ${data.length} tasks as CSV (${filename}.csv)`);
+    setToast(lang === 'hi' ? `${data.length} कार्य CSV के रूप में डाउनलोड हुए (${filename}.csv)` : `Downloaded ${data.length} tasks as CSV (${filename}.csv)`);
     setTimeout(() => setToast(''), 3500);
   };
 
@@ -191,7 +200,7 @@ export default function TasksPage() {
     const filename = `ForeSite_Tasks_${scope === 'filtered' && filter !== 'all' ? filter + '_' : ''}${dateStr}`;
     exportToExcel(filename, 'Maintenance Tasks', TASK_EXPORT_COLUMNS, data);
     setShowExportMenu(false);
-    setToast(`Downloaded ${data.length} tasks as Excel (${filename}.xls)`);
+    setToast(lang === 'hi' ? `${data.length} कार्य Excel के रूप में डाउनलोड हुए (${filename}.xls)` : `Downloaded ${data.length} tasks as Excel (${filename}.xls)`);
     setTimeout(() => setToast(''), 3500);
   };
 
@@ -246,10 +255,10 @@ export default function TasksPage() {
         severity: priority,
         clearanceNote: specialInstructions ? `[Officer Dispatch Note]: ${specialInstructions}` : undefined,
       });
-      setToast(`Task successfully assigned to ${crew}! Synced to Maintenance Portal & DB.`);
+      setToast(lang === 'hi' ? `कार्य सफलतापूर्वक ${translateCrew(crew, lang)} को सौंपा गया! मेंटेनेंस पोर्टल और DB में सिंक हुआ।` : `Task successfully assigned to ${crew}! Synced to Maintenance Portal & DB.`);
     } catch (err) {
       console.warn("API update failed, local state preserved:", err);
-      setToast(`Task assignment updated to ${crew}.`);
+      setToast(lang === 'hi' ? `कार्य असाइनमेंट ${translateCrew(crew, lang)} में अपडेट हुआ।` : `Task assignment updated to ${crew}.`);
     } finally {
       setIsSubmittingAssign(false);
       setAssignModalTask(null);
@@ -274,7 +283,7 @@ export default function TasksPage() {
       officerName: 'Safety Command Lead',
     });
     setShowAiReportMenu(false);
-    setToast('ForeSite MiniLM AI Maintenance Report downloaded (.html)');
+    setToast(lang === 'hi' ? 'ForeSite MiniLM AI मेंटेनेंस रिपोर्ट डाउनलोड हुई (.html)' : 'ForeSite MiniLM AI Maintenance Report downloaded (.html)');
     setTimeout(() => setToast(''), 3500);
   };
 
@@ -282,7 +291,7 @@ export default function TasksPage() {
     const reportTasks = toReportTasks(filtered.length > 0 && filter !== 'all' ? filtered : tasks);
     downloadAIMaintenanceExcelReport(reportTasks, 'ForeSite_AI_Maintenance_Audit');
     setShowAiReportMenu(false);
-    setToast('ForeSite AI Maintenance Audit spreadsheet downloaded (.xls)');
+    setToast(lang === 'hi' ? 'ForeSite AI मेंटेनेंस ऑडिट स्प्रेडशीट डाउनलोड हुई (.xls)' : 'ForeSite AI Maintenance Audit spreadsheet downloaded (.xls)');
     setTimeout(() => setToast(''), 3500);
   };
 
@@ -292,11 +301,11 @@ export default function TasksPage() {
   };
 
   const FILTERS: { key: FilterTab; label: string; icon?: React.ReactNode }[] = [
-    { key: 'all', label: 'All Tasks' },
-    { key: 'pending', label: 'Pending Assignment', icon: <Clock size={13} /> },
-    { key: 'in_progress', label: 'In Progress', icon: <RefreshCw size={13} /> },
-    { key: 'clearance_submitted', label: `Clearance Review (${stats.clearance_submitted})`, icon: <ShieldCheck size={13} /> },
-    { key: 'done', label: 'Completed & Cleared', icon: <CheckCircle2 size={13} /> },
+    { key: 'all', label: lang === 'hi' ? 'सभी कार्य' : 'All Tasks' },
+    { key: 'pending', label: lang === 'hi' ? 'असाइनमेंट लंबित' : 'Pending Assignment', icon: <Clock size={13} /> },
+    { key: 'in_progress', label: lang === 'hi' ? 'प्रगति पर' : 'In Progress', icon: <RefreshCw size={13} /> },
+    { key: 'clearance_submitted', label: lang === 'hi' ? `निकासी समीक्षा (${stats.clearance_submitted})` : `Clearance Review (${stats.clearance_submitted})`, icon: <ShieldCheck size={13} /> },
+    { key: 'done', label: lang === 'hi' ? 'पूर्ण व हल' : 'Completed & Cleared', icon: <CheckCircle2 size={13} /> },
   ];
 
   if (loading) {
@@ -328,10 +337,10 @@ export default function TasksPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px 0', color: 'var(--text)' }}>
-            Assigned Maintenance Tasks
+            {lang === 'hi' ? 'सौंपे गए मेंटेनेंस कार्य' : 'Assigned Maintenance Tasks'}
           </h2>
           <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-            Assign, reassign, and track industrial repairs in direct sync with the Maintenance Portal
+            {lang === 'hi' ? 'मेंटेनेंस पोर्टल के साथ प्रत्यक्ष सिंक में औद्योगिक मरम्मत सौंपें, पुनः सौंपें और ट्रैक करें' : 'Assign, reassign, and track industrial repairs in direct sync with the Maintenance Portal'}
           </div>
         </div>
 
@@ -347,7 +356,7 @@ export default function TasksPage() {
             }}
           >
             <Bot size={17} color="#38bdf8" />
-            <span>Download AI Maintenance Report</span>
+            <span>{lang === 'hi' ? 'AI मेंटेनेंस रिपोर्ट डाउनलोड करें' : 'Download AI Maintenance Report'}</span>
             <ChevronDown size={14} style={{ transform: showAiReportMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
           </button>
 
@@ -366,7 +375,7 @@ export default function TasksPage() {
                 }}
               >
                 <div style={{ padding: '6px 10px 4px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  ForeSite MiniLM AI Report ({tasks.length} Tasks)
+                  {lang === 'hi' ? `ForeSite MiniLM AI रिपोर्ट (${tasks.length} कार्य)` : `ForeSite MiniLM AI Report (${tasks.length} Tasks)`}
                 </div>
                 <button
                   onClick={handlePrintAiReport}
@@ -381,8 +390,8 @@ export default function TasksPage() {
                 >
                   <Printer size={17} color="var(--primary)" />
                   <div>
-                    <div>Print / Save as PDF</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>Official OSHA Audit Layout</div>
+                    <div>{lang === 'hi' ? 'प्रिंट / PDF के रूप में सहेजें' : 'Print / Save as PDF'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>{lang === 'hi' ? 'आधिकारिक OSHA ऑडिट प्रारूप' : 'Official OSHA Audit Layout'}</div>
                   </div>
                 </button>
                 <button
@@ -398,8 +407,8 @@ export default function TasksPage() {
                 >
                   <Download size={17} color="#059669" />
                   <div>
-                    <div>Download HTML Audit File</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>Self-contained report package</div>
+                    <div>{lang === 'hi' ? 'HTML ऑडिट फ़ाइल डाउनलोड करें' : 'Download HTML Audit File'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>{lang === 'hi' ? 'स्व-निहित रिपोर्ट पैकेज' : 'Self-contained report package'}</div>
                   </div>
                 </button>
                 <button
@@ -415,8 +424,8 @@ export default function TasksPage() {
                 >
                   <FileSpreadsheet size={17} color="#2563eb" />
                   <div>
-                    <div>Download Excel (.xls) Audit</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>With MiniLM Risk Scores &amp; LOTO</div>
+                    <div>{lang === 'hi' ? 'Excel (.xls) ऑडिट डाउनलोड करें' : 'Download Excel (.xls) Audit'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>{lang === 'hi' ? 'MiniLM जोखिम स्कोर और LOTO के साथ' : 'With MiniLM Risk Scores & LOTO'}</div>
                   </div>
                 </button>
               </div>
@@ -428,11 +437,11 @@ export default function TasksPage() {
       {/* Summary stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
         {[
-          { label: 'Total Tasks', value: stats.total, color: 'var(--primary)' },
-          { label: 'Pending Assignment', value: stats.pending, color: 'var(--warning)' },
-          { label: 'In Progress (Assigned)', value: stats.in_progress, color: 'var(--primary)' },
-          { label: 'Clearance Review', value: stats.clearance_submitted, color: '#7c3aed' },
-          { label: 'Completed Clearance', value: stats.done, color: 'var(--success)' },
+          { label: lang === 'hi' ? 'कुल कार्य' : 'Total Tasks', value: stats.total, color: 'var(--primary)' },
+          { label: lang === 'hi' ? 'असाइनमेंट लंबित' : 'Pending Assignment', value: stats.pending, color: 'var(--warning)' },
+          { label: lang === 'hi' ? 'प्रगति पर (सौंपे गए)' : 'In Progress (Assigned)', value: stats.in_progress, color: 'var(--primary)' },
+          { label: lang === 'hi' ? 'निकासी समीक्षा' : 'Clearance Review', value: stats.clearance_submitted, color: '#7c3aed' },
+          { label: lang === 'hi' ? 'पूर्ण व हल' : 'Completed Clearance', value: stats.done, color: 'var(--success)' },
         ].map(s => (
           <div key={s.label} style={{
             background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)',
@@ -488,7 +497,7 @@ export default function TasksPage() {
               <polyline points="7 10 12 15 17 10"></polyline>
               <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
-            <span>Export Tasks</span>
+            <span>{lang === 'hi' ? 'कार्य निर्यात करें' : 'Export Tasks'}</span>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showExportMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }}>
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
@@ -509,7 +518,7 @@ export default function TasksPage() {
                 }}
               >
                 <div style={{ padding: '6px 10px 4px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  {filter === 'all' ? 'All Tasks' : `${filter.toUpperCase()} Tasks`} ({filtered.length})
+                  {filter === 'all' ? (lang === 'hi' ? 'सभी कार्य' : 'All Tasks') : `${filter.toUpperCase()} ${lang === 'hi' ? 'कार्य' : 'Tasks'}`} ({filtered.length})
                 </div>
                 <button
                   onClick={() => handleExportCSV('filtered')}
@@ -524,7 +533,7 @@ export default function TasksPage() {
                 >
                   <FileSpreadsheet size={18} color="var(--primary)" />
                   <div>
-                    <div style={{ fontWeight: 600 }}>Download CSV</div>
+                    <div style={{ fontWeight: 600 }}>{lang === 'hi' ? 'CSV डाउनलोड करें' : 'Download CSV'}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Universal tabular (.csv)</div>
                   </div>
                 </button>
@@ -541,7 +550,7 @@ export default function TasksPage() {
                 >
                   <FileText size={18} color="var(--success)" />
                   <div>
-                    <div style={{ fontWeight: 600 }}>Download Excel</div>
+                    <div style={{ fontWeight: 600 }}>{lang === 'hi' ? 'Excel डाउनलोड करें' : 'Download Excel'}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Styled workbook (.xls)</div>
                   </div>
                 </button>
@@ -559,7 +568,7 @@ export default function TasksPage() {
           boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
         }}>
           <CheckCircle2 size={36} color="var(--success)" style={{ margin: '0 auto 8px', opacity: 0.8 }} />
-          <div style={{ fontSize: 14, fontWeight: 500 }}>No tasks in this category</div>
+          <div style={{ fontSize: 14, fontWeight: 500 }}>{lang === 'hi' ? 'इस श्रेणी में कोई कार्य नहीं है' : 'No tasks in this category'}</div>
         </div>
       ) : (
         filtered.map(task => {
@@ -569,8 +578,8 @@ export default function TasksPage() {
               <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
                 {/* Status + priority */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, minWidth: 110 }}>
-                  <span style={taskStatusBadge(task.status)}>{taskStatusLabel(task.status)}</span>
-                  <span style={priorityBadge(task.priority)}>{task.priority.toUpperCase()}</span>
+                  <span style={taskStatusBadge(task.status)}>{taskStatusLabel(task.status, lang)}</span>
+                  <span style={priorityBadge(task.priority)}>{translateSeverity(task.priority, lang).toUpperCase()}</span>
                 </div>
 
                 {/* Content */}
@@ -585,25 +594,25 @@ export default function TasksPage() {
                         {task.orderNumber}
                       </span>
                     )}
-                    <span>{task.title}</span>
+                    <span>{translateSafetyText(task.title, lang)}</span>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
-                    Report Reference:{' '}
+                    {lang === 'hi' ? 'संदर्भ रिपोर्ट:' : 'Report Reference:'}{' '}
                     <Link href={`/officer/reports/${task.reportId}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>
-                      {task.reportTitle || task.reportId}
+                      {translateSafetyText(task.reportTitle || task.reportId, lang)}
                     </Link>
                   </div>
                   <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
                     {/* Assigned Crew Badge */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Assigned to:</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{lang === 'hi' ? 'सौंपा गया:' : 'Assigned to:'}</span>
                       {isAssigned ? (
                         <span style={{
                           fontSize: 12, fontWeight: 700, color: '#0A192F',
                           background: '#E2E8F0', padding: '2px 10px', borderRadius: 6,
                           display: 'inline-flex', alignItems: 'center', gap: 5,
                         }}>
-                          <Wrench size={12} strokeWidth={2.2} /> {task.assignedTo}
+                          <Wrench size={12} strokeWidth={2.2} /> {translateCrew(task.assignedTo || undefined, lang)}
                         </span>
                       ) : (
                         <span style={{
@@ -611,13 +620,13 @@ export default function TasksPage() {
                           background: '#fef2f2', padding: '2px 8px', borderRadius: 6,
                           display: 'inline-flex', alignItems: 'center', gap: 4,
                         }}>
-                          <AlertTriangle size={11} strokeWidth={2.2} /> Unassigned
+                          <AlertTriangle size={11} strokeWidth={2.2} /> {lang === 'hi' ? 'अनअसाइन' : 'Unassigned'}
                         </span>
                       )}
                     </div>
                     {/* Due date */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Due:</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{lang === 'hi' ? 'नियत तारीख:' : 'Due:'}</span>
                       <span style={{
                         fontSize: 12, fontWeight: 600,
                         color: isOverdue(task.dueDate) && task.status !== 'done' ? '#dc2626' : 'var(--text)',
@@ -625,7 +634,7 @@ export default function TasksPage() {
                         {task.dueDate}
                         {isOverdue(task.dueDate) && task.status !== 'done' && (
                           <span style={{ marginLeft: 4, fontSize: 10, background: '#fef2f2', color: '#dc2626', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>
-                            OVERDUE
+                            {lang === 'hi' ? 'अतिदेय' : 'OVERDUE'}
                           </span>
                         )}
                       </span>
@@ -641,7 +650,7 @@ export default function TasksPage() {
                     }}>
                       <FileText size={15} style={{ flexShrink: 0 }} />
                       <div>
-                        <strong>Maintenance Clearance Note:</strong> {task.clearanceNote}
+                        <strong>{lang === 'hi' ? 'मेंटेनेंस निकासी नोट:' : 'Maintenance Clearance Note:'}</strong> {translateSafetyText(task.clearanceNote, lang)}
                       </div>
                     </div>
                   )}
@@ -665,14 +674,14 @@ export default function TasksPage() {
                       }}
                     >
                       <CheckCircle2 size={15} strokeWidth={2.4} />
-                      <span>Verify &amp; Clear Task</span>
+                      <span>{lang === 'hi' ? 'सत्यापित व हल करें' : 'Verify & Clear Task'}</span>
                     </button>
                   )}
 
                   {task.status === 'in_progress' && (
                     <button
                       onClick={() => handleVerifyAndClearTask(task)}
-                      title="Directly certify and clear this task"
+                      title={lang === 'hi' ? 'इस कार्य को सीधे प्रमाणित और हल करें' : 'Directly certify and clear this task'}
                       style={{
                         padding: '6px 14px',
                         border: '1px solid #10b981',
@@ -684,7 +693,7 @@ export default function TasksPage() {
                       }}
                     >
                       <Zap size={13} strokeWidth={2.4} />
-                      <span>Sign Off &amp; Clear</span>
+                      <span>{lang === 'hi' ? 'मंजूरी दें व हल करें' : 'Sign Off & Clear'}</span>
                     </button>
                   )}
 
@@ -704,7 +713,7 @@ export default function TasksPage() {
                       }}
                     >
                       {isAssigned ? <RefreshCw size={13} strokeWidth={2.2} /> : <Wrench size={13} strokeWidth={2.2} />}
-                      <span>{isAssigned ? 'Reassign Team' : 'Assign Team'}</span>
+                      <span>{isAssigned ? (lang === 'hi' ? 'टीम पुनः सौंपें' : 'Reassign Team') : (lang === 'hi' ? 'टीम सौंपें' : 'Assign Team')}</span>
                     </button>
                   )}
 
@@ -714,7 +723,7 @@ export default function TasksPage() {
                       color: 'var(--success)', fontSize: 11, fontWeight: 700,
                       display: 'flex', alignItems: 'center', gap: 5,
                     }}>
-                      <CheckCircle2 size={13} strokeWidth={2.2} /> Cleared &amp; Closed
+                      <CheckCircle2 size={13} strokeWidth={2.2} /> {lang === 'hi' ? 'हल व बंद' : 'Cleared & Closed'}
                     </div>
                   )}
                 </div>
@@ -746,8 +755,8 @@ export default function TasksPage() {
                 <Wrench size={18} style={{ color: 'var(--primary)' }} />
                 <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>
                   {assignModalTask.assignedTo && assignModalTask.assignedTo !== 'Unassigned'
-                    ? 'Reassign Maintenance Team'
-                    : 'Assign Task to Maintenance Team'}
+                    ? (lang === 'hi' ? 'मेंटेनेंस टीम पुनः सौंपें' : 'Reassign Maintenance Team')
+                    : (lang === 'hi' ? 'मेंटेनेंस टीम को कार्य सौंपें' : 'Assign Task to Maintenance Team')}
                 </span>
               </div>
               <button
@@ -766,21 +775,21 @@ export default function TasksPage() {
                 padding: '12px 14px',
               }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                  Task Title
+                  {lang === 'hi' ? 'कार्य शीर्षक' : 'Task Title'}
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginTop: 2 }}>
-                  {assignModalTask.title}
+                  {translateSafetyText(assignModalTask.title, lang)}
                 </div>
                 <div style={{ fontSize: 12, color: '#64748B', marginTop: 4 }}>
-                  Current Status: <strong style={{ color: '#0F172A' }}>{taskStatusLabel(assignModalTask.status)}</strong> ·
-                  Current Assignee: <strong style={{ color: '#0F172A' }}>{assignModalTask.assignedTo || 'Unassigned'}</strong>
+                  {lang === 'hi' ? 'वर्तमान स्थिति:' : 'Current Status:'} <strong style={{ color: '#0F172A' }}>{taskStatusLabel(assignModalTask.status, lang)}</strong> ·{' '}
+                  {lang === 'hi' ? 'वर्तमान टीम:' : 'Current Assignee:'} <strong style={{ color: '#0F172A' }}>{translateCrew(assignModalTask.assignedTo || 'Unassigned', lang)}</strong>
                 </div>
               </div>
 
               {/* Maintenance Crew Dropdown */}
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
-                  Select Maintenance Team / Crew: *
+                  {lang === 'hi' ? 'मेंटेनेंस टीम / क्रू चुनें: *' : 'Select Maintenance Team / Crew: *'}
                 </label>
                 <select
                   value={selectedCrew}
@@ -791,11 +800,11 @@ export default function TasksPage() {
                   }}
                 >
                   {MAINTENANCE_CREWS.map(crew => (
-                    <option key={crew} value={crew}>{crew}</option>
+                    <option key={crew} value={crew}>{translateCrew(crew, lang)}</option>
                   ))}
                 </select>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                  This crew will receive live task assignment and digital LOTO authorization in their portal.
+                  {lang === 'hi' ? 'इस क्रू को उनके पोर्टल में लाइव कार्य असाइनमेंट और डिजिटल LOTO प्राधिकरण प्राप्त होगा।' : 'This crew will receive live task assignment and digital LOTO authorization in their portal.'}
                 </div>
               </div>
 
@@ -803,7 +812,7 @@ export default function TasksPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
-                    Workflow Status:
+                    {lang === 'hi' ? 'कार्यप्रवाह स्थिति:' : 'Workflow Status:'}
                   </label>
                   <select
                     value={selectedStatus}
@@ -813,16 +822,16 @@ export default function TasksPage() {
                       background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontWeight: 600,
                     }}
                   >
-                    <option value="in_progress">In Progress (Active Dispatch)</option>
-                    <option value="pending">Pending Crew Acknowledgment</option>
-                    <option value="clearance_submitted">Clearance Submitted (Awaiting Officer)</option>
-                    <option value="done">Completed &amp; Cleared</option>
+                    <option value="in_progress">{lang === 'hi' ? 'प्रगति पर है (सक्रिय)' : 'In Progress (Active Dispatch)'}</option>
+                    <option value="pending">{lang === 'hi' ? 'स्वीकृति लंबित' : 'Pending Crew Acknowledgment'}</option>
+                    <option value="clearance_submitted">{lang === 'hi' ? 'निकासी समीक्षा प्रस्तुत (अधिकारी समीक्षा)' : 'Clearance Submitted (Awaiting Officer)'}</option>
+                    <option value="done">{lang === 'hi' ? 'पूर्ण व हल' : 'Completed & Cleared'}</option>
                   </select>
                 </div>
 
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
-                    Priority:
+                    {lang === 'hi' ? 'प्राथमिकता:' : 'Priority:'}
                   </label>
                   <select
                     value={selectedPriority}
@@ -832,9 +841,9 @@ export default function TasksPage() {
                       background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontWeight: 600,
                     }}
                   >
-                    <option value="critical">CRITICAL (Immediate)</option>
-                    <option value="high">HIGH (Next shift)</option>
-                    <option value="medium">MEDIUM (Routine)</option>
+                    <option value="critical">{lang === 'hi' ? 'अति गंभीर (तत्काल)' : 'CRITICAL (Immediate)'}</option>
+                    <option value="high">{lang === 'hi' ? 'उच्च (अगली शिफ्ट)' : 'HIGH (Next shift)'}</option>
+                    <option value="medium">{lang === 'hi' ? 'मध्यम (नियमित)' : 'MEDIUM (Routine)'}</option>
                   </select>
                 </div>
               </div>
@@ -842,12 +851,12 @@ export default function TasksPage() {
               {/* Special Instructions / Notes */}
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
-                  Dispatch Notes &amp; Safety Precautions (Optional):
+                  {lang === 'hi' ? 'प्रेषण नोट और सुरक्षा सावधानियां (वैकल्पिक):' : 'Dispatch Notes & Safety Precautions (Optional):'}
                 </label>
                 <textarea
                   value={specialInstructions}
                   onChange={e => setSpecialInstructions(e.target.value)}
-                  placeholder="e.g. Verify zero-energy state with multi-meter before removing casing. LOTO isolation required."
+                  placeholder={lang === 'hi' ? 'उदा. केसिंग हटाने से पहले मल्टी-मीटर से शून्य-ऊर्जा स्थिति सत्यापित करें। LOTO तालाबंदी आवश्यक है।' : 'e.g. Verify zero-energy state with multi-meter before removing casing. LOTO isolation required.'}
                   rows={3}
                   style={{
                     width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)',
@@ -872,7 +881,7 @@ export default function TasksPage() {
                   cursor: 'pointer',
                 }}
               >
-                Cancel
+                {lang === 'hi' ? 'रद्द करें' : 'Cancel'}
               </button>
               <button
                 onClick={handleConfirmAssignment}
@@ -884,7 +893,7 @@ export default function TasksPage() {
                   display: 'flex', alignItems: 'center', gap: 6,
                 }}
               >
-                <span>{isSubmittingAssign ? 'Dispatching...' : 'Confirm Assignment & Dispatch'}</span>
+                <span>{isSubmittingAssign ? (lang === 'hi' ? 'भेजा जा रहा है...' : 'Dispatching...') : (lang === 'hi' ? 'असाइनमेंट पुष्टि करें और भेजें' : 'Confirm Assignment & Dispatch')}</span>
               </button>
             </div>
           </div>

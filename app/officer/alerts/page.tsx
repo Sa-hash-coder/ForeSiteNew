@@ -17,6 +17,15 @@ import {
   Undo2,
 } from 'lucide-react';
 
+import { useLanguage } from '@/app/lib/LanguageContext';
+import {
+  translateSafetyText,
+  translateLocation,
+  translateCategory,
+  translateSeverity,
+  translateTimeAgo,
+} from '@/app/lib/hindiTranslator';
+
 // ─── Extended Alert with AI Suggestions ──────────────────────────────────────
 
 interface LiveAlertItem {
@@ -62,12 +71,8 @@ function timeAgo(iso?: string) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-function catLabel(c: string) {
-  const m: Record<string, string> = {
-    electrical: 'Electrical', fall: 'Fall Risk', chemical: 'Chemical',
-    fire: 'Fire', machinery: 'Machinery', structural: 'Structural', ppe: 'PPE',
-  };
-  return m[c] || c;
+function catLabel(c: string, lang: any = 'en') {
+  return translateCategory(c, lang);
 }
 
 function catStyle(c: string): CSSProperties {
@@ -148,6 +153,7 @@ type Tab = 'all' | 'critical' | 'high';
 type SortOpt = 'newest' | 'highest_risk';
 
 export default function AlertsPage() {
+  const { lang } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('all');
   const [sort, setSort] = useState<SortOpt>('highest_risk');
@@ -218,11 +224,11 @@ export default function AlertsPage() {
         reportId: alert.reportId,
       });
 
-      setToast(`Maintenance task assigned: "${primaryRec.slice(0, 45)}..."`);
+      setToast(lang === 'hi' ? `मेंटेनेंस कार्य सौंपा गया: "${translateSafetyText(primaryRec, lang).slice(0, 45)}..."` : `Maintenance task assigned: "${primaryRec.slice(0, 45)}..."`);
       setTimeout(() => setToast(null), 4000);
     } catch (err) {
       console.warn("Failed to dispatch task:", err);
-      setToast("Maintenance task logged to dispatch queue.");
+      setToast(lang === 'hi' ? "मेंटेनेंस कार्य कतार में दर्ज किया गया।" : "Maintenance task logged to dispatch queue.");
       setTimeout(() => setToast(null), 3000);
     }
   };
@@ -279,21 +285,21 @@ export default function AlertsPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Active Alerts</h2>
+          <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{lang === 'hi' ? 'सक्रिय अलर्ट' : 'Active Alerts'}</h2>
           <span style={{ background: '#dc2626', color: '#fff', borderRadius: 999, fontSize: 12, fontWeight: 700, padding: '2px 10px' }}>
             {unackCount}
           </span>
           <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', border: '1px solid #86EFAC', borderRadius: 6, padding: '2px 8px', display: 'flex', alignItems: 'center', gap: 4 }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#15803D', display: 'inline-block' }}></span>
-            Real-time AI Active
+            {lang === 'hi' ? 'रीयल-टाइम AI सक्रिय' : 'Real-time AI Active'}
           </span>
         </div>
         <select value={sort} onChange={e => setSort(e.target.value as SortOpt)} style={{
           padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 10, fontSize: 13,
           background: 'var(--surface)', color: 'var(--text)', outline: 'none', cursor: 'pointer',
         }}>
-          <option value="highest_risk">Highest Risk First</option>
-          <option value="newest">Newest First</option>
+          <option value="highest_risk">{lang === 'hi' ? 'उच्चतम जोखिम पहले' : 'Highest Risk First'}</option>
+          <option value="newest">{lang === 'hi' ? 'नवीनतम पहले' : 'Newest First'}</option>
         </select>
       </div>
 
@@ -304,7 +310,7 @@ export default function AlertsPage() {
         display: 'flex', alignItems: 'center', gap: 8,
       }}>
         <Zap size={16} style={{ flexShrink: 0 }} />
-        <span>Showing real-time automated SIF hazard detections with model-generated OSHA recommendations.</span>
+        <span>{lang === 'hi' ? 'OSHA सिफारिशों और AI जोखिम मॉडल द्वारा पहचाने गए रीयल-टाइम SIF खतरे दिखाए जा रहे हैं।' : 'Showing real-time automated SIF hazard detections with model-generated OSHA recommendations.'}</span>
       </div>
 
       {/* Filter tabs */}
@@ -324,15 +330,15 @@ export default function AlertsPage() {
               borderRight: i < 2 ? '1px solid var(--border)' : 'none',
               display: 'flex', alignItems: 'center', gap: 7,
             }}>
-              {t === 'all' ? 'All' : t === 'critical' ? (
+              {t === 'all' ? (lang === 'hi' ? 'सभी' : 'All') : t === 'critical' ? (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#dc2626', display: 'inline-block' }}></span>
-                  Critical
+                  {lang === 'hi' ? 'अति गंभीर' : 'Critical'}
                 </span>
               ) : (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#ea580c', display: 'inline-block' }}></span>
-                  High
+                  {lang === 'hi' ? 'उच्च' : 'High'}
                 </span>
               )}
               <span style={{
@@ -352,8 +358,8 @@ export default function AlertsPage() {
           display: 'flex', flexDirection: 'column', alignItems: 'center',
         }}>
           <CheckCircle2 size={36} color="#10b981" style={{ marginBottom: 12 }} />
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>No alerts for this category</div>
-          <div style={{ fontSize: 12, marginTop: 4 }}>All risks in this severity level have been addressed.</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{lang === 'hi' ? 'इस श्रेणी में कोई अलर्ट नहीं है' : 'No alerts for this category'}</div>
+          <div style={{ fontSize: 12, marginTop: 4 }}>{lang === 'hi' ? 'इस गंभीरता स्तर के सभी जोखिमों का समाधान किया जा चुका है।' : 'All risks in this severity level have been addressed.'}</div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -391,31 +397,33 @@ export default function AlertsPage() {
                         borderRadius: 999, padding: '2px 10px', fontSize: 11, fontWeight: 700,
                         textTransform: 'uppercase' as const, letterSpacing: '0.05em',
                       }}>
-                        {alert.severity}
+                        {translateSeverity(alert.severity, lang)}
                       </span>
-                      <span style={catStyle(alert.category)}>{catLabel(alert.category)}</span>
+                      <span style={catStyle(alert.category)}>{catLabel(alert.category, lang)}</span>
                       {alert.sifProbability && (
                         <span style={{
                           backgroundColor: '#F1F5F9', color: '#0F172A',
                           borderRadius: 999, padding: '2px 10px', fontSize: 11, fontWeight: 700,
                           border: '1px solid #E2E8F0',
                         }}>
-                          SIF Probability: {Math.round(alert.sifProbability * 100)}%
+                          {lang === 'hi' ? `SIF संभावना: ${Math.round(alert.sifProbability * 100)}%` : `SIF Probability: ${Math.round(alert.sifProbability * 100)}%`}
                         </span>
                       )}
                       {alert.acknowledged && (
                         <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
-                          <Check size={12} strokeWidth={2.5} /> Acknowledged
+                          <Check size={12} strokeWidth={2.5} /> {lang === 'hi' ? 'स्वीकृत' : 'Acknowledged'}
                         </span>
                       )}
                     </div>
 
-                    <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', marginBottom: 4 }}>{alert.title}</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', marginBottom: 4 }}>
+                      {translateSafetyText(alert.title, lang)}
+                    </div>
                     
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><MapPin size={12} /> {alert.location || alert.zone}</span>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><User size={12} /> {alert.submittedBy}</span>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Clock size={12} /> {alert.timeAgo}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><MapPin size={12} /> {translateLocation(alert.location || alert.zone, lang)}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><User size={12} /> {alert.submittedBy === 'Site Worker' && lang === 'hi' ? 'साइट कर्मचारी' : alert.submittedBy}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Clock size={12} /> {translateTimeAgo(alert.timeAgo, lang)}</span>
                     </div>
 
                     {/* Precursor Tags */}
@@ -427,7 +435,7 @@ export default function AlertsPage() {
                             backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A',
                             display: 'inline-flex', alignItems: 'center', gap: 4,
                           }}>
-                            <AlertTriangle size={11} /> Precursor: {p}
+                            <AlertTriangle size={11} /> {lang === 'hi' ? `संकेतक: ${translateSafetyText(p, lang)}` : `Precursor: ${p}`}
                           </span>
                         ))}
                       </div>
@@ -444,7 +452,7 @@ export default function AlertsPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                         <Bot size={15} style={{ color: 'var(--primary)' }} />
                         <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text)' }}>
-                          AI Recommended Solutions &amp; Remediation (OSHA 1910):
+                          {lang === 'hi' ? 'AI अनुशंसित समाधान व निवारण (OSHA 1910):' : 'AI Recommended Solutions & Remediation (OSHA 1910):'}
                         </span>
                       </div>
 
@@ -453,7 +461,7 @@ export default function AlertsPage() {
                         return (
                           <ul style={{ margin: '4px 0 0 0', paddingLeft: 18, fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>
                             {recs.map((rec, i) => (
-                              <li key={i} style={{ fontWeight: 600, marginBottom: 2 }}>{rec}</li>
+                              <li key={i} style={{ fontWeight: 600, marginBottom: 2 }}>{translateSafetyText(rec, lang)}</li>
                             ))}
                           </ul>
                         );
@@ -461,7 +469,7 @@ export default function AlertsPage() {
 
                       {alert.explanation && (
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, fontStyle: 'italic' }}>
-                          Analysis: {alert.explanation}
+                          {lang === 'hi' ? `विश्लेषण: ${translateSafetyText(alert.explanation, lang)}` : `Analysis: ${alert.explanation}`}
                         </div>
                       )}
                     </div>
@@ -478,7 +486,7 @@ export default function AlertsPage() {
                         transition: 'all 0.15s ease', whiteSpace: 'nowrap' as const, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                       }}>
-                        <Eye size={13} /> View Report
+                        <Eye size={13} /> {lang === 'hi' ? 'रिपोर्ट देखें' : 'View Report'}
                       </button>
                     </Link>
                     <button
@@ -489,9 +497,9 @@ export default function AlertsPage() {
                         transition: 'all 0.15s ease', whiteSpace: 'nowrap' as const, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                       }}
-                      title="Assign maintenance task based on AI suggestions"
+                      title={lang === 'hi' ? 'AI सुझावों के आधार पर मेंटेनेंस कार्य सौंपें' : 'Assign maintenance task based on AI suggestions'}
                     >
-                      <Zap size={13} /> Assign Task
+                      <Zap size={13} /> {lang === 'hi' ? 'कार्य सौंपें' : 'Assign Task'}
                     </button>
                     <button
                       onClick={() => toggle(alert._id)}
@@ -505,11 +513,11 @@ export default function AlertsPage() {
                     >
                       {alert.acknowledged ? (
                         <>
-                          <Undo2 size={12} /> Unacknowledge
+                          <Undo2 size={12} /> {lang === 'hi' ? 'अस्वीकृत करें' : 'Unacknowledge'}
                         </>
                       ) : (
                         <>
-                          <Check size={12} strokeWidth={2.5} /> Acknowledge
+                          <Check size={12} strokeWidth={2.5} /> {lang === 'hi' ? 'स्वीकार करें' : 'Acknowledge'}
                         </>
                       )}
                     </button>
@@ -524,7 +532,7 @@ export default function AlertsPage() {
                   padding: '7px 18px', fontSize: 12, fontWeight: 700, color: '#dc2626',
                   display: 'flex', alignItems: 'center', gap: 6,
                 }}>
-                  <Zap size={13} /> High-priority SIF alert — Immediate supervisor verification required under OSHA 1910
+                  <Zap size={13} /> {lang === 'hi' ? 'अति-गंभीर SIF अलर्ट — OSHA 1910 के तहत तत्काल पर्यवेक्षक सत्यापन आवश्यक' : 'High-priority SIF alert — Immediate supervisor verification required under OSHA 1910'}
                 </div>
               )}
             </div>

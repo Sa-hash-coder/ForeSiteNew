@@ -8,79 +8,59 @@ import { getAlertsApi } from '@/app/lib/api';
 import { LanguageProvider, useLanguage } from '@/app/lib/LanguageContext';
 import { getStoredUser, logout } from '@/app/lib/auth';
 import { Bell, Menu, X } from 'lucide-react';
-
-// Replaced emojis with clean, strict SVG icons
-const NAV_ITEMS = [
-  {
-    label: 'Overview', href: '/officer', exact: true,
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
-  },
-  {
-    label: 'Reports', href: '/officer/reports', exact: false,
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-  },
-  {
-    label: 'Heatmap', href: '/officer/heatmap', exact: false,
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg>
-  },
-  {
-    label: 'Analytics', href: '/officer/analytics', exact: false,
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-  },
-  {
-    label: 'Alerts', href: '/officer/alerts', exact: false,
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-  },
-  {
-    label: 'Tasks', href: '/officer/tasks', exact: false,
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
-  },
-];
-
-const PAGE_TITLES: Record<string, string> = {
-  '/officer':            'Executive Safety Dashboard',
-  '/officer/reports':    'Incident & Hazard Reports',
-  '/officer/heatmap':    'Refinery Facility Heatmap',
-  '/officer/analytics':  'Risk Analytics & Trends',
-  '/officer/alerts':     'Active Hazard Alerts',
-  '/officer/tasks':      'Assigned Maintenance Tasks',
-};
+import LanguageSwitchButton from '@/app/components/LanguageSwitchButton';
 
 function OfficerLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { lang, t } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [currentUser, setCurrentUser] = useState<any>(null);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('foresite_theme') as 'light' | 'dark' | null;
-    const initialTheme = saved || 'light';
-    setTheme(initialTheme);
-    document.documentElement.setAttribute('data-theme', initialTheme);
-
-    const u = getStoredUser();
-    if (u) setCurrentUser(u);
-  }, []);
-
   const toggleTheme = () => {
-    const nextTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(nextTheme);
-    document.documentElement.setAttribute('data-theme', nextTheme);
-    localStorage.setItem('foresite_theme', nextTheme);
+    const next = theme === 'light' ? 'dark' : 'light';
+    setTheme(next);
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', next);
+    }
   };
 
-  // Close mobile menu and ensure theme attribute is synced when navigating
-  useEffect(() => {
-    setMobileMenuOpen(false);
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [pathname, theme]);
+  const navItems = [
+    {
+      label: t.navOverview, href: '/officer', exact: true,
+      icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+    },
+    {
+      label: t.navReports, href: '/officer/reports', exact: false,
+      icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+    },
+    {
+      label: t.navHeatmap, href: '/officer/heatmap', exact: false,
+      icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg>
+    },
+    {
+      label: t.navAnalytics, href: '/officer/analytics', exact: false,
+      icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+    },
+    {
+      label: t.navAlerts, href: '/officer/alerts', exact: false,
+      icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+    },
+    {
+      label: t.navTasks, href: '/officer/tasks', exact: false,
+      icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+    },
+  ];
 
   const pageTitle = (() => {
-    if (pathname.startsWith('/officer/reports/')) return 'Report Detail';
-    const key = Object.keys(PAGE_TITLES)
-      .sort((a, b) => b.length - a.length)
-      .find(k => pathname === k || pathname.startsWith(k + '/'));
-    return key ? PAGE_TITLES[key] : 'Safety Command';
+    if (pathname.startsWith('/officer/reports/')) return lang === 'hi' ? 'रिपोर्ट विवरण' : 'Report Detail';
+    if (pathname === '/officer') return lang === 'hi' ? 'कार्यकारी सुरक्षा डैशबोर्ड' : 'Executive Safety Dashboard';
+    if (pathname.startsWith('/officer/reports')) return lang === 'hi' ? 'घटना एवं ख़तरा रिपोर्ट्स' : 'Incident & Hazard Reports';
+    if (pathname.startsWith('/officer/heatmap')) return lang === 'hi' ? 'रिफाइनरी सुविधा हीटमैप' : 'Refinery Facility Heatmap';
+    if (pathname.startsWith('/officer/analytics')) return lang === 'hi' ? 'जोखिम विश्लेषण एवं रुझान' : 'Risk Analytics & Trends';
+    if (pathname.startsWith('/officer/alerts')) return lang === 'hi' ? 'सक्रिय ख़तरा चेतावनियाँ' : 'Active Hazard Alerts';
+    if (pathname.startsWith('/officer/tasks')) return lang === 'hi' ? 'आवंटित सुधार कार्य' : 'Assigned Maintenance Tasks';
+    return lang === 'hi' ? 'सुरक्षा कमांड सेंटर' : 'Safety Command';
   })();
 
   const [unacknowledgedCount, setUnacknowledgedCount] = useState<number>(() => {
@@ -162,9 +142,9 @@ function OfficerLayoutContent({ children }: { children: React.ReactNode }) {
         {/* Navigation Items */}
         <nav style={{ flex: 1, padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', paddingLeft: 12, marginBottom: 8 }}>
-            Command Center
+            {t.commandCenter}
           </div>
-          {NAV_ITEMS.map(item => {
+          {navItems.map(item => {
             const isActive = item.exact
               ? pathname === item.href
               : pathname === item.href || pathname.startsWith(item.href + '/');
@@ -237,10 +217,10 @@ function OfficerLayoutContent({ children }: { children: React.ReactNode }) {
             </div>
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {currentUser?.name || 'Safety Officer'}
+                {currentUser?.name || t.safetyOfficer}
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                {currentUser?.role === 'officer' ? 'Lead Safety Inspector' : (currentUser?.role || 'Safety Officer')}
+                {currentUser?.role === 'officer' ? t.leadSafetyInspector : (currentUser?.role || t.safetyOfficer)}
               </div>
             </div>
           </div>
@@ -262,7 +242,7 @@ function OfficerLayoutContent({ children }: { children: React.ReactNode }) {
               cursor: 'pointer',
             }}
           >
-            Sign Out
+            {t.signOut}
           </button>
         </div>
       </aside>
@@ -332,13 +312,16 @@ function OfficerLayoutContent({ children }: { children: React.ReactNode }) {
                 {pageTitle}
               </h1>
               <div style={{ fontSize: 11, color: 'var(--text-muted)' }} className="facility-subtitle">
-                Site: Refinery Unit Alpha · Live Grid Active
+                {t.siteSubtitle}
               </div>
             </div>
           </div>
 
-          {/* Right Action Controls: Theme Switcher & Alerts */}
+          {/* Right Action Controls: Language Switcher & Theme Switcher */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+
+            {/* Language Switcher */}
+            <LanguageSwitchButton variant="header" />
 
             {/* Theme Toggle Button: Moon for dark mode, Sun for light mode */}
             <button

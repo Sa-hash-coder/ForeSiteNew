@@ -270,6 +270,33 @@
   ],
   "alerts": [
     {
+      "reportId": "6aa5f54dfceecd65835955d6",
+      "reportTitle": "Stair is broken in maintenance room",
+      "riskLevel": "HIGH",
+      "riskScore": 67,
+      "sifProbability": 0.65,
+      "message": "HIGH SIF HAZARD: Stair is broken in maintenance room at Maintenance Workshop",
+      "precursors": [
+        "Inadequate Workplace Illumination",
+        "Improper Ladder Usage"
+      ],
+      "hazards": [
+        "Visibility Hazard",
+        "Fall from Height"
+      ],
+      "recommendations": [
+        "Deploy portable high-output LED work lights to restore safe illumination levels immediately.",
+        "Remove damaged ladder from service and destroy or tag out immediately.",
+        "Replace blown fluorescent/LED tubes in stairwells and primary access pathways."
+      ],
+      "explanation": "Report indicates Inadequate Workplace Illumination, Improper Ladder Usage associated with Visibility Hazard, Fall from Height. Recommended action: Deploy portable high-output LED work lights to restore safe illumination levels immediately. Identified 2 SIF precursors with 65% SIF probability. Immediate mitigation required.",
+      "location": "Maintenance Workshop",
+      "submittedBy": "Rahul",
+      "isAcknowledged": false,
+      "_id": "alt_1lukmz1m",
+      "createdAt": "2026-09-13T00:58:53.190Z"
+    },
+    {
       "reportId": "6aa5eb96fb4a4f1587f9c71a",
       "reportTitle": "Exposed live wiring in MCC Room",
       "riskLevel": "CRITICAL",

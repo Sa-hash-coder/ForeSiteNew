@@ -12,6 +12,8 @@ import {
   HEATMAP_ZONES,
 } from '@/app/lib/officerMockData';
 import { ShieldCheck, Lightbulb } from 'lucide-react';
+import { useLanguage } from '@/app/lib/LanguageContext';
+import { translateSafetyText, translateLocation, translateCategory } from '@/app/lib/hindiTranslator';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -57,12 +59,15 @@ function statusBadgeStyle(status: string): CSSProperties {
   };
 }
 
-function timeAgo(iso: string) {
+function timeAgo(iso?: string, lang: string = 'en') {
+  if (!iso) return lang === 'hi' ? 'लाइव' : 'Live';
   const diff = Date.now() - new Date(iso).getTime();
-  const hrs = Math.floor(diff / 3600000);
-  if (hrs < 1) return 'Just now';
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return lang === 'hi' ? 'अभी' : 'Just now';
+  if (mins < 60) return `${mins}${lang === 'hi' ? ' मिनट पहले' : 'm ago'}`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}${lang === 'hi' ? ' घंटे पहले' : 'h ago'}`;
+  return `${Math.floor(hrs / 24)}${lang === 'hi' ? ' दिन पहले' : 'd ago'}`;
 }
 
 function resolveAlertRec(alert: any): string {
@@ -97,6 +102,7 @@ function SkeletonCard({ h = 140 }: { h?: number }) {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function OfficerOverview() {
+  const { lang, t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [liveStats, setLiveStats] = useState<any>(null);
   const [liveReports, setLiveReports] = useState<any[]>([]);
@@ -174,12 +180,13 @@ export default function OfficerOverview() {
           riskScore: a.riskScore || 85,
           severity: (a.riskLevel?.toLowerCase() === "critical" ? "critical" : "high") as any,
           zone: a.zone || (a.location ? a.location.split(',')[0].trim() : "Sector 4"),
-          timeAgo: a.createdAt ? timeAgo(a.createdAt) : "Live",
+          timeAgo: timeAgo(a.createdAt, lang),
           recommendations: a.recommendations && a.recommendations.length > 0 ? a.recommendations : [resolveAlertRec(a)],
         }))
     : ACTIVE_ALERTS.filter(a => !a.acknowledged).slice(0, 3).map((a: any) => ({
         ...a,
         reportId: a._id.replace("alt-", "rpt-0"),
+        timeAgo: timeAgo(a.createdAt, lang),
         recommendations: a.recommendations && a.recommendations.length > 0 ? a.recommendations : [resolveAlertRec(a)],
       }));
 
@@ -198,7 +205,7 @@ export default function OfficerOverview() {
         <div className="apple-card animate-apple-fade-up delay-1" style={{ ...card, borderTop: '4px solid var(--primary)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Total Reports</div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{t.totalReportsCard}</div>
               <div style={{ fontSize: 42, fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{liveStats?.stats?.totalReports ?? 47}</div>
               <div style={{ fontSize: 13, color: '#16a34a', marginTop: 8, fontWeight: 600 }}>↑ 12% vs last month</div>
             </div>
@@ -212,9 +219,9 @@ export default function OfficerOverview() {
         <div className="apple-card animate-apple-fade-up delay-2" style={{ ...card, borderTop: '4px solid var(--danger)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Critical / High</div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{t.criticalHighCard}</div>
               <div style={{ fontSize: 42, fontWeight: 800, color: 'var(--danger)', lineHeight: 1 }}>{liveStats?.stats?.criticalAlerts ?? 8}</div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>Requires immediate action</div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>{t.requiresAction}</div>
             </div>
             <div style={{ color: 'var(--danger)', opacity: 0.8 }}>
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
@@ -226,9 +233,9 @@ export default function OfficerOverview() {
         <div className="apple-card animate-apple-fade-up delay-3" style={{ ...card, borderTop: '4px solid var(--warning)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Pending Review</div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{t.pendingReviewCard}</div>
               <div style={{ fontSize: 42, fontWeight: 800, color: 'var(--warning)', lineHeight: 1 }}>{liveStats?.stats?.openTasks ?? 13}</div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>Awaiting assessment</div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>{t.awaitingAssessment}</div>
             </div>
             <div style={{ color: 'var(--warning)', opacity: 0.8 }}>
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
@@ -240,7 +247,7 @@ export default function OfficerOverview() {
         <div className="apple-card animate-apple-fade-up delay-4" style={{ ...card, borderTop: '4px solid var(--success)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Resolved</div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{t.resolvedCard}</div>
               <div style={{ fontSize: 42, fontWeight: 800, color: 'var(--success)', lineHeight: 1 }}>26</div>
               <div style={{ fontSize: 13, color: '#16a34a', marginTop: 8, fontWeight: 600 }}>↑ 8% this month</div>
             </div>
@@ -257,10 +264,10 @@ export default function OfficerOverview() {
         <div className="apple-card animate-apple-fade-up delay-2" style={card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
-              Weekly Reports (Last 8 Weeks)
+              {t.weeklyReportsTitle}
             </div>
             <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary)', backgroundColor: 'var(--surface-subtle)', padding: '2px 8px', borderRadius: 999 }}>
-              Live Telemetry
+              {t.liveTelemetryBadge}
             </span>
           </div>
           <RealWeeklyReportsChart weeks={chartWeeks} />
@@ -268,12 +275,12 @@ export default function OfficerOverview() {
 
         {/* Category Breakdown */}
         <div className="apple-card animate-apple-fade-up delay-3" style={card}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 20 }}>Category Breakdown</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 20 }}>{t.categoryBreakdownTitle}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {CATEGORY_STATS.map(cat => (
               <div key={cat.key}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 600 }}>{cat.category}</span>
+                  <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 600 }}>{translateCategory(cat.key, lang)}</span>
                   <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{cat.count}</span>
                 </div>
                 <div style={{ height: 8, background: 'var(--surface-subtle)', borderRadius: 999, overflow: 'hidden' }}>
@@ -290,8 +297,8 @@ export default function OfficerOverview() {
         {/* Recent Reports */}
         <div className="apple-card animate-apple-fade-up delay-3" style={card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Recent Reports</div>
-            <Link href="/officer/reports" className="apple-btn" style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600 }}>View all →</Link>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{t.recentReports}</div>
+            <Link href="/officer/reports" className="apple-btn" style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600 }}>{t.viewAllLink}</Link>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
             {recentReports.map((r, i) => (
@@ -309,10 +316,10 @@ export default function OfficerOverview() {
               >
                 <span style={riskPillStyle(r.riskScore)}>{r.riskScore}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.title}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{r.location}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{translateSafetyText(r.title, lang)}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{translateLocation(r.location, lang)}</div>
                 </div>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{timeAgo(r.createdAt)}</span>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{timeAgo(r.createdAt, lang)}</span>
               </Link>
             ))}
           </div>
@@ -321,8 +328,8 @@ export default function OfficerOverview() {
         {/* Active Alerts */}
         <div className="apple-card animate-apple-fade-up delay-4" style={card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Active Alerts</div>
-            <Link href="/officer/alerts" className="apple-btn" style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600 }}>View all →</Link>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{t.activeAlertsTitle}</div>
+            <Link href="/officer/alerts" className="apple-btn" style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600 }}>{t.viewAllLink}</Link>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {topAlerts.length === 0 ? (
@@ -339,8 +346,8 @@ export default function OfficerOverview() {
                 alignItems: 'center',
               }}>
                 <ShieldCheck size={28} color="#16a34a" style={{ marginBottom: 6 }} />
-                <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>All Active Alerts Acknowledged</div>
-                <div>No critical or high-risk SIF alerts currently require officer intervention.</div>
+                <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>{t.allAlertsAck}</div>
+                <div>{t.noAlertsSub}</div>
               </div>
             ) : (
               topAlerts.map(alert => (
@@ -365,8 +372,8 @@ export default function OfficerOverview() {
                     {alert.riskScore}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{alert.title}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{alert.zone} · {alert.timeAgo}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{translateSafetyText(alert.title, lang)}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{translateLocation(alert.zone, lang)} · {alert.timeAgo}</div>
                     {alert.recommendations && alert.recommendations.length > 0 && (
                       <div style={{
                         marginTop: 4,
@@ -385,7 +392,7 @@ export default function OfficerOverview() {
                         whiteSpace: 'nowrap',
                       }}>
                         <Lightbulb size={12} color="#d97706" style={{ flexShrink: 0 }} />
-                        <span>AI: {alert.recommendations[0]}</span>
+                        <span>AI: {translateSafetyText(alert.recommendations[0], lang)}</span>
                       </div>
                     )}
                   </div>
@@ -398,7 +405,7 @@ export default function OfficerOverview() {
 
       {/* ── Zone Risk Summary ────────────────────────────────── */}
       <div className="apple-card animate-apple-fade-up delay-5" style={card}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 16 }}>Top Risk Zones</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 16 }}>{t.topRiskZonesTitle}</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16 }}>
           {topZones.map(zone => {
             const isCrit = zone.riskScore >= 80;
@@ -415,8 +422,8 @@ export default function OfficerOverview() {
                 textAlign: 'center',
               }}>
                 <div style={{ fontSize: 28, fontWeight: 800, color }}>{zone.riskScore}</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>{zone.name}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{zone.incidents} incidents</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>{translateLocation(zone.name, lang)}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{zone.incidents} {t.incidentsLabel}</div>
               </div>
             );
           })}

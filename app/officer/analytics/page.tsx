@@ -10,19 +10,22 @@ import {
 } from '@/app/components/AnalyticsCharts';
 import { getAllReportsApi, getAlertsApi, getDashboardStatsApi } from '@/app/lib/api';
 import { Clock, ClipboardList, AlertTriangle, Radio } from 'lucide-react';
+import { useLanguage } from '@/app/lib/LanguageContext';
+import { translateCategory } from '@/app/lib/hindiTranslator';
 
 type Range = '7d' | '30d' | '3m';
 
 const DEPT_DATA = [
-  { dept: 'Manufacturing', reports: 5, avgRisk: 68, resolution: 60 },
-  { dept: 'Logistics', reports: 3, avgRisk: 75, resolution: 33 },
-  { dept: 'Construction', reports: 2, avgRisk: 88, resolution: 0 },
-  { dept: 'Chemical Processing', reports: 1, avgRisk: 95, resolution: 0 },
-  { dept: 'Facilities', reports: 3, avgRisk: 44, resolution: 67 },
-  { dept: 'Engineering', reports: 1, avgRisk: 61, resolution: 100 },
+  { dept: 'Manufacturing', deptHi: 'विनिर्माण', reports: 5, avgRisk: 68, resolution: 60 },
+  { dept: 'Logistics', deptHi: 'लॉजिस्टिक्स', reports: 3, avgRisk: 75, resolution: 33 },
+  { dept: 'Construction', deptHi: 'निर्माण', reports: 2, avgRisk: 88, resolution: 0 },
+  { dept: 'Chemical Processing', deptHi: 'रासायनिक प्रसंस्करण', reports: 1, avgRisk: 95, resolution: 0 },
+  { dept: 'Facilities', deptHi: 'सुविधाएं (Facilities)', reports: 3, avgRisk: 44, resolution: 67 },
+  { dept: 'Engineering', deptHi: 'इंजीनियरिंग', reports: 1, avgRisk: 61, resolution: 100 },
 ];
 
 export default function AnalyticsPage() {
+  const { lang } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<Range>('30d');
   const [liveReports, setLiveReports] = useState<any[]>([]);
@@ -126,23 +129,19 @@ export default function AnalyticsPage() {
 
         return {
           label: w,
-          total: Math.max(baseTotals[idx], realTotal + (idx === 3 ? liveReports.length : 0)),
-          critical: Math.max(
-            baseCrits[idx],
-            realCrit + (idx === 3 ? liveAlerts.filter((a) => !a.isAcknowledged).length : 0)
-          ),
+          total: Math.max(baseTotals[idx], realTotal),
+          critical: Math.max(baseCrits[idx], realCrit),
           date: `Week ${idx + 1}`,
         };
       });
     }
 
     // 3. If 3 Months
-    const trendWeeks = WEEKLY_TREND.slice(-6);
-    return trendWeeks.map((w) => ({
+    return WEEKLY_TREND.map((w) => ({
       label: w.week,
       total: w.total,
       critical: w.critical,
-      date: `2026 ${w.week}`,
+      date: `2026-${w.week}`,
     }));
   })();
 
@@ -159,18 +158,18 @@ export default function AnalyticsPage() {
       ).length;
 
       return [
-        { label: 'Pending Review', count: Math.max(pending, 2), color: '#ea580c' },
-        { label: 'Under Review', count: Math.max(review, 3), color: '#3b82f6' },
-        { label: 'Action Assigned', count: Math.max(assigned, 4), color: '#f59e0b' },
-        { label: 'Resolved & Cleared', count: Math.max(resolved, 6), color: '#10b981' },
+        { label: lang === 'hi' ? 'समीक्षा लंबित' : 'Pending Review', count: Math.max(pending, 2), color: '#ea580c' },
+        { label: lang === 'hi' ? 'समीक्षाधीन' : 'Under Review', count: Math.max(review, 3), color: '#3b82f6' },
+        { label: lang === 'hi' ? 'कार्य सौंपा गया' : 'Action Assigned', count: Math.max(assigned, 4), color: '#f59e0b' },
+        { label: lang === 'hi' ? 'सत्यापित व हल' : 'Resolved & Cleared', count: Math.max(resolved, 6), color: '#10b981' },
       ];
     }
 
     return [
-      { label: 'Pending Review', count: 3, color: '#ea580c' },
-      { label: 'Under Review', count: 3, color: '#3b82f6' },
-      { label: 'Action Assigned', count: 4, color: '#f59e0b' },
-      { label: 'Resolved & Cleared', count: 6, color: '#10b981' },
+      { label: lang === 'hi' ? 'समीक्षा लंबित' : 'Pending Review', count: 3, color: '#ea580c' },
+      { label: lang === 'hi' ? 'समीक्षाधीन' : 'Under Review', count: 3, color: '#3b82f6' },
+      { label: lang === 'hi' ? 'कार्य सौंपा गया' : 'Action Assigned', count: 4, color: '#f59e0b' },
+      { label: lang === 'hi' ? 'सत्यापित व हल' : 'Resolved & Cleared', count: 6, color: '#10b981' },
     ];
   })();
 
@@ -195,16 +194,16 @@ export default function AnalyticsPage() {
       });
 
       return [
-        { category: 'Unsafe Condition', count: Math.max(counts['Unsafe Condition'], 6), color: '#dc2626' },
-        { category: 'Equipment Failure', count: Math.max(counts['Equipment Failure'], 4), color: '#ea580c' },
-        { category: 'Near Miss', count: Math.max(counts['Near Miss'], 3), color: '#d97706' },
-        { category: 'Unsafe Act', count: Math.max(counts['Unsafe Act'], 2), color: '#2563eb' },
-        { category: 'Chemical Exposure', count: Math.max(counts['Chemical Exposure'], 2), color: '#7c3aed' },
+        { category: lang === 'hi' ? 'असुरक्षित स्थिति' : 'Unsafe Condition', count: Math.max(counts['Unsafe Condition'], 6), color: '#dc2626' },
+        { category: lang === 'hi' ? 'उपकरण विफलता' : 'Equipment Failure', count: Math.max(counts['Equipment Failure'], 4), color: '#ea580c' },
+        { category: lang === 'hi' ? 'संभावित दुर्घटना' : 'Near Miss', count: Math.max(counts['Near Miss'], 3), color: '#d97706' },
+        { category: lang === 'hi' ? 'असुरक्षित कृत्य' : 'Unsafe Act', count: Math.max(counts['Unsafe Act'], 2), color: '#2563eb' },
+        { category: lang === 'hi' ? 'रासायनिक खतरा' : 'Chemical Exposure', count: Math.max(counts['Chemical Exposure'], 2), color: '#7c3aed' },
       ];
     }
 
     return CATEGORY_STATS.map((c) => ({
-      category: c.category,
+      category: translateCategory(c.category, lang),
       count: c.count,
       color: c.color,
     }));
@@ -261,36 +260,36 @@ export default function AnalyticsPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
         {[
           {
-            label: 'Avg Resolution Time',
-            value: '2.4 days',
+            label: lang === 'hi' ? 'औसत समाधान समय' : 'Avg Resolution Time',
+            value: lang === 'hi' ? '2.4 दिन' : '2.4 days',
             icon: <Clock size={18} />,
             color: 'var(--primary)',
             bg: 'var(--primary-light)',
-            delta: '-0.6d vs last wk',
+            delta: lang === 'hi' ? '-0.6 दिन बनाम पिछला सप्ताह' : '-0.6d vs last wk',
           },
           {
-            label: 'Total Incident Reports',
+            label: lang === 'hi' ? 'कुल घटना रिपोर्टें' : 'Total Incident Reports',
             value: String(activeReportsCount),
             icon: <ClipboardList size={18} />,
             color: '#0284c7',
             bg: 'rgba(2, 132, 199, 0.1)',
-            delta: '+12% this month',
+            delta: lang === 'hi' ? '+12% इस महीने' : '+12% this month',
           },
           {
-            label: 'Critical SIF Alerts',
+            label: lang === 'hi' ? 'अति-गंभीर SIF अलर्ट' : 'Critical SIF Alerts',
             value: String(criticalCount),
             icon: <AlertTriangle size={18} />,
             color: 'var(--danger)',
             bg: 'rgba(220, 38, 38, 0.1)',
-            delta: 'High Priority',
+            delta: lang === 'hi' ? 'उच्च प्राथमिकता' : 'High Priority',
           },
           {
-            label: 'Active Monitored Zones',
-            value: '8 Zones',
+            label: lang === 'hi' ? 'सक्रिय निगरानी क्षेत्र' : 'Active Monitored Zones',
+            value: lang === 'hi' ? '8 क्षेत्र' : '8 Zones',
             icon: <Radio size={18} />,
             color: 'var(--success)',
             bg: 'rgba(21, 128, 61, 0.1)',
-            delta: 'Telemetry Active',
+            delta: lang === 'hi' ? 'टेलीमेट्री सक्रिय' : 'Telemetry Active',
           },
         ].map((stat) => (
           <div key={stat.label} style={{ ...card, padding: '16px 20px' }}>
@@ -325,8 +324,8 @@ export default function AnalyticsPage() {
         range={range}
         onRangeChange={setRange}
         height={260}
-        title="Reports Over Time"
-        subtitle="Live Incident Submissions & Critical SIF Precursors"
+        title={lang === 'hi' ? 'समय के साथ रिपोर्टें' : 'Reports Over Time'}
+        subtitle={lang === 'hi' ? 'लाइव घटना सबमिशन और महत्वपूर्ण SIF संकेतक' : 'Live Incident Submissions & Critical SIF Precursors'}
       />
 
       {/* Category + Donut Distribution */}
@@ -335,10 +334,10 @@ export default function AnalyticsPage() {
         <div style={card}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
-              Reports by Category
+              {lang === 'hi' ? 'श्रेणी अनुसार रिपोर्टें' : 'Reports by Category'}
             </div>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
-              Live Distribution
+              {lang === 'hi' ? 'लाइव वितरण' : 'Live Distribution'}
             </span>
           </div>
           <RealCategoryBarChart categories={categoryData} />
@@ -348,10 +347,10 @@ export default function AnalyticsPage() {
         <div style={card}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
-              Status Distribution
+              {lang === 'hi' ? 'स्थिति वितरण' : 'Status Distribution'}
             </div>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
-              Lifecycle Phase
+              {lang === 'hi' ? 'जीवनचक्र चरण' : 'Lifecycle Phase'}
             </span>
           </div>
           <RealDonutChart segments={statusSegments} />
@@ -362,13 +361,13 @@ export default function AnalyticsPage() {
       <div style={card}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Risk Score Distribution</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{lang === 'hi' ? 'जोखिम स्कोर वितरण' : 'Risk Score Distribution'}</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-              Normalized SIF Severity Index (0–100 scale across all monitored sectors)
+              {lang === 'hi' ? 'सामान्यीकृत SIF गंभीरता सूचकांक (सभी निगरानी क्षेत्रों में 0–100 पैमाना)' : 'Normalized SIF Severity Index (0–100 scale across all monitored sectors)'}
             </div>
           </div>
           <span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', backgroundColor: 'rgba(220, 38, 38, 0.08)', padding: '3px 8px', borderRadius: 999 }}>
-            OSHA 1910 Calibrated
+            {lang === 'hi' ? 'OSHA 1910 कैलिब्रेटेड' : 'OSHA 1910 Calibrated'}
           </span>
         </div>
         <RealRiskHistogramChart buckets={riskBuckets} />
@@ -377,13 +376,18 @@ export default function AnalyticsPage() {
       {/* Department Performance Table */}
       <div style={card}>
         <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 14 }}>
-          Department Performance &amp; Safety Compliance
+          {lang === 'hi' ? 'विभाग प्रदर्शन एवं सुरक्षा अनुपालन' : 'Department Performance & Safety Compliance'}
         </div>
         <div style={{ overflow: 'hidden', borderRadius: 12, border: '1px solid var(--border)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                {['Department', 'Reports', 'Avg Risk Score', 'Resolution Rate'].map((h) => (
+                {[
+                  lang === 'hi' ? 'विभाग' : 'Department',
+                  lang === 'hi' ? 'रिपोर्टें' : 'Reports',
+                  lang === 'hi' ? 'औसत जोखिम स्कोर' : 'Avg Risk Score',
+                  lang === 'hi' ? 'समाधान दर' : 'Resolution Rate'
+                ].map((h) => (
                   <th
                     key={h}
                     style={{
@@ -410,7 +414,7 @@ export default function AnalyticsPage() {
                   style={{ background: i % 2 === 1 ? 'var(--surface-subtle)' : 'var(--surface)' }}
                 >
                   <td style={{ padding: '12px 14px', fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
-                    {row.dept}
+                    {lang === 'hi' ? (row.deptHi || row.dept) : row.dept}
                   </td>
                   <td style={{ padding: '12px 14px', fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>
                     {row.reports}

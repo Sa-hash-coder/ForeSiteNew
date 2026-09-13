@@ -36,6 +36,13 @@ import {
   Zap,
   Lock,
 } from "lucide-react";
+import { useLanguage } from "@/app/lib/LanguageContext";
+import {
+  translateSafetyText,
+  translateLocation,
+  translateCrew,
+  translateSeverity,
+} from "@/app/lib/hindiTranslator";
 
 export interface DynamicFacilityUnit extends FacilityUnit {
   matchedReports: any[];
@@ -106,9 +113,20 @@ function matchReportToUnit(r: any, unit: FacilityUnit): boolean {
   return false;
 }
 
+const INITIAL_FACILITY_UNITS: DynamicFacilityUnit[] = REFINERY_FACILITY_UNITS.map((u) => ({
+  ...u,
+  matchedReports: [],
+  matchedAlerts: [],
+  liveRiskScore: u.riskScore,
+  liveIncidents: u.incidents,
+  liveStatus: u.status,
+  liveDominantHazard: u.dominantHazard,
+}));
+
 export default function HeatmapPage() {
+  const { lang } = useLanguage();
   const [loading, setLoading] = useState(true);
-  const [facilityUnits, setFacilityUnits] = useState<DynamicFacilityUnit[]>([]);
+  const [facilityUnits, setFacilityUnits] = useState<DynamicFacilityUnit[]>(INITIAL_FACILITY_UNITS);
   const [selectedUnit, setSelectedUnit] = useState<DynamicFacilityUnit | null>(null);
   const [hoveredUnit, setHoveredUnit] = useState<DynamicFacilityUnit | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>("all");
@@ -161,41 +179,51 @@ export default function HeatmapPage() {
           return Math.max(max, s);
         }, 0);
 
-        const liveRiskScore = maxReportScore > 0 ? Math.max(unit.riskScore, maxReportScore) : unit.riskScore;
+        const maxAlertScore = matchedA.reduce((max, a) => {
+          const s = a.riskScore || (a.riskLevel === 'CRITICAL' ? 95 : 75);
+          return Math.max(max, s);
+        }, 0);
+
+        const liveScore = Math.max(unit.riskScore, maxReportScore, maxAlertScore);
         const liveIncidents = unit.incidents + matchedR.length;
-        const liveStatus = liveRiskScore >= 80 ? 'critical' : liveRiskScore >= 60 ? 'high' : liveRiskScore >= 40 ? 'medium' : 'low';
-        const liveDominantHazard = matchedR[0]?.title || matchedA[0]?.message || unit.dominantHazard;
+
+        let liveStatus: DynamicFacilityUnit['liveStatus'] = 'normal';
+        if (liveScore >= 80) liveStatus = 'critical';
+        else if (liveScore >= 60) liveStatus = 'high';
+        else if (liveScore >= 40) liveStatus = 'medium';
+        else if (liveScore >= 20) liveStatus = 'low';
+
+        // Dominant hazard inference from recent reports
+        let dominantHazard = unit.dominantHazard;
+        if (matchedR.length > 0 && matchedR[0].title) {
+          dominantHazard = matchedR[0].title;
+        }
 
         return {
           ...unit,
-          riskScore: liveRiskScore,
-          incidents: liveIncidents,
-          status: liveStatus,
-          dominantHazard: liveDominantHazard,
           matchedReports: matchedR,
           matchedAlerts: matchedA,
-          liveRiskScore,
-          liveIncidents,
-          liveStatus,
-          liveDominantHazard,
+          liveRiskScore: liveScore,
+          liveIncidents: liveIncidents,
+          liveStatus: liveStatus,
+          liveDominantHazard: dominantHazard,
         };
       });
 
       setFacilityUnits(computedUnits);
-      setLastSyncedTime("Just now");
+      setLastSyncedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     } catch (err) {
-      console.warn("Could not sync live heatmap reports, falling back:", err);
-      if (facilityUnits.length === 0) {
-        setFacilityUnits(REFINERY_FACILITY_UNITS.map(u => ({
-          ...u,
-          matchedReports: [],
-          matchedAlerts: [],
-          liveRiskScore: u.riskScore,
-          liveIncidents: u.incidents,
-          liveStatus: u.status,
-          liveDominantHazard: u.dominantHazard,
-        })));
-      }
+      console.warn("Using baseline map units:", err);
+      // Fallback
+      setFacilityUnits(REFINERY_FACILITY_UNITS.map(u => ({
+        ...u,
+        matchedReports: [],
+        matchedAlerts: [],
+        liveRiskScore: u.riskScore,
+        liveIncidents: u.incidents,
+        liveStatus: u.status,
+        liveDominantHazard: u.dominantHazard,
+      })));
     } finally {
       setLoading(false);
     }
@@ -203,48 +231,69 @@ export default function HeatmapPage() {
 
   useEffect(() => {
     syncLiveData();
-    const interval = setInterval(syncLiveData, 8000);
-    return () => clearInterval(interval);
-  }, []);
 
-  // Micro-telemetry fluctuations (sensor heartbeat)
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTelemetryTick(prev => prev + 1);
+    // Micro telemetry loop every 2.5 seconds
+    const telemetryInterval = setInterval(() => {
+      setTelemetryTick(t => t + 1);
     }, 2500);
-    return () => clearInterval(timer);
+
+    // Live reports polling every 8 seconds
+    const dataInterval = setInterval(() => {
+      syncLiveData();
+    }, 8000);
+
+    return () => {
+      clearInterval(telemetryInterval);
+      clearInterval(dataInterval);
+    };
   }, []);
 
-  // Dynamic Overall Facility Risk calculation
-  const unitsToProcess = facilityUnits.length > 0 ? facilityUnits : (REFINERY_FACILITY_UNITS as DynamicFacilityUnit[]);
-  const averageRisk = Math.round(
-    unitsToProcess.reduce((sum, u) => sum + (u.liveRiskScore || u.riskScore), 0) / (unitsToProcess.length || 1)
-  );
+  // Update selected unit when units array re-computes to keep telemetry reactive
+  useEffect(() => {
+    if (selectedUnit && facilityUnits.length > 0) {
+      const refreshed = facilityUnits.find(u => u.id === selectedUnit.id);
+      if (refreshed) setSelectedUnit(refreshed);
+    }
+  }, [facilityUnits]);
 
-  // Filter units based on selection & search
-  const filteredUnits = unitsToProcess.filter((u) => {
-    const score = u.liveRiskScore || u.riskScore;
-    if (activeFilter === "extreme") return score >= 80;
-    if (activeFilter === "high") return score >= 60 && score < 80;
-    if (activeFilter === "moderate") return score >= 40 && score < 60;
-    if (activeFilter === "low") return score < 40;
+  // Handle map units filtering & searching
+  const unitsToProcess: DynamicFacilityUnit[] = facilityUnits;
+
+  const filteredUnits = unitsToProcess.filter(unit => {
+    const score = unit.liveRiskScore || unit.riskScore;
+
+    // Filter pill matching
+    if (activeFilter === "extreme" && score < 80) return false;
+    if (activeFilter === "high" && (score < 60 || score >= 80)) return false;
+    if (activeFilter === "moderate" && (score < 40 || score >= 60)) return false;
+    if (activeFilter === "low" && score >= 40) return false;
+
+    // Search query matching
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchName = unit.name.toLowerCase().includes(q);
+      const matchCode = unit.code.toLowerCase().includes(q);
+      const matchHazard = unit.liveDominantHazard?.toLowerCase().includes(q) || unit.dominantHazard.toLowerCase().includes(q);
+      return matchName || matchCode || matchHazard;
+    }
+
     return true;
-  }).filter((u) => {
-    if (!searchQuery) return true;
-    return u.name.toLowerCase().includes(searchQuery.toLowerCase()) || u.code.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
+  // KPI Calculations
+  const averageRisk = Math.round(
+    unitsToProcess.reduce((sum, u) => sum + (u.liveRiskScore || u.riskScore), 0) / (unitsToProcess.length || 1)
+  ) || 68;
+
+  // Zoom & Pan Handlers
   const handleZoom = (delta: number) => {
-    setZoomLevel((prev) => {
-      const next = Math.min(Math.max(prev + delta, 0.9), 2.2);
-      if (next === 1) setPanOffset({ x: 0, y: 0 });
-      return next;
-    });
+    setZoomLevel(prev => Math.min(Math.max(prev + delta, 0.75), 2.5));
   };
 
-  const handleReset = () => {
+  const resetView = () => {
     setZoomLevel(1);
     setPanOffset({ x: 0, y: 0 });
+    setSelectedUnit(null);
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -274,7 +323,7 @@ export default function HeatmapPage() {
       const rect = mapContainerRef.current.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 100;
       const y = ((e.clientY - rect.top) / rect.height) * 100;
-      setCustomMarkers([...customMarkers, { id: Date.now(), x, y, note: "Field Observation Pin" }]);
+      setCustomMarkers([...customMarkers, { id: Date.now(), x, y, note: lang === 'hi' ? 'फील्ड अवलोकन पिन' : "Field Observation Pin" }]);
       setPinDropMode(false);
     }
   };
@@ -292,7 +341,7 @@ export default function HeatmapPage() {
 
   const handleQuickDispatch = (unit: DynamicFacilityUnit) => {
     setDispatchModalUnit(unit);
-    setDispatchInstructions(`Emergency maintenance dispatch for ${unit.name} (${unit.code}) - ${unit.liveDominantHazard || unit.dominantHazard}`);
+    setDispatchInstructions(lang === 'hi' ? `${unit.name} (${unit.code}) के लिए आपातकालीन मेंटेनेंस कार्य - ${unit.liveDominantHazard || unit.dominantHazard}` : `Emergency maintenance dispatch for ${unit.name} (${unit.code}) - ${unit.liveDominantHazard || unit.dominantHazard}`);
     setDispatchLoto((unit.liveRiskScore || unit.riskScore) >= 80);
   };
 
@@ -312,13 +361,13 @@ export default function HeatmapPage() {
         lotoRequired: dispatchLoto,
       });
 
-      setToast(`Task successfully assigned to ${dispatchCrew}!`);
+      setToast(lang === 'hi' ? `कार्य सफलतापूर्वक ${translateCrew(dispatchCrew, lang)} को सौंपा गया!` : `Task successfully assigned to ${dispatchCrew}!`);
       setDispatchModalUnit(null);
       setTimeout(() => setToast(""), 3500);
       syncLiveData();
     } catch (err) {
       console.warn("Dispatch failed:", err);
-      setToast("Task logged to dispatch queue.");
+      setToast(lang === 'hi' ? "कार्य कतार में दर्ज किया गया।" : "Task logged to dispatch queue.");
       setDispatchModalUnit(null);
     } finally {
       setIsSubmittingDispatch(false);
@@ -356,7 +405,7 @@ export default function HeatmapPage() {
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0F172A", margin: 0, letterSpacing: "-0.4px" }}>
-              Dynamic Refinery Facility Heatmap
+              {lang === 'hi' ? 'डायनामिक रिफाइनरी प्लांट हीटमैप' : 'Dynamic Refinery Facility Heatmap'}
             </h1>
             <span style={{
               fontSize: 11, fontWeight: 800, backgroundColor: "#DCFCE7", color: "#166534",
@@ -364,11 +413,11 @@ export default function HeatmapPage() {
               display: "inline-flex", alignItems: "center", gap: 6,
             }}>
               <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: "#16A34A", animation: "applePulse 1.8s infinite" }} />
-              LIVE TELEMETRY STREAM
+              {lang === 'hi' ? 'लाइव टेलीमेट्री स्ट्रीम' : 'LIVE TELEMETRY STREAM'}
             </span>
           </div>
           <p style={{ fontSize: 13, color: "#64748B", margin: "4px 0 0 0" }}>
-            Real-time SIF precursor hazard density · Dynamic multi-source aggregation ({totalLiveReportsCount} active field reports analyzed)
+            {lang === 'hi' ? `रीयल-टाइम SIF संकेतक खतरा घनत्व · डायनामिक मल्टी-सोर्स एकत्रीकरण (${totalLiveReportsCount} सक्रिय फील्ड रिपोर्टों का विश्लेषण)` : `Real-time SIF precursor hazard density · Dynamic multi-source aggregation (${totalLiveReportsCount} active field reports analyzed)`}
           </p>
         </div>
 
@@ -378,7 +427,7 @@ export default function HeatmapPage() {
             <Search style={{ position: "absolute", left: 10, top: 9, width: 15, height: 15, color: "#94A3B8" }} />
             <input
               type="text"
-              placeholder="Jump to unit (e.g. FCC, ADU, TK-80)..."
+              placeholder={lang === 'hi' ? 'यूनिट पर जाएं (उदा. FCC, ADU, TK-80)...' : "Jump to unit (e.g. FCC, ADU, TK-80)..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{ padding: "8px 12px 8px 32px", fontSize: 13, borderRadius: 8, border: "1px solid #D9DEE7", outline: "none", width: 240, backgroundColor: "#F8FAFC" }}
@@ -397,10 +446,10 @@ export default function HeatmapPage() {
               backgroundColor: "#FFFFFF", color: "#0F172A", fontSize: 12, fontWeight: 700,
               cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
             }}
-            title="Force refresh live database stream"
+            title={lang === 'hi' ? 'डेटाबेस स्ट्रीम रीफ्रेश करें' : "Force refresh live database stream"}
           >
             <Radio style={{ width: 14, height: 14, color: "#16A34A" }} />
-            <span>Poll Now</span>
+            <span>{lang === 'hi' ? 'अभी रीफ्रेश करें' : 'Poll Now'}</span>
           </button>
         </div>
 
@@ -412,11 +461,11 @@ export default function HeatmapPage() {
         {/* Risk Filter Buttons */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           {[
-            { id: "all", label: "All Units", count: unitsToProcess.length },
-            { id: "extreme", label: "Extreme Risk (80+)", count: unitsToProcess.filter(u => (u.liveRiskScore || u.riskScore) >= 80).length, color: "#DC2626" },
-            { id: "high", label: "High Risk (60-79)", count: unitsToProcess.filter(u => (u.liveRiskScore || u.riskScore) >= 60 && (u.liveRiskScore || u.riskScore) < 80).length, color: "#EA580C" },
-            { id: "moderate", label: "Moderate (40-59)", count: unitsToProcess.filter(u => (u.liveRiskScore || u.riskScore) >= 40 && (u.liveRiskScore || u.riskScore) < 60).length, color: "#D97706" },
-            { id: "low", label: "Safe / Low (<40)", count: unitsToProcess.filter(u => (u.liveRiskScore || u.riskScore) < 40).length, color: "#16A34A" },
+            { id: "all", label: lang === 'hi' ? 'सभी इकाइयां' : "All Units", count: unitsToProcess.length },
+            { id: "extreme", label: lang === 'hi' ? 'अति गंभीर (80+)' : "Extreme Risk (80+)", count: unitsToProcess.filter(u => (u.liveRiskScore || u.riskScore) >= 80).length, color: "#DC2626" },
+            { id: "high", label: lang === 'hi' ? 'उच्च जोखिम (60-79)' : "High Risk (60-79)", count: unitsToProcess.filter(u => (u.liveRiskScore || u.riskScore) >= 60 && (u.liveRiskScore || u.riskScore) < 80).length, color: "#EA580C" },
+            { id: "moderate", label: lang === 'hi' ? 'मध्यम जोखिम (40-59)' : "Moderate (40-59)", count: unitsToProcess.filter(u => (u.liveRiskScore || u.riskScore) >= 40 && (u.liveRiskScore || u.riskScore) < 60).length, color: "#D97706" },
+            { id: "low", label: lang === 'hi' ? 'सुरक्षित (<40)' : "Safe / Low (<40)", count: unitsToProcess.filter(u => (u.liveRiskScore || u.riskScore) < 40).length, color: "#16A34A" },
           ].map((f) => {
             const isActive = activeFilter === f.id;
             return (
@@ -461,7 +510,7 @@ export default function HeatmapPage() {
             }}
           >
             <Flame style={{ width: 14, height: 14 }} />
-            Thermal Plumes: {showHeatmap ? "ON" : "OFF"}
+            {lang === 'hi' ? `थर्मल प्लूम्स: ${showHeatmap ? "चालू" : "बंद"}` : `Thermal Plumes: ${showHeatmap ? "ON" : "OFF"}`}
           </button>
 
           <button
@@ -475,7 +524,7 @@ export default function HeatmapPage() {
             }}
           >
             <MapPin style={{ width: 14, height: 14 }} />
-            Asset Labels: {showPins ? "ON" : "OFF"}
+            {lang === 'hi' ? `एसेट लेबल: ${showPins ? "चालू" : "बंद"}` : `Asset Labels: ${showPins ? "ON" : "OFF"}`}
           </button>
 
           <button
@@ -488,7 +537,7 @@ export default function HeatmapPage() {
             }}
           >
             <Sliders style={{ width: 14, height: 14 }} />
-            <span>Inspector Drawer</span>
+            <span>{lang === 'hi' ? 'निरीक्षक पैनल' : 'Inspector Drawer'}</span>
           </button>
         </div>
 
@@ -529,7 +578,7 @@ export default function HeatmapPage() {
                 <ZoomOut style={{ width: 16, height: 16 }} />
               </button>
               <div style={{ width: 1, backgroundColor: "rgba(255,255,255,0.15)" }} />
-              <button onClick={handleReset} style={{ padding: 8, background: "none", border: "none", color: "white", cursor: "pointer", display: "flex" }} title="Reset View">
+              <button onClick={resetView} style={{ padding: 8, background: "none", border: "none", color: "white", cursor: "pointer", display: "flex" }} title="Reset View">
                 <RotateCcw style={{ width: 16, height: 16 }} />
               </button>
             </div>
@@ -765,7 +814,7 @@ export default function HeatmapPage() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
                   <div>
                     <span style={{ fontSize: 10, fontWeight: 800, color: "#1D4ED8", letterSpacing: "0.1em", textTransform: "uppercase" }}>
-                      FACILITY ASSET TELEMETRY
+                      {lang === 'hi' ? 'प्लांट उपकरण टेलीमेट्री' : 'FACILITY ASSET TELEMETRY'}
                     </span>
                     <h3 style={{ fontSize: 17, fontWeight: 800, color: "#0F172A", margin: "4px 0 0 0" }}>
                       {selectedUnit.name}
@@ -779,7 +828,9 @@ export default function HeatmapPage() {
                 {/* Live Score badge */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#F8FAFC", padding: "12px 14px", borderRadius: 10, border: "1px solid #E2E8F0", marginBottom: 16 }}>
                   <div>
-                    <div style={{ fontSize: 11, color: "#64748B", fontWeight: 700, textTransform: "uppercase" }}>Calculated Risk Score</div>
+                    <div style={{ fontSize: 11, color: "#64748B", fontWeight: 700, textTransform: "uppercase" }}>
+                      {lang === 'hi' ? 'परिकलित जोखिम स्कोर' : 'Calculated Risk Score'}
+                    </div>
                     <div style={{ fontSize: 24, fontWeight: 900, color: getUnitRiskColor(selectedUnit.liveRiskScore || selectedUnit.riskScore), lineHeight: 1.1, marginTop: 2 }}>
                       {selectedUnit.liveRiskScore || selectedUnit.riskScore} <span style={{ fontSize: 13, color: "#64748B", fontWeight: 600 }}>/ 100</span>
                     </div>
@@ -789,7 +840,7 @@ export default function HeatmapPage() {
                     backgroundColor: (selectedUnit.liveRiskScore || selectedUnit.riskScore) >= 80 ? "#FEF2F2" : "#FFF7ED",
                     color: getUnitRiskColor(selectedUnit.liveRiskScore || selectedUnit.riskScore),
                   }}>
-                    {(selectedUnit.liveStatus || selectedUnit.status).toUpperCase()}
+                    {translateSeverity(selectedUnit.liveStatus || selectedUnit.status, lang).toUpperCase()}
                   </span>
                 </div>
 
@@ -798,28 +849,28 @@ export default function HeatmapPage() {
                   <div style={{ marginBottom: 16 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                       <span style={{ fontSize: 11, fontWeight: 800, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                        LIVE ASSET SENSORS
+                        {lang === 'hi' ? 'लाइव एसेट सेंसर्स' : 'LIVE ASSET SENSORS'}
                       </span>
                       <span style={{ fontSize: 10, color: "#16A34A", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
                         <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "#16A34A", animation: "applePulse 1.5s infinite" }} />
-                        POLLING 2.5s
+                        {lang === 'hi' ? 'पोलिंग 2.5s' : 'POLLING 2.5s'}
                       </span>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                       <div style={{ backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, padding: "10px" }}>
-                        <div style={{ fontSize: 10, color: "#64748B", fontWeight: 700 }}>TEMPERATURE</div>
+                        <div style={{ fontSize: 10, color: "#64748B", fontWeight: 700 }}>{lang === 'hi' ? 'तापमान' : 'TEMPERATURE'}</div>
                         <div style={{ fontSize: 16, fontWeight: 800, color: "#0F172A", marginTop: 2 }}>{selectedTelemetry.temp}°C</div>
                       </div>
                       <div style={{ backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, padding: "10px" }}>
-                        <div style={{ fontSize: 10, color: "#64748B", fontWeight: 700 }}>PRESSURE</div>
+                        <div style={{ fontSize: 10, color: "#64748B", fontWeight: 700 }}>{lang === 'hi' ? 'दबाव' : 'PRESSURE'}</div>
                         <div style={{ fontSize: 16, fontWeight: 800, color: "#0F172A", marginTop: 2 }}>{selectedTelemetry.pressure} bar</div>
                       </div>
                       <div style={{ backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, padding: "10px" }}>
-                        <div style={{ fontSize: 10, color: "#64748B", fontWeight: 700 }}>VIBRATION</div>
+                        <div style={{ fontSize: 10, color: "#64748B", fontWeight: 700 }}>{lang === 'hi' ? 'कंपन' : 'VIBRATION'}</div>
                         <div style={{ fontSize: 16, fontWeight: 800, color: "#0F172A", marginTop: 2 }}>{selectedTelemetry.vibration} mm/s</div>
                       </div>
                       <div style={{ backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, padding: "10px" }}>
-                        <div style={{ fontSize: 10, color: "#64748B", fontWeight: 700 }}>GAS (LEL)</div>
+                        <div style={{ fontSize: 10, color: "#64748B", fontWeight: 700 }}>{lang === 'hi' ? 'गैस (LEL)' : 'GAS (LEL)'}</div>
                         <div style={{ fontSize: 16, fontWeight: 800, color: selectedTelemetry.gasPpm > 25 ? "#DC2626" : "#0F172A", marginTop: 2 }}>{selectedTelemetry.gasPpm} ppm</div>
                       </div>
                     </div>
@@ -829,10 +880,10 @@ export default function HeatmapPage() {
                 {/* Dominant Hazard */}
                 <div style={{ marginBottom: 16 }}>
                   <div style={{ fontSize: 11, fontWeight: 800, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
-                    IDENTIFIED DOMINANT HAZARD
+                    {lang === 'hi' ? 'पहचाना गया प्रमुख खतरा' : 'IDENTIFIED DOMINANT HAZARD'}
                   </div>
                   <p style={{ fontSize: 13, color: "#334155", lineHeight: 1.5, margin: 0, fontWeight: 500 }}>
-                    {selectedUnit.liveDominantHazard || selectedUnit.details}
+                    {translateSafetyText(selectedUnit.liveDominantHazard || selectedUnit.details, lang)}
                   </p>
                 </div>
 
@@ -840,7 +891,7 @@ export default function HeatmapPage() {
                 {selectedUnit.matchedReports && selectedUnit.matchedReports.length > 0 && (
                   <div style={{ marginBottom: 16 }}>
                     <div style={{ fontSize: 11, fontWeight: 800, color: "#DC2626", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
-                      ACTIVE FIELD INCIDENTS IN THIS ZONE ({selectedUnit.matchedReports.length})
+                      {lang === 'hi' ? `इस क्षेत्र में सक्रिय घटनाएं (${selectedUnit.matchedReports.length})` : `ACTIVE FIELD INCIDENTS IN THIS ZONE (${selectedUnit.matchedReports.length})`}
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 180, overflowY: "auto" }}>
                       {selectedUnit.matchedReports.map((rep: any) => (
@@ -849,17 +900,17 @@ export default function HeatmapPage() {
                           border: "1px solid #FCA5A5", display: "flex", flexDirection: "column", gap: 2,
                         }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: "#991B1B" }}>{rep.title.slice(0, 35)}...</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: "#991B1B" }}>{translateSafetyText(rep.title, lang).slice(0, 35)}...</span>
                             <span style={{ fontSize: 10, fontWeight: 800, color: "#DC2626" }}>
                               {rep.riskAssessment?.riskScore || rep.risk_score || 85} pts
                             </span>
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 2 }}>
                             <span style={{ fontSize: 10, color: "#7F1D1D", display: "inline-flex", alignItems: "center", gap: 3 }}>
-                              <MapPin size={10} /> {rep.location}
+                              <MapPin size={10} /> {translateLocation(rep.location, lang)}
                             </span>
                             <Link href={`/officer/reports/${rep._id}`} style={{ fontSize: 10, color: "#1D4ED8", fontWeight: 700, textDecoration: "underline" }}>
-                              View Report ↗
+                              {lang === 'hi' ? 'रिपोर्ट देखें ↗' : 'View Report ↗'}
                             </Link>
                           </div>
                         </div>
@@ -879,7 +930,7 @@ export default function HeatmapPage() {
                     }}
                   >
                     <Wrench style={{ width: 15, height: 15 }} />
-                    Assign Maintenance Task
+                    {lang === 'hi' ? 'मेंटेनेंस कार्य सौंपें' : 'Assign Maintenance Task'}
                   </button>
                   <Link
                     href="/officer/alerts"
@@ -889,7 +940,7 @@ export default function HeatmapPage() {
                       textAlign: "center", textDecoration: "none", display: "block",
                     }}
                   >
-                    View All Active Incidents ({selectedUnit.liveIncidents || selectedUnit.incidents})
+                    {lang === 'hi' ? `सभी सक्रिय घटनाएं देखें (${selectedUnit.liveIncidents || selectedUnit.incidents})` : `View All Active Incidents (${selectedUnit.liveIncidents || selectedUnit.incidents})`}
                   </Link>
                 </div>
 
@@ -902,32 +953,32 @@ export default function HeatmapPage() {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                     <div>
                       <div style={{ fontSize: 11, fontWeight: 800, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                        FACILITY OVERALL SIF RISK
+                        {lang === 'hi' ? 'प्लांट समग्र SIF जोखिम' : 'FACILITY OVERALL SIF RISK'}
                       </div>
                       <div style={{ fontSize: 32, fontWeight: 900, color: "#DC2626", lineHeight: 1.1, marginTop: 4 }}>
                         {averageRisk}/100
                       </div>
                     </div>
                     <span style={{ backgroundColor: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA", padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 800 }}>
-                      CRITICAL RISK
+                      {lang === 'hi' ? 'अति गंभीर जोखिम' : 'CRITICAL RISK'}
                     </span>
                   </div>
                   <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
-                    3 Units in Critical SIF Precursor threshold. Process Area 2 and Sector 4 require active supervision.
+                    {lang === 'hi' ? '3 इकाइयां क्रिटिकल SIF संकेतक सीमा में हैं। प्रोसेस एरिया 2 और सेक्टर 4 में सक्रिय पर्यवेक्षण आवश्यक है।' : '3 Units in Critical SIF Precursor threshold. Process Area 2 and Sector 4 require active supervision.'}
                   </div>
                 </div>
 
                 {/* Top Critical Precursors List */}
                 <div style={{ backgroundColor: "#FFFFFF", borderRadius: 14, border: "1px solid #D9DEE7", padding: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
                   <div style={{ fontSize: 11, fontWeight: 800, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>
-                    TOP SIF PRECURSORS ACTIVE
+                    {lang === 'hi' ? 'शीर्ष सक्रिय SIF संकेतक' : 'TOP SIF PRECURSORS ACTIVE'}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {[
-                      { name: "Heavy Machinery Vibration & Bearing Failure", count: 4, level: "CRITICAL" },
-                      { name: "Exposed 480V Energized Line & Conduit Breach", count: 2, level: "CRITICAL" },
-                      { name: "Scaffolding Unstable Toe-Board & Tie-Off Defect", count: 2, level: "HIGH" },
-                      { name: "Hydrocarbon Flange Micro-Leak Detection", count: 1, level: "HIGH" },
+                      { name: lang === 'hi' ? "भारी मशीनरी कंपन और बेयरिंग विफलता" : "Heavy Machinery Vibration & Bearing Failure", count: 4, level: "CRITICAL" },
+                      { name: lang === 'hi' ? "खुला 480V तार और कंड्यूट क्षति" : "Exposed 480V Energized Line & Conduit Breach", count: 2, level: "CRITICAL" },
+                      { name: lang === 'hi' ? "मचान अस्थिर टो-बोर्ड और सुरक्षा टाई-ऑफ दोष" : "Scaffolding Unstable Toe-Board & Tie-Off Defect", count: 2, level: "HIGH" },
+                      { name: lang === 'hi' ? "हाइड्रोकार्बन फ्लैंज सूक्ष्म रिसाव" : "Hydrocarbon Flange Micro-Leak Detection", count: 1, level: "HIGH" },
                     ].map((p, idx) => (
                       <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
                         <span style={{ color: "#1E293B", fontWeight: 600, flex: 1, paddingRight: 8 }}>{p.name}</span>
@@ -936,7 +987,7 @@ export default function HeatmapPage() {
                           color: p.level === "CRITICAL" ? "#DC2626" : "#EA580C",
                           fontWeight: 800, fontSize: 10, padding: "2px 6px", borderRadius: 4,
                         }}>
-                          {p.count} active
+                          {p.count} {lang === 'hi' ? 'सक्रिय' : 'active'}
                         </span>
                       </div>
                     ))}
@@ -946,7 +997,7 @@ export default function HeatmapPage() {
                 {/* Top Critical Risk Drivers (Clickable to Focus on Map) */}
                 <div style={{ backgroundColor: "#FFFFFF", borderRadius: 14, border: "1px solid #D9DEE7", padding: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
                   <div style={{ fontSize: 11, fontWeight: 800, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>
-                    TOP RISK HOTSPOTS (CLICK TO FOCUS)
+                    {lang === 'hi' ? 'शीर्ष जोखिम केंद्र (फ़ोकस करने हेतु क्लिक करें)' : 'TOP RISK HOTSPOTS (CLICK TO FOCUS)'}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {criticalHotspots.map((unit, idx) => {
@@ -987,12 +1038,12 @@ export default function HeatmapPage() {
                 {/* Dynamic Recommended Actions */}
                 <div style={{ backgroundColor: "#FFFFFF", borderRadius: 14, border: "1px solid #D9DEE7", padding: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
                   <div style={{ fontSize: 11, fontWeight: 800, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>
-                    ACTIVE RISK MITIGATIONS
+                    {lang === 'hi' ? 'सक्रिय जोखिम निवारण उपाय' : 'ACTIVE RISK MITIGATIONS'}
                   </div>
                   <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#475569", display: "flex", flexDirection: "column", gap: 8, lineHeight: 1.5 }}>
-                    <li>Review Tank Farm scaffolding guardrails and enforce 100% harness tie-off.</li>
-                    <li>Conduct vibration spectrum FFT analysis on Hydrocracker feed pumps.</li>
-                    <li>Verify zero-energy LOTO isolation on active maintenance tasks.</li>
+                    <li>{lang === 'hi' ? 'टैंक फार्म मचान रेलिंग की समीक्षा करें और 100% हार्नेस टाई-ऑफ लागू करें।' : 'Review Tank Farm scaffolding guardrails and enforce 100% harness tie-off.'}</li>
+                    <li>{lang === 'hi' ? 'हाइड्रोक्रैकर फीड पंपों पर कंपन स्पेक्ट्रम FFT विश्लेषण करें।' : 'Conduct vibration spectrum FFT analysis on Hydrocracker feed pumps.'}</li>
+                    <li>{lang === 'hi' ? 'सक्रिय मेंटेनेंस कार्यों पर शून्य-ऊर्जा LOTO तालाबंदी सत्यापित करें।' : 'Verify zero-energy LOTO isolation on active maintenance tasks.'}</li>
                   </ul>
                 </div>
               </>
@@ -1023,7 +1074,7 @@ export default function HeatmapPage() {
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Zap size={18} style={{ color: "#0A192F" }} />
                 <span style={{ fontSize: 16, fontWeight: 800, color: "var(--text)" }}>
-                  Assign Maintenance Task for {dispatchModalUnit.code}
+                  {lang === 'hi' ? `${dispatchModalUnit.code} के लिए मेंटेनेंस कार्य सौंपें` : `Assign Maintenance Task for ${dispatchModalUnit.code}`}
                 </span>
               </div>
               <button
@@ -1037,16 +1088,16 @@ export default function HeatmapPage() {
 
             <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14 }}>
               <div style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, padding: "10px 12px" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)" }}>TARGET UNIT / LOCATION:</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)" }}>{lang === 'hi' ? 'लक्षित इकाई / स्थान:' : 'TARGET UNIT / LOCATION:'}</div>
                 <div style={{ fontSize: 13, fontWeight: 800, color: "#0F172A", marginTop: 2 }}>{dispatchModalUnit.name} ({dispatchModalUnit.code})</div>
                 <div style={{ fontSize: 11, color: "#DC2626", marginTop: 2, fontWeight: 600 }}>
-                  Dominant Hazard: {dispatchModalUnit.liveDominantHazard || dispatchModalUnit.dominantHazard}
+                  {lang === 'hi' ? 'प्रमुख खतरा:' : 'Dominant Hazard:'} {translateSafetyText(dispatchModalUnit.liveDominantHazard || dispatchModalUnit.dominantHazard, lang)}
                 </div>
               </div>
 
               <div>
                 <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>
-                  Assign Maintenance Crew / Team: *
+                  {lang === 'hi' ? 'मेंटेनेंस क्रू / टीम सौंपें: *' : 'Assign Maintenance Crew / Team: *'}
                 </label>
                 <select
                   value={dispatchCrew}
@@ -1057,7 +1108,7 @@ export default function HeatmapPage() {
                   }}
                 >
                   {MAINTENANCE_CREWS.map(crew => (
-                    <option key={crew} value={crew}>{crew}</option>
+                    <option key={crew} value={crew}>{translateCrew(crew, lang)}</option>
                   ))}
                 </select>
               </div>
@@ -1071,13 +1122,13 @@ export default function HeatmapPage() {
                   style={{ width: 16, height: 16, accentColor: "#dc2626" }}
                 />
                 <label htmlFor="heatmapLoto" style={{ fontSize: 12, fontWeight: 700, color: dispatchLoto ? "#dc2626" : "var(--text)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-                  <Lock size={13} /> LOTO Isolation Mandated for this Task
+                  <Lock size={13} /> {lang === 'hi' ? 'इस कार्य के लिए LOTO तालाबंदी अनिवार्य' : 'LOTO Isolation Mandated for this Task'}
                 </label>
               </div>
 
               <div>
                 <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>
-                  Work Scope &amp; Corrective Instructions:
+                  {lang === 'hi' ? 'कार्य दायरा और सुधारात्मक निर्देश:' : 'Work Scope & Corrective Instructions:'}
                 </label>
                 <textarea
                   value={dispatchInstructions}
@@ -1105,7 +1156,7 @@ export default function HeatmapPage() {
                   cursor: "pointer",
                 }}
               >
-                Cancel
+                {lang === 'hi' ? 'रद्द करें' : 'Cancel'}
               </button>
               <button
                 type="submit"
@@ -1117,7 +1168,7 @@ export default function HeatmapPage() {
                   display: "flex", alignItems: "center", gap: 6,
                 }}
               >
-                <span>{isSubmittingDispatch ? "Dispatching..." : "Assign Task & Dispatch"}</span>
+                <span>{isSubmittingDispatch ? (lang === 'hi' ? 'भेजा जा रहा है...' : 'Dispatching...') : (lang === 'hi' ? 'कार्य सौंपें व भेजें' : 'Assign Task & Dispatch')}</span>
               </button>
             </div>
           </form>

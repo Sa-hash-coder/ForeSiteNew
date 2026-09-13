@@ -113,6 +113,51 @@ export interface Translations {
 
   // Locations
   locations: string[];
+
+  // Officer & Shared Platform UI
+  commandCenter: string;
+  navOverview: string;
+  navReports: string;
+  navHeatmap: string;
+  navAnalytics: string;
+  navAlerts: string;
+  navTasks: string;
+  signOut: string;
+  siteSubtitle: string;
+  leadSafetyInspector: string;
+  safetyOfficer: string;
+
+  officerDashboardTitle: string;
+  totalReportsCard: string;
+  criticalHighCard: string;
+  requiresAction: string;
+  pendingReviewCard: string;
+  awaitingAssessment: string;
+  resolvedCard: string;
+  weeklyReportsTitle: string;
+  liveTelemetryBadge: string;
+  categoryBreakdownTitle: string;
+  activeAlertsTitle: string;
+  allAlertsAck: string;
+  noAlertsSub: string;
+  topRiskZonesTitle: string;
+  incidentsLabel: string;
+  viewAllLink: string;
+
+  searchReportsPlaceholder: string;
+  exportCsvBtn: string;
+  exportExcelBtn: string;
+  tableColId: string;
+  tableColTitle: string;
+  tableColLocation: string;
+  tableColCategory: string;
+  tableColSeverity: string;
+  tableColRiskScore: string;
+  tableColStatus: string;
+  tableColTime: string;
+  tableColAction: string;
+  viewDetailsBtn: string;
+  filterAllLabel: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -233,6 +278,51 @@ export const translations: Record<Language, Translations> = {
       "Warehouse Corridor",
       "Other Location",
     ],
+
+    // Officer & Shared Platform UI
+    commandCenter: "Command Center",
+    navOverview: "Overview",
+    navReports: "Reports",
+    navHeatmap: "Heatmap",
+    navAnalytics: "Analytics",
+    navAlerts: "Alerts",
+    navTasks: "Tasks",
+    signOut: "Sign Out",
+    siteSubtitle: "Site: Refinery Unit Alpha · Live Grid Active",
+    leadSafetyInspector: "Lead Safety Inspector",
+    safetyOfficer: "Safety Officer",
+
+    officerDashboardTitle: "Executive Safety Dashboard",
+    totalReportsCard: "Total Reports",
+    criticalHighCard: "Critical / High",
+    requiresAction: "Requires immediate action",
+    pendingReviewCard: "Pending Review",
+    awaitingAssessment: "Awaiting assessment",
+    resolvedCard: "Resolved",
+    weeklyReportsTitle: "Weekly Reports (Last 8 Weeks)",
+    liveTelemetryBadge: "Live Telemetry",
+    categoryBreakdownTitle: "Category Breakdown",
+    activeAlertsTitle: "Active Alerts",
+    allAlertsAck: "All Active Alerts Acknowledged",
+    noAlertsSub: "No critical or high-risk SIF alerts currently require officer intervention.",
+    topRiskZonesTitle: "Top Risk Zones",
+    incidentsLabel: "incidents",
+    viewAllLink: "View all →",
+
+    searchReportsPlaceholder: "Search reports by title, location...",
+    exportCsvBtn: "Export CSV",
+    exportExcelBtn: "Export Excel",
+    tableColId: "Report ID",
+    tableColTitle: "Incident / Title",
+    tableColLocation: "Location Details",
+    tableColCategory: "Category",
+    tableColSeverity: "Severity",
+    tableColRiskScore: "Risk Score",
+    tableColStatus: "Status",
+    tableColTime: "Reported",
+    tableColAction: "Action",
+    viewDetailsBtn: "View Details",
+    filterAllLabel: "All",
   },
 
   hi: {
@@ -352,5 +442,50 @@ export const translations: Record<Language, Translations> = {
       "वेयरहाउस / मुख्य गलियारा (Warehouse)",
       "अन्य स्थान (Other Location)",
     ],
+
+    // Officer & Shared Platform UI
+    commandCenter: "कमांड सेंटर",
+    navOverview: "अवलोकन",
+    navReports: "रिपोर्ट्स",
+    navHeatmap: "हीटमैप",
+    navAnalytics: "एनालिटिक्स",
+    navAlerts: "चेतावनी",
+    navTasks: "सुधार कार्य",
+    signOut: "लॉग आउट",
+    siteSubtitle: "साइट: रिफाइनरी यूनिट अल्फा · लाइव ग्रिड सक्रिय",
+    leadSafetyInspector: "मुख्य सुरक्षा निरीक्षक",
+    safetyOfficer: "सुरक्षा अधिकारी",
+
+    officerDashboardTitle: "कार्यकारी सुरक्षा डैशबोर्ड",
+    totalReportsCard: "कुल रिपोर्ट्स",
+    criticalHighCard: "गंभीर / उच्च ख़तरा",
+    requiresAction: "तत्काल कार्रवाई आवश्यक",
+    pendingReviewCard: "समीक्षाधीन",
+    awaitingAssessment: "मूल्यांकन की प्रतीक्षा",
+    resolvedCard: "हल किया गया",
+    weeklyReportsTitle: "साप्ताहिक रिपोर्ट्स (पिछले 8 सप्ताह)",
+    liveTelemetryBadge: "लाइव टेलीमेट्री",
+    categoryBreakdownTitle: "श्रेणीवार विवरण",
+    activeAlertsTitle: "सक्रिय चेतावनियाँ",
+    allAlertsAck: "सभी सक्रिय चेतावनियाँ स्वीकृत हैं",
+    noAlertsSub: "वर्तमान में किसी भी गंभीर SIF चेतावनी पर अधिकारी हस्तक्षेप की आवश्यकता नहीं है।",
+    topRiskZonesTitle: "सर्वाधिक जोखिम वाले क्षेत्र",
+    incidentsLabel: "घटनाएं",
+    viewAllLink: "सभी देखें →",
+
+    searchReportsPlaceholder: "शीर्षक, स्थान से रिपोर्ट खोजें...",
+    exportCsvBtn: "सीएसवी निर्यात",
+    exportExcelBtn: "एक्सेल निर्यात",
+    tableColId: "रिपोर्ट ID",
+    tableColTitle: "घटना / शीर्षक",
+    tableColLocation: "स्थान विवरण",
+    tableColCategory: "श्रेणी",
+    tableColSeverity: "गंभीरता",
+    tableColRiskScore: "जोखिम स्कोर",
+    tableColStatus: "स्थिति",
+    tableColTime: "समय",
+    tableColAction: "कार्रवाई",
+    viewDetailsBtn: "विवरण देखें",
+    filterAllLabel: "सभी",
   },
 };

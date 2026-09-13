@@ -65,7 +65,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   if (loading) {
     return (
       <div style={{ padding: 24, textAlign: "center", color: "var(--text-muted)" }}>
-        <p>Loading hazard report...</p>
+        <p>{lang === 'hi' ? 'खतरा रिपोर्ट लोड हो रही है...' : 'Loading hazard report...'}</p>
       </div>
     );
   }
@@ -156,7 +156,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
           {report.maintenanceTasks.map((task: any) => (
             <div key={task._id} style={s.taskCard}>
               <div style={s.taskTop}>
-                <span style={s.taskTitle}>{task.title}</span>
+                <span style={s.taskTitle}>{lang === "hi" ? translateSafetyText(task.title, "hi") : task.title}</span>
                 <span style={{ ...s.taskBadge, display: "inline-flex", alignItems: "center", gap: 4 }}>
                   {task.status === "verified" ? (
                     <>
