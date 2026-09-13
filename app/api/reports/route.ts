@@ -304,32 +304,86 @@ export async function POST(req: NextRequest) {
       }
     } catch {
       // Local fallback heuristics if microservice is offline
-      const combinedText = `${title || ""} ${description || ""}`;
-      const isCritical =
-        severity === "critical" ||
-        /fall|scaffold|scaffolding|wire|wiring|electrocution|electric|water pool|fire|explosion|collapse|gas leak|toxic/i.test(combinedText);
-      const isHigh =
-        severity === "high" ||
-        /leak|steam|flange|crack|vibration|spill|high pressure|bearing|pump|corrosion|corroded|help/i.test(combinedText);
+      const combinedText = `${title || ""} ${description || ""}`.toLowerCase();
 
-      riskLevel = isCritical ? "CRITICAL" : isHigh ? "HIGH" : severity === "low" ? "LOW" : "MEDIUM";
-      riskScore = isCritical ? 88 : isHigh ? 72 : 38;
-      sifProbability = isCritical ? 0.85 : isHigh ? 0.62 : 0.25;
-      precursors = isCritical
-        ? (/wire|electr/i.test(combinedText)
-            ? ["Energized Equipment Exposure", "Proximity to Electrical Hazard"]
-            : ["Working at Height / Unsecured Perimeter", "Direct Line of Fire Exposure"])
-        : isHigh
-        ? ["Mechanical Component Degradation", "Fluid Pressure Anomaly"]
-        : ["Operational Fatigue"];
-      hazards = isCritical
-        ? (/wire|electr/i.test(combinedText)
-            ? ["Electrocution", "Arc Flash"]
-            : ["Catastrophic Structural Failure", "Fatal Fall Impact"])
-        : isHigh
-        ? ["Unplanned Machine Trip", "Hot Fluid Contact"]
-        : ["Minor First Aid Event"];
-      explanation = `Automated SIF classification calculated risk score ${riskScore}/100 (${riskLevel}) for ${location}. Priority response mandated under OSHA 1910.`;
+      const isMinorCosmetic =
+        /\b(paint|peeling|flicker|flickering|tube light|bulb|light bulb|dim light|burnt bulb|cosmetic|trash|litter|water bottle|dust|cleaning|dirty|smudge)\b/i.test(combinedText) &&
+        !/\b(fire|explosion|toxic|gas leak|electric shock|480v|high voltage|electrocution|amputation|crush)\b/i.test(combinedText);
+
+      const isCritical =
+        !isMinorCosmetic && (
+          severity === "critical" ||
+          /\b(fire|explosion|toxic gas|gas leak|480v|high voltage|electrocution|arc flash|cave-in|trench collapse|amputation)\b/i.test(combinedText) ||
+          /\b(bare wire|exposed wire|naked wire|live wire|conductor)\b/i.test(combinedText) ||
+          /\b(fall from|falling from|scaffold|scaffolding|no harness|no railing|unprotected edge|open shaft|open hole|roof edge)\b/i.test(combinedText) ||
+          /\b(structural collapse|cracked pillar|sagging roof)\b/i.test(combinedText)
+        );
+
+      const isSlipNearStairs =
+        !isMinorCosmetic &&
+        /\b(wet floor|slippery|water spill|puddle|liquid spill)\b/i.test(combinedText) &&
+        /\b(stair|stairs|staircase|steps|ladder)\b/i.test(combinedText);
+
+      const isHigh =
+        !isMinorCosmetic && !isCritical && !isSlipNearStairs && (
+          severity === "high" ||
+          /\b(steam leak|high pressure|flange leak|chemical spill|acid|corrosive|bearing failure|heavy vibration|damaged stair|broken stair|missing guardrail)\b/i.test(combinedText)
+        );
+
+      const isGeneralSlip =
+        !isMinorCosmetic &&
+        /\b(wet floor|slippery|water spill|puddle|liquid spill|trip|cluttered)\b/i.test(combinedText);
+
+      if (isMinorCosmetic) {
+        riskLevel = "LOW";
+        riskScore = 18;
+        sifProbability = 0.08;
+        precursors = ["General Facility Illumination / Housekeeping"];
+        hazards = ["Minor First Aid Event / Visibility Inconvenience"];
+        explanation = `Minor housekeeping or illumination observation (${combinedText.slice(0, 45)}...). Low danger with negligible SIF risk. Standard maintenance routine applies.`;
+      } else if (isCritical) {
+        riskLevel = "CRITICAL";
+        riskScore = 88;
+        sifProbability = 0.85;
+        precursors = /wire|electr/i.test(combinedText)
+          ? ["Energized Equipment Exposure", "Proximity to Electrical Hazard"]
+          : /fall|scaffold|railing|roof|edge/i.test(combinedText)
+          ? ["Working at Height / Unsecured Perimeter", "Direct Line of Fire Exposure"]
+          : ["Fire and Explosion SIF Precursor", "Critical Process Safety Failure"];
+        hazards = /wire|electr/i.test(combinedText)
+          ? ["Electrocution", "Arc Flash"]
+          : /fall|scaffold|railing|roof|edge/i.test(combinedText)
+          ? ["Fatal Fall Impact", "Severe Trauma"]
+          : ["Catastrophic Fire Damage", "Fatal Inhalation / Thermal Burn"];
+        explanation = `CRITICAL SIF PRECURSOR identified. Immediate life-safety intervention mandated under OSHA 1910 / 1926 standards.`;
+      } else if (isSlipNearStairs || isHigh) {
+        riskLevel = "HIGH";
+        riskScore = isSlipNearStairs ? 65 : 72;
+        sifProbability = isSlipNearStairs ? 0.55 : 0.62;
+        precursors = isSlipNearStairs
+          ? ["Slippery Walkways at Elevated Staircase", "Stairway Slip and Fall Precursor"]
+          : ["Mechanical Component Degradation", "Fluid Pressure Anomaly"];
+        hazards = isSlipNearStairs
+          ? ["Stairway Fall Trauma", "Fracture / Impact Injury"]
+          : ["Unplanned Machine Trip", "Hot Fluid Contact"];
+        explanation = isSlipNearStairs
+          ? `Wet slippery floor directly adjacent to stairs presents elevated fall and trauma risk. Immediate barricading and dry-mopping required.`
+          : `High operational risk detected. Prompt supervisor inspection and corrective action required within shift.`;
+      } else if (isGeneralSlip || severity === "medium") {
+        riskLevel = "MEDIUM";
+        riskScore = 42;
+        sifProbability = 0.28;
+        precursors = ["Slippery Walkways and Minor Trip Hazards"];
+        hazards = ["Same-Level Slip and Fall", "Minor Contusion"];
+        explanation = `Slippery walkway condition on same level. Non-fatal trip/slip risk. Yellow caution cone and cleanup required.`;
+      } else {
+        riskLevel = "LOW";
+        riskScore = 24;
+        sifProbability = 0.12;
+        precursors = ["Operational Maintenance"];
+        hazards = ["Minor Operational Delay"];
+        explanation = `Routine facility observation. Standard operational follow-up.`;
+      }
     }
 
     if (!recommendations || recommendations.length === 0) {

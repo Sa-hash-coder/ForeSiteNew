@@ -49,12 +49,22 @@ export default function SubmitReportPage() {
 
     try {
       const cleanDesc = description.trim();
+      let autoSeverity: "low" | "medium" | "high" | "critical" = "medium";
+      const tLower = cleanDesc.toLowerCase();
+      if (/\b(fire|explosion|toxic|bare wire|live wire|electrocution|480v|no railing|scaffold|unprotected edge|collapse)\b/i.test(tLower)) {
+        autoSeverity = "critical";
+      } else if (/\b(paint|peeling|flicker|flickering|tube light|bulb|light bulb|dim light|burnt bulb|cosmetic|trash|litter|dust)\b/i.test(tLower)) {
+        autoSeverity = "low";
+      } else if (/\b(wet floor|slippery|water spill)\b/i.test(tLower) && /\b(stair|stairs|staircase|ladder)\b/i.test(tLower)) {
+        autoSeverity = "high";
+      }
+
       await submitReportApi({
         title: cleanDesc || "Worker Field Hazard Report",
         description: cleanDesc,
         location: location || "Plant Floor",
         category: "unsafe_condition",
-        severity: "high",
+        severity: autoSeverity,
         imageUrl: imageBase64 || undefined,
         audioUrl: audioBase64 || undefined,
       });

@@ -82,20 +82,105 @@ export async function POST(req: NextRequest) {
       console.warn("[ForeSite AI] Local MiniLM offline, executing deterministic heuristic analysis:", aiErr);
       isFallback = true;
       const combinedText = `${reportTitle} ${reportDesc}`.toLowerCase();
-      const isCrit = /fall|scaffold|wire|electr|fire|explosion|collapse|gas leak|toxic|high voltage/i.test(combinedText);
-      const isHigh = /leak|steam|flange|crack|vibration|spill|pressure|bearing|pump|corrosion/i.test(combinedText);
 
-      riskScore = isCrit ? 91 : isHigh ? 74 : 42;
-      riskLevel = isCrit ? "CRITICAL" : isHigh ? "HIGH" : "MEDIUM";
-      sifProbability = isCrit ? 0.89 : isHigh ? 0.65 : 0.28;
-      precursors = isCrit ? ["Energized Exposure / Fall Risk", "Critical System Stress"] : ["Equipment Degradation", "Fluid Containment Integrity"];
-      hazards = isCrit ? ["Arc Flash / Structural Fall", "Combustion Potential"] : ["Mechanical Shear", "High Pressure Jet"];
-      recommendations = [
-        "Isolate energy source and enforce strict Lockout/Tagout (LOTO) protocols.",
-        "Establish red perimeter safety barricade and restrict unauthorized personnel access.",
-        "Dispatch certified maintenance crew for comprehensive mechanical / electrical remediation."
-      ];
-      explanation = `Deterministic safety triage triggered: detected high risk keywords in '${reportTitle}'. Priority remediation mandated.`;
+      const isMinorCosmetic =
+        /\b(paint|peeling|flicker|flickering|tube light|bulb|light bulb|dim light|burnt bulb|cosmetic|trash|litter|water bottle|dust|cleaning|dirty|smudge)\b/i.test(combinedText) &&
+        !/\b(fire|explosion|toxic|gas leak|electric shock|480v|high voltage|electrocution|amputation|crush)\b/i.test(combinedText);
+
+      const isCrit =
+        !isMinorCosmetic && (
+          severity === "critical" ||
+          /\b(fire|explosion|toxic gas|gas leak|480v|high voltage|electrocution|arc flash|cave-in|trench collapse|amputation)\b/i.test(combinedText) ||
+          /\b(bare wire|exposed wire|naked wire|live wire|conductor)\b/i.test(combinedText) ||
+          /\b(fall from|falling from|scaffold|scaffolding|no harness|no railing|unprotected edge|open shaft|open hole|roof edge)\b/i.test(combinedText) ||
+          /\b(structural collapse|cracked pillar|sagging roof)\b/i.test(combinedText)
+        );
+
+      const isSlipNearStairs =
+        !isMinorCosmetic &&
+        /\b(wet floor|slippery|water spill|puddle|liquid spill)\b/i.test(combinedText) &&
+        /\b(stair|stairs|staircase|steps|ladder)\b/i.test(combinedText);
+
+      const isHigh =
+        !isMinorCosmetic && !isCrit && !isSlipNearStairs && (
+          severity === "high" ||
+          /\b(steam leak|high pressure|flange leak|chemical spill|acid|corrosive|bearing failure|heavy vibration|damaged stair|broken stair|missing guardrail)\b/i.test(combinedText)
+        );
+
+      const isGeneralSlip =
+        !isMinorCosmetic &&
+        /\b(wet floor|slippery|water spill|puddle|liquid spill|trip|cluttered)\b/i.test(combinedText);
+
+      if (isMinorCosmetic) {
+        riskScore = 18;
+        riskLevel = "LOW";
+        sifProbability = 0.08;
+        precursors = ["General Facility Illumination / Housekeeping"];
+        hazards = ["Minor First Aid Event / Visibility Inconvenience"];
+        recommendations = [
+          "Log standard work order for routine maintenance or housekeeping crew.",
+          "Check again during scheduled shift inspection."
+        ];
+        explanation = `Minor housekeeping observation. No life-safety SIF precursor detected. Standard operational maintenance routine.`;
+      } else if (isCrit) {
+        riskScore = 88;
+        riskLevel = "CRITICAL";
+        sifProbability = 0.85;
+        precursors = /wire|electr/i.test(combinedText)
+          ? ["Energized Exposure / Fall Risk", "Critical System Stress"]
+          : ["Working at Height / Unsecured Perimeter", "Direct Line of Fire Exposure"];
+        hazards = /wire|electr/i.test(combinedText)
+          ? ["Arc Flash / Structural Fall", "Combustion Potential"]
+          : ["Fatal Fall Impact", "Severe Trauma"];
+        recommendations = [
+          "Isolate energy source and enforce strict Lockout/Tagout (LOTO) protocols.",
+          "Establish red perimeter safety barricade and restrict unauthorized personnel access.",
+          "Dispatch certified maintenance crew for immediate emergency remediation."
+        ];
+        explanation = `Deterministic safety triage triggered: detected high risk keywords in '${reportTitle}'. Priority remediation mandated.`;
+      } else if (isSlipNearStairs || isHigh) {
+        riskScore = isSlipNearStairs ? 65 : 72;
+        riskLevel = "HIGH";
+        sifProbability = isSlipNearStairs ? 0.55 : 0.62;
+        precursors = isSlipNearStairs
+          ? ["Slippery Walkways at Elevated Staircase", "Stairway Slip and Fall Precursor"]
+          : ["Equipment Degradation", "Fluid Containment Integrity"];
+        hazards = isSlipNearStairs
+          ? ["Stairway Fall Trauma", "Impact Fracture"]
+          : ["Mechanical Shear", "High Pressure Jet"];
+        recommendations = isSlipNearStairs
+          ? [
+              "Deploy high-visibility caution signs at both stair approaches immediately.",
+              "Mop dry and squeegee pooling liquid from stair landing.",
+              "Inspect handrails and apply anti-skid abrasive strips."
+            ]
+          : [
+              "Inspect mechanical seal and flange integrity.",
+              "Restrict personnel within direct line of spray or vibration zone."
+            ];
+        explanation = isSlipNearStairs
+          ? `Slippery floor adjacent to staircase introduces elevated fall hazard. Rapid response required.`
+          : `High operational risk identified. Supervisor review required.`;
+      } else if (isGeneralSlip || severity === "medium") {
+        riskScore = 42;
+        riskLevel = "MEDIUM";
+        sifProbability = 0.28;
+        precursors = ["Slippery Walkways and Minor Trip Hazards"];
+        hazards = ["Same-Level Slip and Fall", "Minor Contusion"];
+        recommendations = [
+          "Place caution signs around the affected walkway.",
+          "Clean up fluid or remove clutter from pedestrian path."
+        ];
+        explanation = `Routine walkway hazard. Non-fatal slip/trip potential. Clean and signpost.`;
+      } else {
+        riskScore = 24;
+        riskLevel = "LOW";
+        sifProbability = 0.12;
+        precursors = ["Operational Maintenance"];
+        hazards = ["Minor Operational Delay"];
+        recommendations = ["Log for standard shift maintenance."];
+        explanation = `Routine facility observation. Standard operational follow-up.`;
+      }
     }
 
     const analysis = {
