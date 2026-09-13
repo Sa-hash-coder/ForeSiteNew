@@ -564,7 +564,10 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                 </div>
               </div>
               <button
-                onClick={() => handleCreateTaskForRec(rec)}
+                onClick={() => {
+                  setDispatchInstructions(rec);
+                  setShowDispatchModal(true);
+                }}
                 style={{
                   padding: '6px 14px', borderRadius: 6, backgroundColor: '#0A192F', color: '#FFFFFF',
                   border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',

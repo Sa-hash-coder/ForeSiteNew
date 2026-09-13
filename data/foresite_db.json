@@ -428,6 +428,28 @@
   ],
   "tasks": [
     {
+      "title": "Test task",
+      "description": "Testing task creation",
+      "equipmentId": "EQ-GEN",
+      "equipmentName": "General Plant Equipment",
+      "location": "Plant Sector 4",
+      "zone": "Zone 4",
+      "severity": "high",
+      "status": "dispatched",
+      "assignedCrew": "Reliability Crew M-4",
+      "dispatchedBy": {
+        "name": "Officer Command",
+        "role": "Safety Supervisor",
+        "badgeId": "SAF-4019"
+      },
+      "safetyPermitId": "PTW-7612",
+      "lotoRequired": false,
+      "orderNumber": "WO-9083",
+      "_id": "tsk_iodn7s80",
+      "createdAt": "2026-09-13T05:51:32.717Z",
+      "updatedAt": "2026-09-13T05:51:32.717Z"
+    },
+    {
       "title": "Work Order: The wiring is open near the water pool.",
       "description": "Conduct on-site supervisor inspection and log incident in daily hazard register.\n\nGenerated from fine-tuned SIF precursor assessment for Electrical Panel Room.",
       "equipmentId": "EQ-603",

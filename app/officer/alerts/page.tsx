@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState, CSSProperties } from 'react';
-import { getAlertsApi, acknowledgeAlertApi, createTaskApi } from '@/app/lib/api';
+import { getAlertsApi, acknowledgeAlertApi, createTaskApi, getTasksApi } from '@/app/lib/api';
 import Link from 'next/link';
 import { ACTIVE_ALERTS, ActiveAlert } from '@/app/lib/officerMockData';
+import { MAINTENANCE_CREWS } from '@/app/officer/tasks/page';
 import {
   CheckCircle2,
   Zap,
@@ -15,6 +16,9 @@ import {
   Eye,
   Bot,
   Undo2,
+  Wrench,
+  X,
+  Loader2,
 } from 'lucide-react';
 
 import { useLanguage } from '@/app/lib/LanguageContext';
@@ -24,6 +28,7 @@ import {
   translateCategory,
   translateSeverity,
   translateTimeAgo,
+  translateCrew,
 } from '@/app/lib/hindiTranslator';
 
 // ─── Extended Alert with AI Suggestions ──────────────────────────────────────
@@ -147,6 +152,26 @@ function resolveRecommendations(alert: LiveAlertItem): string[] {
   ];
 }
 
+function inferSuggestedCrew(title: string, precursors?: string[]): string {
+  const combined = `${title} ${(precursors || []).join(' ')}`.toLowerCase();
+  if (/scaffold|fall|height|ladder|roof|barrier|guardrail/i.test(combined)) {
+    return "Scaffolding & Structural Rigging Team S-3";
+  }
+  if (/wire|electric|voltage|conduit|breaker|loto|cable|shock|energiz/i.test(combined)) {
+    return "Electrical & High-Voltage Crew E-2";
+  }
+  if (/steam|boiler|pressure|flange|pipe|leak|valve|hydraulic/i.test(combined)) {
+    return "Hydraulics & Pressure Valve Crew H-1";
+  }
+  if (/bearing|vibration|pump|motor|gear|shaft|conveyor|rotating/i.test(combined)) {
+    return "Rotating Machinery Team M-4";
+  }
+  if (/chemical|acid|toxic|spill|fume|gas|corrosive/i.test(combined)) {
+    return "Hazardous Material Containment Team C-1";
+  }
+  return "General Plant Reliability Team G-5";
+}
+
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 type Tab = 'all' | 'critical' | 'high';
@@ -159,6 +184,15 @@ export default function AlertsPage() {
   const [sort, setSort] = useState<SortOpt>('highest_risk');
   const [alerts, setAlerts] = useState<LiveAlertItem[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+
+  // Dispatch Modal State
+  const [selectedAlertForDispatch, setSelectedAlertForDispatch] = useState<LiveAlertItem | null>(null);
+  const [dispatchCrew, setDispatchCrew] = useState<string>(MAINTENANCE_CREWS[0]);
+  const [dispatchInstructions, setDispatchInstructions] = useState<string>('');
+  const [dispatchSeverity, setDispatchSeverity] = useState<string>('high');
+  const [dispatchLoto, setDispatchLoto] = useState<boolean>(false);
+  const [isDispatching, setIsDispatching] = useState<boolean>(false);
+  const [assignedAlerts, setAssignedAlerts] = useState<Record<string, { orderNumber: string; crew: string }>>({});
 
   useEffect(() => {
     let isMounted = true;
@@ -197,7 +231,25 @@ export default function AlertsPage() {
       }
     }
 
+    async function loadTasks() {
+      try {
+        const tRes = await getTasksApi();
+        if (tRes.data && Array.isArray(tRes.data) && isMounted) {
+          const map: Record<string, { orderNumber: string; crew: string }> = {};
+          tRes.data.forEach((t: any) => {
+            const info = { orderNumber: t.orderNumber || "WO-Task", crew: t.assignedCrew || t.assignedTo || "Maintenance" };
+            if (t.reportId) map[t.reportId] = info;
+            if (t.equipmentName) map[t.equipmentName] = info;
+          });
+          setAssignedAlerts(prev => ({ ...map, ...prev }));
+        }
+      } catch (tErr) {
+        console.warn("Could not preload tasks:", tErr);
+      }
+    }
+
     loadAlerts();
+    loadTasks();
     // Real-time live polling every 3.5 seconds
     const interval = setInterval(loadAlerts, 3500);
     return () => {
@@ -206,30 +258,62 @@ export default function AlertsPage() {
     };
   }, []);
 
-  const handleDispatchTask = async (alert: LiveAlertItem) => {
-    try {
-      const primaryRec = alert.recommendations && alert.recommendations.length > 0
-        ? alert.recommendations[0]
-        : `Implement immediate safety isolation for: ${alert.title}`;
+  const openDispatchModal = (alert: LiveAlertItem) => {
+    setSelectedAlertForDispatch(alert);
+    setDispatchCrew(inferSuggestedCrew(alert.title, alert.precursors));
+    const rec = (alert.recommendations && alert.recommendations.length > 0)
+      ? alert.recommendations[0]
+      : `Implement immediate safety isolation and physical inspection for: ${alert.title}`;
+    setDispatchInstructions(rec);
+    setDispatchSeverity(alert.severity || 'high');
+    setDispatchLoto(alert.severity === 'critical');
+  };
 
-      await createTaskApi({
-        title: `Corrective Action: ${alert.title.slice(0, 50)}`,
-        description: `${primaryRec}\n\nIdentified via automated SIF precursor analysis under OSHA 1910 standards.`,
+  const handleConfirmDispatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAlertForDispatch) return;
+    setIsDispatching(true);
+    try {
+      const res = await createTaskApi({
+        title: `Corrective Action: ${selectedAlertForDispatch.title.slice(0, 50)}`,
+        description: `${dispatchInstructions}\n\nIdentified via automated SIF precursor analysis under OSHA 1910 standards.`,
         equipmentId: "EQ-" + Math.floor(100 + Math.random() * 900),
-        equipmentName: alert.title,
-        location: alert.location,
-        severity: alert.severity,
-        assignedCrew: "Reliability & Safety Team M-4",
-        lotoRequired: alert.severity === "critical",
-        reportId: alert.reportId,
+        equipmentName: selectedAlertForDispatch.title,
+        location: selectedAlertForDispatch.location,
+        severity: dispatchSeverity,
+        assignedCrew: dispatchCrew,
+        lotoRequired: dispatchLoto,
+        reportId: selectedAlertForDispatch.reportId,
       });
 
-      setToast(lang === 'hi' ? `मेंटेनेंस कार्य सौंपा गया: "${translateSafetyText(primaryRec, lang).slice(0, 45)}..."` : `Maintenance task assigned: "${primaryRec.slice(0, 45)}..."`);
-      setTimeout(() => setToast(null), 4000);
+      const orderNumber = res.data?.orderNumber || "WO-" + Math.floor(9040 + Math.random() * 50);
+
+      // Mark assigned locally
+      setAssignedAlerts(prev => ({
+        ...prev,
+        [selectedAlertForDispatch._id]: { orderNumber, crew: dispatchCrew },
+        ...(selectedAlertForDispatch.reportId ? { [selectedAlertForDispatch.reportId]: { orderNumber, crew: dispatchCrew } } : {}),
+        [selectedAlertForDispatch.title]: { orderNumber, crew: dispatchCrew },
+      }));
+
+      // Auto-acknowledge alert if not already
+      if (!selectedAlertForDispatch.acknowledged) {
+        toggle(selectedAlertForDispatch._id);
+      }
+
+      setToast(
+        lang === 'hi'
+          ? `मेंटेनेंस कार्य सौंपा गया [${orderNumber}]: ${translateCrew(dispatchCrew, lang)}`
+          : `Work Order [${orderNumber}] assigned to ${dispatchCrew}!`
+      );
+      setSelectedAlertForDispatch(null);
+      setTimeout(() => setToast(null), 5000);
     } catch (err) {
       console.warn("Failed to dispatch task:", err);
       setToast(lang === 'hi' ? "मेंटेनेंस कार्य कतार में दर्ज किया गया।" : "Maintenance task logged to dispatch queue.");
       setTimeout(() => setToast(null), 3000);
+    } finally {
+      setIsDispatching(false);
     }
   };
 
@@ -489,18 +573,48 @@ export default function AlertsPage() {
                         <Eye size={13} /> {lang === 'hi' ? 'रिपोर्ट देखें' : 'View Report'}
                       </button>
                     </Link>
-                    <button
-                      onClick={() => handleDispatchTask(alert)}
-                      style={{
-                        padding: '8px 16px', border: 'none', borderRadius: 8,
-                        background: '#0A192F', color: '#fff', fontSize: 12, fontWeight: 700,
-                        transition: 'all 0.15s ease', whiteSpace: 'nowrap' as const, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                      }}
-                      title={lang === 'hi' ? 'AI सुझावों के आधार पर मेंटेनेंस कार्य सौंपें' : 'Assign maintenance task based on AI suggestions'}
-                    >
-                      <Zap size={13} /> {lang === 'hi' ? 'कार्य सौंपें' : 'Assign Task'}
-                    </button>
+                    {(() => {
+                      const assignedInfo =
+                        assignedAlerts[alert._id] ||
+                        (alert.reportId ? assignedAlerts[alert.reportId] : null) ||
+                        assignedAlerts[alert.title];
+
+                      if (assignedInfo) {
+                        return (
+                          <Link href="/officer/tasks" style={{ textDecoration: 'none' }}>
+                            <button
+                              style={{
+                                width: '100%',
+                                padding: '8px 14px', border: '1px solid #16a34a', borderRadius: 8,
+                                background: '#f0fdf4', color: '#16a34a', fontSize: 12, fontWeight: 700,
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                                whiteSpace: 'nowrap' as const,
+                              }}
+                              title={lang === 'hi' ? 'मेंटेनेंस कार्य सूची देखें' : 'View dispatched task in Tasks list'}
+                            >
+                              <CheckCircle2 size={13} color="#16a34a" />
+                              <span>{assignedInfo.orderNumber ? `[${assignedInfo.orderNumber}] ` : ''}{lang === 'hi' ? 'कार्य सौंपा गया' : 'Task Assigned'}</span>
+                            </button>
+                          </Link>
+                        );
+                      }
+
+                      return (
+                        <button
+                          onClick={() => openDispatchModal(alert)}
+                          style={{
+                            width: '100%',
+                            padding: '8px 16px', border: 'none', borderRadius: 8,
+                            background: '#0A192F', color: '#fff', fontSize: 12, fontWeight: 700,
+                            transition: 'all 0.15s ease', whiteSpace: 'nowrap' as const, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                          }}
+                          title={lang === 'hi' ? 'AI सुझावों के आधार पर मेंटेनेंस कार्य सौंपें' : 'Assign maintenance task based on AI suggestions'}
+                        >
+                          <Zap size={13} /> {lang === 'hi' ? 'कार्य सौंपें' : 'Assign Task'}
+                        </button>
+                      );
+                    })()}
                     <button
                       onClick={() => toggle(alert._id)}
                       style={{
@@ -537,6 +651,193 @@ export default function AlertsPage() {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ─── MODAL: Assign Maintenance Task to Crew ─── */}
+      {selectedAlertForDispatch && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 2000,
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 16,
+        }}>
+          <div style={{
+            backgroundColor: 'var(--surface)',
+            borderRadius: 16,
+            width: '100%',
+            maxWidth: 540,
+            border: '1px solid var(--border)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '16px 20px',
+              borderBottom: '1px solid var(--border)',
+              backgroundColor: 'var(--surface-subtle)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Wrench size={18} style={{ color: '#0A192F' }} />
+                <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>
+                  {lang === 'hi' ? 'मेंटेनेंस टीम को कार्य सौंपें' : 'Assign Maintenance Work Order'}
+                </span>
+              </div>
+              <button
+                onClick={() => setSelectedAlertForDispatch(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <form onSubmit={handleConfirmDispatch} style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Alert Summary Box */}
+              <div style={{ padding: 12, borderRadius: 10, background: 'var(--surface-subtle)', border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    {lang === 'hi' ? 'संबंधित अलर्ट / खतरा' : 'Target Hazard Observation'}
+                  </span>
+                  <span style={{
+                    fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 999,
+                    background: selectedAlertForDispatch.severity === 'critical' ? '#fee2e2' : '#fef3c7',
+                    color: selectedAlertForDispatch.severity === 'critical' ? '#dc2626' : '#d97706',
+                  }}>
+                    {selectedAlertForDispatch.severity?.toUpperCase()} ({selectedAlertForDispatch.riskScore}/100)
+                  </span>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', lineHeight: 1.4 }}>
+                  {translateSafetyText(selectedAlertForDispatch.title, lang)}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <MapPin size={11} /> {translateLocation(selectedAlertForDispatch.location, lang)}
+                </div>
+              </div>
+
+              {/* Work Order Instructions */}
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+                  {lang === 'hi' ? 'कार्य निर्देश व निवारक कार्रवाई (AI सुझावित)' : 'Work Order Instructions & Remediation'}
+                </label>
+                <textarea
+                  value={dispatchInstructions}
+                  onChange={e => setDispatchInstructions(e.target.value)}
+                  rows={3}
+                  required
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: 8,
+                    border: '1px solid var(--border)', background: 'var(--surface)',
+                    color: 'var(--text)', fontSize: 13, resize: 'vertical',
+                  }}
+                />
+              </div>
+
+              {/* Maintenance Crew Selection */}
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+                  {lang === 'hi' ? 'मेंटेनेंस टीम चुनें' : 'Assign to Maintenance Crew'}
+                </label>
+                <select
+                  value={dispatchCrew}
+                  onChange={e => setDispatchCrew(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: 8,
+                    border: '1px solid var(--border)', background: 'var(--surface)',
+                    color: 'var(--text)', fontSize: 13, fontWeight: 600,
+                  }}
+                >
+                  {MAINTENANCE_CREWS.map(crew => (
+                    <option key={crew} value={crew}>
+                      {translateCrew(crew, lang)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Priority & LOTO Row */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+                    {lang === 'hi' ? 'प्राथमिकता स्तर' : 'Priority Severity'}
+                  </label>
+                  <select
+                    value={dispatchSeverity}
+                    onChange={e => setDispatchSeverity(e.target.value)}
+                    style={{
+                      width: '100%', padding: '8px 10px', borderRadius: 8,
+                      border: '1px solid var(--border)', background: 'var(--surface)',
+                      color: 'var(--text)', fontSize: 13,
+                    }}
+                  >
+                    <option value="critical">Critical (Immediate SIF)</option>
+                    <option value="high">High Priority</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low / Routine</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <label style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    fontSize: 12, fontWeight: 700, color: 'var(--text)', cursor: 'pointer', marginTop: 16
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={dispatchLoto}
+                      onChange={e => setDispatchLoto(e.target.checked)}
+                      style={{ width: 16, height: 16, cursor: 'pointer' }}
+                    />
+                    <span>{lang === 'hi' ? 'LOTO आवश्यक (Lockout)' : 'LOTO Isolation Required'}</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedAlertForDispatch(null)}
+                  style={{
+                    padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)',
+                    background: 'transparent', color: 'var(--text)', fontSize: 12, fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {lang === 'hi' ? 'रद्द करें' : 'Cancel'}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isDispatching}
+                  style={{
+                    padding: '8px 20px', borderRadius: 8, border: 'none',
+                    background: '#0A192F', color: '#fff', fontSize: 12, fontWeight: 700,
+                    cursor: isDispatching ? 'not-allowed' : 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    opacity: isDispatching ? 0.7 : 1,
+                  }}
+                >
+                  {isDispatching ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>{lang === 'hi' ? 'सौंपा जा रहा है...' : 'Dispatching Work Order...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap size={14} />
+                      <span>{lang === 'hi' ? 'कार्य आदेश भेजें' : 'Dispatch Work Order'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
