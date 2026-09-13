@@ -250,31 +250,79 @@ def apply_severity_boost(raw_score: float, severity: Optional[str]) -> float:
     return boosted
 
 
-def extract_recommendations(matched_items: List[Dict[str, Any]]) -> List[str]:
+def extract_recommendations(
+    matched_items: List[Dict[str, Any]],
+    category: Optional[str] = None,
+    full_text: Optional[str] = None
+) -> List[str]:
     """
     Extracts actionable safety fix suggestions from matched SIF precursors.
-    Takes the single best step from each top precursor (diverse actions),
-    instead of multiple steps from only one precursor.
+    Takes diverse actions across matched precursors, and if fewer than 3,
+    fills from additional remediation steps of top precursors.
+    If no precursors matched, derives context-specific OSHA tasks.
     """
     recommendations = []
 
+    # First pass: take top step from each precursor
     for item in matched_items:
         steps = item["precursor"].get("remediation_steps", [])
-        if steps:
-            # Take only the FIRST (most critical) step from each matched precursor
-            top_step = steps[0]
-            if top_step not in recommendations:
-                recommendations.append(top_step)
+        if steps and steps[0] not in recommendations:
+            recommendations.append(steps[0])
         if len(recommendations) >= 3:
             break
 
-    # If no specific precursor hit, provide standard preventive guidelines
+    # Second pass: if under 3, fill from remaining steps of matched precursors
+    if len(recommendations) < 3:
+        for item in matched_items:
+            for step in item["precursor"].get("remediation_steps", []):
+                if step not in recommendations:
+                    recommendations.append(step)
+                if len(recommendations) >= 3:
+                    break
+            if len(recommendations) >= 3:
+                break
+
+    # If still empty, use category / full text to provide authentic OSHA guidance
     if not recommendations:
-        recommendations = [
-            "Conduct on-site supervisor inspection and log incident in daily hazard register.",
-            "Verify area is cordoned off if active risk persists.",
-            "Schedule preventive maintenance review."
-        ]
+        text_lower = (full_text or "").lower()
+        cat_lower = (category or "").lower()
+
+        if any(w in text_lower for w in ["fall", "scaffold", "height", "ladder", "harness", "plank"]) or cat_lower == "fall":
+            recommendations = [
+                "Red-tag scaffold as 'DO NOT USE' until re-inspected by certified competent person under OSHA 1926.451.",
+                "Fasten all wooden/metal planks with cleats and install 4-inch toe boards along work platform.",
+                "Verify structural tie-ins to permanent walls and install cross-bracing on all towers."
+            ]
+        elif any(w in text_lower for w in ["steam", "boiler", "flange", "pressure", "psi", "leak", "valve", "hot"]):
+            recommendations = [
+                "Depressurize line to 0 PSI and verify zero stored thermal energy before servicing couplings.",
+                "Deploy certified mechanical team in Level B thermal PPE to replace damaged spiral-wound gasket.",
+                "Torque flange studs in cross-star pattern to 185 ft-lbs and perform ultrasonic leak check."
+            ]
+        elif any(w in text_lower for w in ["wire", "electric", "voltage", "cable", "shock", "breaker", "loto"]) or cat_lower == "electrical":
+            recommendations = [
+                "Lock out and tag out (LOTO) primary electrical feed at source panel and verify Zero Energy State.",
+                "Erect red boundary perimeter barricades with 'DANGER - HIGH VOLTAGE' warning placards.",
+                "Replace damaged wiring with IP67-rated industrial conduit and perform insulation resistance test."
+            ]
+        elif any(w in text_lower for w in ["bearing", "vibration", "pump", "motor", "gear", "shaft", "conveyor"]) or cat_lower == "machinery":
+            recommendations = [
+                "Perform high-resolution FFT vibration spectral analysis to identify bearing raceway degradation.",
+                "Flush contaminated lubricant reservoir and install replacement spherical roller bearings.",
+                "Verify dynamic shaft alignment within 0.05 mm tolerance before re-energizing drive."
+            ]
+        elif any(w in text_lower for w in ["chemical", "acid", "toxic", "spill", "fume", "gas", "corrosive"]) or "chemical" in cat_lower:
+            recommendations = [
+                "Deploy chemical spill containment kit, place neutralizing absorbent berms, and stop active leak.",
+                "Perform 4-gas atmospheric sweep to verify zero toxic gas ppm before re-entry.",
+                "Log hazardous material manifest and replace corroded primary storage vessel."
+            ]
+        else:
+            recommendations = [
+                "Conduct on-site supervisor walkdown inspection and log incident in daily hazard register.",
+                "Verify area is cordoned off with barrier tape if active risk persists.",
+                "Schedule preventive maintenance task review and assign responsible technician."
+            ]
 
     return recommendations
 
@@ -369,7 +417,7 @@ def analyze_report(
     hazards = identify_hazards(full_text, matches)
 
     # Step 4: Extract diverse fix recommendations (one best step per matched precursor)
-    recommendations = extract_recommendations(matches)
+    recommendations = extract_recommendations(matches, category=category, full_text=full_text)
 
     # Step 5: Calculate the mathematical risk score (0 to 100)
     if matches:

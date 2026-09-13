@@ -85,6 +85,126 @@ function timeAgo(iso: string) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+function getDynamicTasks(
+  category?: string,
+  title?: string,
+  description?: string,
+  location?: string,
+  precursors?: string[]
+): { immediateActions: string[]; recommendations: string[]; suggestedCrew: string } {
+  const combined = `${title || ''} ${description || ''} ${location || ''} ${category || ''} ${(precursors || []).join(' ')}`.toLowerCase();
+
+  // 1. Scaffolding / Fall at Height
+  if (/scaffold|fall|height|ladder|harness|plank|tier|deck|roof|guardrail|kickboard/i.test(combined) || category === 'fall') {
+    return {
+      immediateActions: [
+        "Issue Stop-Work notice on elevated structure until 100% harness tie-off compliance is confirmed.",
+        "Red-tag scaffold access ladders as 'DO NOT USE' under OSHA 1926.451."
+      ],
+      recommendations: [
+        "Red-tag scaffold as 'DO NOT USE' until re-inspected by certified competent person under OSHA 1926.451.",
+        "Fasten all wooden/metal planks with cleats and install 4-inch toe boards and midrails.",
+        "Inspect all structural cross-bracing and anchor tie-ins to permanent walls."
+      ],
+      suggestedCrew: "Scaffolding & Structural Rigging Team S-3",
+    };
+  }
+
+  // 2. High Pressure Steam / Flange Leaks / Boiler
+  if (/steam|boiler|flange|pressure|psi|thermal|corroded|pipe|valve|gasket/i.test(combined)) {
+    return {
+      immediateActions: [
+        "Isolate steam feed valves immediately and verify pressure bleeder drop to 0 PSI.",
+        "Establish a 30-meter high-temperature exclusion zone with red thermal warning signage."
+      ],
+      recommendations: [
+        "Depressurize line to 0 PSI and verify zero stored thermal energy before servicing couplings.",
+        "Deploy certified mechanical team in Level B thermal PPE to replace damaged spiral-wound gasket.",
+        "Torque flange studs in cross-star pattern to 185 ft-lbs and perform ultrasonic leak check."
+      ],
+      suggestedCrew: "Hydraulics & Pressure Valve Crew H-1",
+    };
+  }
+
+  // 3. Electrical / High Voltage / Bare Wire
+  if (/wire|electric|voltage|conduit|breaker|loto|cable|shock|energiz|submerged/i.test(combined) || category === 'electrical') {
+    return {
+      immediateActions: [
+        "De-energize circuit breaker at source and lock out with master padlock under LOTO protocol.",
+        "Barricade wet floor area and disconnect all adjacent conductive electrical equipment."
+      ],
+      recommendations: [
+        "Lock out and tag out (LOTO) primary electrical feed at source panel and verify Zero Energy State.",
+        "Erect red boundary perimeter barricades with 'DANGER - HIGH VOLTAGE' warning placards.",
+        "Replace damaged wiring with IP67-rated industrial conduit and perform Megger insulation test."
+      ],
+      suggestedCrew: "Electrical & High-Voltage Crew E-2",
+    };
+  }
+
+  // 4. Rotating Machinery / Bearing / Pump / Vibration / Hydrocracker
+  if (/bearing|vibration|pump|motor|gear|shaft|conveyor|rotating|hydrocracker|nip|pinch/i.test(combined) || category === 'machinery') {
+    return {
+      immediateActions: [
+        "Halt drive motor immediately and engage emergency stop pull-cord.",
+        "Lock out drive power breaker and attach safety tag prohibiting unauthorized restart."
+      ],
+      recommendations: [
+        "Perform high-resolution FFT vibration spectral analysis to identify bearing raceway degradation.",
+        "Flush contaminated lubricant reservoir and install replacement spherical roller bearings.",
+        "Verify dynamic shaft alignment within 0.05 mm tolerance before re-energizing drive."
+      ],
+      suggestedCrew: "Rotating Machinery Team M-4",
+    };
+  }
+
+  // 5. Chemical Spill / Toxic Gas / Acid / Corrosive
+  if (/chemical|acid|toxic|spill|fume|gas|corrosive|drum|drain|h2s|solvent/i.test(combined) || category === 'chemical' || category === 'chemical_exposure') {
+    return {
+      immediateActions: [
+        "Evacuate affected area immediately and deploy forced-air positive ventilation blowers.",
+        "Don Level B chemical protective suit, full-face respirator, and neoprene gloves."
+      ],
+      recommendations: [
+        "Deploy chemical spill containment kit, place neutralizing absorbent berms, and stop active leak.",
+        "Perform 4-gas atmospheric sweep to verify zero toxic gas ppm before re-entry.",
+        "Log hazardous material manifest and replace corroded primary storage vessel."
+      ],
+      suggestedCrew: "Hazardous Material Containment Team C-1",
+    };
+  }
+
+  // 6. Fire / Flammable / Combustible / Smoke
+  if (/fire|smoke|flame|combustible|extinguisher|sprinkler|ignition/i.test(combined) || category === 'fire') {
+    return {
+      immediateActions: [
+        "Sound local sector alarm and clear all combustible materials within 35-foot perimeter.",
+        "Prohibit all hot work and verify automatic deluge/sprinkler valves are fully operational."
+      ],
+      recommendations: [
+        "Post 24-hour continuous fire watch personnel until fire suppression system is recertified.",
+        "Inspect and replace all depressurized dry-chemical extinguishers with certified units.",
+        "Audit hot work permit logs and inspect combustible storage clearances per NFPA 30."
+      ],
+      suggestedCrew: "General Plant Reliability Team G-5",
+    };
+  }
+
+  // 7. General Emergency / Distress / Unsafe Condition (e.g. "Help help help.")
+  return {
+    immediateActions: [
+      "Dispatch field supervisor rapid-response team to physically inspect and secure the sector.",
+      "Halt operations in immediate hazard vicinity under Stop-Work Authority."
+    ],
+    recommendations: [
+      "Conduct comprehensive physical walkdown inspection with area supervisor to determine root hazard.",
+      "Establish a controlled safety perimeter with yellow hazard tape and barricades.",
+      "Schedule priority corrective maintenance work order and log findings in shift handover log."
+    ],
+    suggestedCrew: "General Plant Reliability Team G-5",
+  };
+}
+
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function ReportDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -109,6 +229,25 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
         let loadedReport: any = null;
         if (res.data) {
           const d: any = res.data;
+          const rawRecs: string[] = Array.isArray(d.recommendations) && d.recommendations.length > 0
+            ? d.recommendations
+            : Array.isArray(d.riskAssessment?.recommendations) && d.riskAssessment.recommendations.length > 0
+            ? d.riskAssessment.recommendations
+            : [];
+
+          // If recs are generic placeholder, replace with smart contextual OSHA tasks
+          const isGeneric = rawRecs.length > 0 && rawRecs.some((r: string) => r.toLowerCase().includes("daily hazard register"));
+          const dynamic = getDynamicTasks(d.category, d.title, d.description, d.location, d.precursors || d.riskAssessment?.precursors);
+
+          const finalRecs = (rawRecs.length > 0 && !isGeneric) ? rawRecs : dynamic.recommendations;
+          const finalImm = (Array.isArray(d.immediateActions) && d.immediateActions.length > 0) ? d.immediateActions : dynamic.immediateActions;
+          const finalPrecursors = (Array.isArray(d.precursors) && d.precursors.length > 0)
+            ? d.precursors
+            : (Array.isArray(d.riskAssessment?.precursors) && d.riskAssessment.precursors.length > 0)
+            ? d.riskAssessment.precursors
+            : [];
+          const finalExplanation = d.explanation || d.riskAssessment?.explanation || "Automated SIF classification calculated by fine-tuned model under OSHA 1910 standards.";
+
           loadedReport = {
             _id: d._id,
             title: d.title,
@@ -123,23 +262,20 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             department: d.submittedBy?.department || "Operations",
             createdAt: d.createdAt || new Date().toISOString(),
             description: d.description,
-            immediateActions: d.recommendations && d.recommendations.length > 0 ? d.recommendations.slice(0, 2) : [
-              "Halt hazardous operation immediately under Stop-Work Authority.",
-              "Erect safety perimeter barricade tape and OSHA hazard notice."
-            ],
-            recommendations: d.recommendations && d.recommendations.length > 0 ? d.recommendations : [
-              "Conduct on-site supervisor inspection and log incident in daily hazard register.",
-              "Verify area is cordoned off if active risk persists.",
-              "Schedule preventive maintenance task review."
-            ],
-            precursors: d.precursors || [],
-            explanation: d.explanation || "Automated SIF classification calculated by fine-tuned model under OSHA 1910 standards.",
+            immediateActions: finalImm,
+            recommendations: finalRecs,
+            precursors: finalPrecursors,
+            explanation: finalExplanation,
+            suggestedCrew: dynamic.suggestedCrew,
             hasImage: Boolean(d.imageUrl),
             imageUrl: d.imageUrl,
           };
           setReport(loadedReport);
           setDispatchSeverity(loadedReport.severity || "high");
           setDispatchLoto(loadedReport.severity === "critical");
+          if (dynamic.suggestedCrew) {
+            setDispatchCrew(dynamic.suggestedCrew);
+          }
         } else {
           const fallback = MOCK_REPORTS.find(r => r._id === id) || { ...MOCK_REPORTS[0], _id: id };
           setReport(fallback);
@@ -171,6 +307,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
 
   const handleCreateTaskForRec = async (recText: string) => {
     try {
+      const assignedCrew = report.suggestedCrew || dispatchCrew || MAINTENANCE_CREWS[0];
       const res = await createTaskApi({
         title: `Task: ${report.title.slice(0, 45)}`,
         description: `${recText}\n\nGenerated from fine-tuned SIF precursor assessment for ${report.location}.`,
@@ -178,7 +315,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
         equipmentName: report.title,
         location: report.location,
         severity: report.severity,
-        assignedCrew: "Rotating Machinery Team M-4",
+        assignedCrew: assignedCrew,
         lotoRequired: report.severity === "critical",
         reportId: report._id,
       });
@@ -188,7 +325,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
       }
       await updateReportStatusApi(report._id, "action_assigned");
       setReport((prev: any) => ({ ...prev, status: "action_assigned" }));
-      showToast("Assigned maintenance task to Rotating Machinery Team M-4!");
+      showToast(`Assigned maintenance task to ${assignedCrew}!`);
     } catch {
       showToast("Task logged to maintenance queue.");
     }

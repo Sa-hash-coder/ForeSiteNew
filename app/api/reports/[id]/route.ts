@@ -75,6 +75,9 @@ export async function GET(
         const computedLevel = report.riskLevel || report.risk_level || (report.severity === "critical" ? "CRITICAL" : report.severity === "high" ? "HIGH" : "MEDIUM");
         const computedScore = report.riskScore ?? report.risk_score ?? (computedLevel === "CRITICAL" ? 88 : computedLevel === "HIGH" ? 72 : 45);
         const computedSif = report.sifProbability ?? report.sif_probability ?? (computedLevel === "CRITICAL" ? 0.85 : computedLevel === "HIGH" ? 0.65 : 0.25);
+        const recs = report.recommendations || (report as any).riskAssessment?.recommendations || [];
+        const precs = report.precursors || (report as any).riskAssessment?.precursors || [];
+        const expl = report.explanation || (report as any).riskAssessment?.explanation || "";
         return NextResponse.json({
           success: true,
           data: {
@@ -88,13 +91,17 @@ export async function GET(
             audioUrl: report.audioUrl,
             status: report.status,
             submittedBy: report.submittedBy,
+            recommendations: recs,
+            precursors: precs,
+            explanation: expl,
             riskAssessment: {
               riskScore: computedScore,
               riskLevel: computedLevel,
               sifProbability: computedSif,
-              precursors: report.precursors || [],
+              precursors: precs,
               hazards: report.hazards || [],
-              explanation: report.explanation || "",
+              explanation: expl,
+              recommendations: recs,
             },
             createdAt: report.createdAt,
             updatedAt: report.updatedAt,
@@ -118,6 +125,9 @@ export async function GET(
     const computedLevel = (report as any).risk_level || (report as any).riskLevel || ((report as any).severity === "critical" ? "CRITICAL" : (report as any).severity === "high" ? "HIGH" : "MEDIUM");
     const computedScore = (report as any).risk_score ?? (report as any).riskScore ?? (computedLevel === "CRITICAL" ? 88 : computedLevel === "HIGH" ? 72 : 45);
     const computedSif = (report as any).sif_probability ?? (report as any).sifProbability ?? (computedLevel === "CRITICAL" ? 0.85 : computedLevel === "HIGH" ? 0.65 : 0.25);
+    const recs = (report as any).recommendations || (report as any).riskAssessment?.recommendations || [];
+    const precs = (report as any).precursors || (report as any).riskAssessment?.precursors || [];
+    const expl = (report as any).explanation || (report as any).riskAssessment?.explanation || "";
 
     return NextResponse.json({
       success: true,
@@ -132,13 +142,17 @@ export async function GET(
         audioUrl: report.audioUrl,
         status: report.status,
         submittedBy: report.submittedBy,
+        recommendations: recs,
+        precursors: precs,
+        explanation: expl,
         riskAssessment: {
           riskScore: computedScore,
           riskLevel: computedLevel,
           sifProbability: computedSif,
-          precursors: report.precursors || [],
+          precursors: precs,
           hazards: report.hazards || [],
-          explanation: report.explanation || "",
+          explanation: expl,
+          recommendations: recs,
         },
         createdAt: report.createdAt,
         updatedAt: report.updatedAt,

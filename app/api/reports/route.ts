@@ -59,6 +59,61 @@ const UserSubmissionSchema = new mongoose.Schema(
 const UserSubmission =
   mongoose.models.UserSubmission || mongoose.model("UserSubmission", UserSubmissionSchema, "reports");
 
+export function getSmartRemediationTasks(category?: string, text?: string, precursors?: string[]): string[] {
+  const t = (text || "").toLowerCase();
+  const c = (category || "").toLowerCase();
+  const p = (precursors || []).join(" ").toLowerCase();
+  const combined = `${t} ${c} ${p}`;
+
+  if (/scaffold|fall|ladder|height|roof|harness|plank|platform/i.test(combined) || c === "fall") {
+    return [
+      "Red-tag scaffold as 'DO NOT USE' until re-inspected by certified competent person under OSHA 1926.451.",
+      "Install 4-inch toe boards, midrails, and verify 100% harness tie-off compliance.",
+      "Inspect all structural cross-bracing and anchor tie-ins to permanent walls."
+    ];
+  }
+  if (/steam|boiler|pressure|flange|pipe|leak|valve|psi|gasket|thermal/i.test(combined)) {
+    return [
+      "Depressurize line to 0 PSI and verify zero stored thermal energy before loosening couplings.",
+      "Deploy certified mechanical team in Level B thermal PPE to replace damaged spiral-wound gasket.",
+      "Torque flange studs in cross-star pattern to specified torque and perform ultrasonic leak check."
+    ];
+  }
+  if (/wire|electric|voltage|conduit|breaker|loto|cable|shock|energiz/i.test(combined) || c === "electrical") {
+    return [
+      "Lock out and tag out (LOTO) primary electrical feed at source panel and verify Zero Energy State.",
+      "Erect red boundary perimeter barricades with 'DANGER - HIGH VOLTAGE' warning placards.",
+      "Replace damaged wiring with IP67-rated industrial conduit and perform insulation resistance test."
+    ];
+  }
+  if (/bearing|vibration|pump|motor|gear|shaft|conveyor|rotating|nip/i.test(combined) || c === "machinery") {
+    return [
+      "Halt drive unit immediately and isolate electrical drive under lockout/tagout protocol.",
+      "Perform high-resolution FFT vibration spectral analysis to identify bearing race degradation.",
+      "Flush lubrication reservoir, install replacement bearing assembly, and verify shaft alignment."
+    ];
+  }
+  if (/chemical|acid|toxic|spill|fume|gas|corrosive|drum|drain/i.test(combined) || c === "chemical" || c === "chemical_exposure") {
+    return [
+      "Deploy emergency spill containment kit, place absorbent berms, and evacuate non-essential personnel.",
+      "Don Level B chemical protective suits, full-face respirators, and chemical-resistant gloves.",
+      "Neutralize pooled chemical substance, verify atmosphere with multi-gas detector, and log manifest."
+    ];
+  }
+  if (/fire|smoke|flame|combustible|extinguisher/i.test(combined) || c === "fire") {
+    return [
+      "Activate local sector fire alarm and clear combustible materials within 35-foot perimeter.",
+      "Verify operability of automatic deluge/sprinkler valves and inspect all fire hose stations.",
+      "Post 24-hour continuous fire watch personnel until fire suppression system recertification is signed."
+    ];
+  }
+  return [
+    "Dispatch area safety supervisor to establish a controlled perimeter around the reported hazard.",
+    "Halt affected operations under Stop-Work Authority until a competent person inspection is completed.",
+    "Issue preventive maintenance order to inspect, repair, and verify clearance before resuming service."
+  ];
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -89,6 +144,9 @@ export async function GET(req: NextRequest) {
         const computedLevel = r.riskLevel || r.risk_level || (r.severity === "critical" ? "CRITICAL" : r.severity === "high" ? "HIGH" : "MEDIUM");
         const computedScore = r.riskScore ?? r.risk_score ?? (computedLevel === "CRITICAL" ? 88 : computedLevel === "HIGH" ? 72 : 45);
         const computedSif = r.sifProbability ?? r.sif_probability ?? (computedLevel === "CRITICAL" ? 0.85 : computedLevel === "HIGH" ? 0.65 : 0.25);
+        const recs = r.recommendations || (r as any).riskAssessment?.recommendations || [];
+        const precs = r.precursors || (r as any).riskAssessment?.precursors || [];
+        const expl = r.explanation || (r as any).riskAssessment?.explanation || "";
         return {
           _id: r._id,
           title: r.title,
@@ -97,13 +155,17 @@ export async function GET(req: NextRequest) {
           severity: r.severity,
           status: r.status,
           createdAt: r.createdAt,
+          recommendations: recs,
+          precursors: precs,
+          explanation: expl,
           riskAssessment: {
             riskScore: computedScore,
             riskLevel: computedLevel,
             sifProbability: computedSif,
-            precursors: r.precursors || [],
+            precursors: precs,
             hazards: r.hazards || [],
-            explanation: r.explanation || "",
+            explanation: expl,
+            recommendations: recs,
           },
           submittedBy: r.submittedBy,
         };
@@ -116,6 +178,9 @@ export async function GET(req: NextRequest) {
         const computedLevel = r.risk_level || (r.severity === "critical" ? "CRITICAL" : r.severity === "high" ? "HIGH" : "MEDIUM");
         const computedScore = r.risk_score ?? (computedLevel === "CRITICAL" ? 88 : computedLevel === "HIGH" ? 72 : 45);
         const computedSif = r.sif_probability ?? (computedLevel === "CRITICAL" ? 0.85 : computedLevel === "HIGH" ? 0.65 : 0.25);
+        const recs = (r as any).recommendations || (r as any).riskAssessment?.recommendations || [];
+        const precs = (r as any).precursors || (r as any).riskAssessment?.precursors || [];
+        const expl = (r as any).explanation || (r as any).riskAssessment?.explanation || "";
         return {
           _id: r._id,
           title: r.title,
@@ -124,13 +189,17 @@ export async function GET(req: NextRequest) {
           severity: r.severity,
           status: r.status,
           createdAt: r.createdAt,
+          recommendations: recs,
+          precursors: precs,
+          explanation: expl,
           riskAssessment: {
             riskScore: computedScore,
             riskLevel: computedLevel,
             sifProbability: computedSif,
-            precursors: r.precursors || [],
+            precursors: precs,
             hazards: r.hazards || [],
-            explanation: r.explanation || "",
+            explanation: expl,
+            recommendations: recs,
           },
           submittedBy: r.submittedBy,
         };
@@ -261,6 +330,10 @@ export async function POST(req: NextRequest) {
         ? ["Unplanned Machine Trip", "Hot Fluid Contact"]
         : ["Minor First Aid Event"];
       explanation = `Automated SIF classification calculated risk score ${riskScore}/100 (${riskLevel}) for ${location}. Priority response mandated under OSHA 1910.`;
+    }
+
+    if (!recommendations || recommendations.length === 0) {
+      recommendations = getSmartRemediationTasks(category, `${title || ""} ${description || ""}`, precursors);
     }
 
     const reportTitle = title || (description ? description.slice(0, 60) : `Hazard Report - ${location || "Sector 4"}`);
