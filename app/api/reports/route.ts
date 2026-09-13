@@ -141,9 +141,9 @@ export async function GET(req: NextRequest) {
       ]);
 
       reports = mongoReports.map((r: any) => {
-        const computedLevel = r.riskLevel || r.risk_level || (r.severity === "critical" ? "CRITICAL" : r.severity === "high" ? "HIGH" : "MEDIUM");
-        const computedScore = r.riskScore ?? r.risk_score ?? (computedLevel === "CRITICAL" ? 88 : computedLevel === "HIGH" ? 72 : 45);
-        const computedSif = r.sifProbability ?? r.sif_probability ?? (computedLevel === "CRITICAL" ? 0.85 : computedLevel === "HIGH" ? 0.65 : 0.25);
+        const computedLevel = r.riskLevel || r.risk_level || (r.severity === "critical" ? "CRITICAL" : r.severity === "high" ? "HIGH" : r.severity === "low" ? "LOW" : "MEDIUM");
+        const computedScore = r.riskScore ?? r.risk_score ?? (computedLevel === "CRITICAL" ? 88 : computedLevel === "HIGH" ? 72 : computedLevel === "LOW" ? 20 : 45);
+        const computedSif = r.sifProbability ?? r.sif_probability ?? (computedLevel === "CRITICAL" ? 0.85 : computedLevel === "HIGH" ? 0.65 : computedLevel === "LOW" ? 0.10 : 0.25);
         const recs = r.recommendations || (r as any).riskAssessment?.recommendations || [];
         const precs = r.precursors || (r as any).riskAssessment?.precursors || [];
         const expl = r.explanation || (r as any).riskAssessment?.explanation || "";
@@ -175,9 +175,9 @@ export async function GET(req: NextRequest) {
       console.warn("MongoDB unavailable, falling back to local JSON store:", mongoErr);
       const result = await dbReports.list({ status, riskLevel, category, limit, page });
       reports = result.reports.map((r) => {
-        const computedLevel = r.risk_level || (r.severity === "critical" ? "CRITICAL" : r.severity === "high" ? "HIGH" : "MEDIUM");
-        const computedScore = r.risk_score ?? (computedLevel === "CRITICAL" ? 88 : computedLevel === "HIGH" ? 72 : 45);
-        const computedSif = r.sif_probability ?? (computedLevel === "CRITICAL" ? 0.85 : computedLevel === "HIGH" ? 0.65 : 0.25);
+        const computedLevel = r.risk_level || (r.severity === "critical" ? "CRITICAL" : r.severity === "high" ? "HIGH" : r.severity === "low" ? "LOW" : "MEDIUM");
+        const computedScore = r.risk_score ?? (computedLevel === "CRITICAL" ? 88 : computedLevel === "HIGH" ? 72 : computedLevel === "LOW" ? 20 : 45);
+        const computedSif = r.sif_probability ?? (computedLevel === "CRITICAL" ? 0.85 : computedLevel === "HIGH" ? 0.65 : computedLevel === "LOW" ? 0.10 : 0.25);
         const recs = (r as any).recommendations || (r as any).riskAssessment?.recommendations || [];
         const precs = (r as any).precursors || (r as any).riskAssessment?.precursors || [];
         const expl = (r as any).explanation || (r as any).riskAssessment?.explanation || "";
