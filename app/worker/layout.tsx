@@ -20,6 +20,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { getStoredUser } from "@/app/lib/auth";
+import { translateSafetyText, translateLocation } from "@/app/lib/hindiTranslator";
 
 interface NotificationItem {
   id: string;
@@ -82,16 +83,17 @@ function WorkerAppContent({ children }: { children: React.ReactNode }) {
         if (altRes.status === "fulfilled" && altRes.value?.success && Array.isArray(altRes.value.data)) {
           altRes.value.data.forEach((alt: any) => {
             const isCritical = alt.riskLevel === "CRITICAL" || alt.riskScore >= 80;
+            const rawMsg = alt.message || alt.reportTitle || "High risk safety precursor active.";
             items.push({
               id: `alt_${alt._id || alt.reportId || Math.random()}`,
               title: isCritical
                 ? (lang === "hi" ? "गंभीर SIF सुरक्षा चेतावनी" : "Critical SIF Hazard Alert")
                 : (lang === "hi" ? "प्लांट सुरक्षा सूचना" : "Plant Safety Warning"),
-              message: alt.message || alt.reportTitle || "High risk safety precursor active.",
+              message: translateSafetyText(rawMsg, lang),
               timestamp: alt.createdAt || new Date().toISOString(),
               type: "alert",
               link: alt.reportId ? `/worker/reports/${alt.reportId}` : "/worker/reports",
-              location: alt.location || "Refinery Unit Alpha",
+              location: translateLocation(alt.location || "Refinery Unit Alpha", lang),
             });
           });
         }
@@ -99,35 +101,38 @@ function WorkerAppContent({ children }: { children: React.ReactNode }) {
         // 2. Process reports status updates
         if (repRes.status === "fulfilled" && repRes.value?.success && Array.isArray(repRes.value.data)) {
           repRes.value.data.forEach((rep: any) => {
+            const translatedTitle = translateSafetyText(rep.title, lang);
+            const translatedLocation = translateLocation(rep.location, lang);
+
             if (rep.status === "action_assigned") {
               items.push({
                 id: `rep_act_${rep._id}`,
                 title: lang === "hi" ? "मेंटेनेंस टीम भेजी गई" : "Maintenance Team Dispatched",
-                message: `${lang === "hi" ? "कार्य दल सौंपा गया:" : "Crew task assigned for:"} ${rep.title}`,
+                message: lang === "hi" ? `कार्य दल सौंपा गया: ${translatedTitle}` : `Crew task assigned for: ${rep.title}`,
                 timestamp: rep.createdAt || new Date().toISOString(),
                 type: "action",
                 link: `/worker/reports/${rep._id}`,
-                location: rep.location,
+                location: translatedLocation,
               });
             } else if (rep.status === "resolved" || rep.status === "closed") {
               items.push({
                 id: `rep_res_${rep._id}`,
                 title: lang === "hi" ? "खतरा हल और सत्यापित" : "Hazard Cleared & Verified",
-                message: `${lang === "hi" ? "सुरक्षा क्लीयरेंस स्वीकृत:" : "Safety clearance verified:"} ${rep.title}`,
+                message: lang === "hi" ? `सुरक्षा क्लीयरेंस स्वीकृत: ${translatedTitle}` : `Safety clearance verified: ${rep.title}`,
                 timestamp: rep.createdAt || new Date().toISOString(),
                 type: "resolved",
                 link: `/worker/reports/${rep._id}`,
-                location: rep.location,
+                location: translatedLocation,
               });
             } else if (rep.status === "under_review") {
               items.push({
                 id: `rep_rev_${rep._id}`,
                 title: lang === "hi" ? "अधिकारी समीक्षाधीन" : "Safety Officer Review",
-                message: `${lang === "hi" ? "समीक्षा जारी:" : "Review in progress:"} ${rep.title}`,
+                message: lang === "hi" ? `समीक्षा जारी: ${translatedTitle}` : `Review in progress: ${rep.title}`,
                 timestamp: rep.createdAt || new Date().toISOString(),
                 type: "review",
                 link: `/worker/reports/${rep._id}`,
-                location: rep.location,
+                location: translatedLocation,
               });
             }
           });

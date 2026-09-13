@@ -8,6 +8,7 @@ import { useLanguage } from "@/app/lib/LanguageContext";
 import StatusBadge from "@/app/components/StatusBadge";
 import DangerBadge from "@/app/components/DangerBadge";
 import { Inbox, MapPin } from "lucide-react";
+import { translateSafetyText, translateLocation } from "@/app/lib/hindiTranslator";
 
 export default function MyReportsPage() {
   const { lang, t } = useLanguage();
@@ -76,8 +77,8 @@ export default function MyReportsPage() {
       )}
 
       {filtered.map((r, idx) => {
-        const displayTitle = lang === "hi" && r.titleHi ? r.titleHi : r.title;
-        const displayLocation = lang === "hi" && r.locationHi ? r.locationHi : r.location;
+        const displayTitle = lang === "hi" ? (r.titleHi || translateSafetyText(r.title, "hi")) : r.title;
+        const displayLocation = lang === "hi" ? (r.locationHi || translateLocation(r.location, "hi")) : r.location;
         const delayClass = `delay-${(idx % 4) + 1}`;
 
         return (

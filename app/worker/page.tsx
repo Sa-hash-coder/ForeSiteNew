@@ -9,6 +9,7 @@ import DangerBadge from "@/app/components/DangerBadge";
 import { getStoredUser } from "@/app/lib/auth";
 import { getMyReportsApi } from "@/app/lib/api";
 import { ShieldCheck, Check, AlertTriangle } from "lucide-react";
+import { translateSafetyText, translateLocation } from "@/app/lib/hindiTranslator";
 
 export default function WorkerDashboard() {
   const { lang, t } = useLanguage();
@@ -198,8 +199,8 @@ export default function WorkerDashboard() {
 
           <div style={styles.reportsList}>
             {recent.map((r) => {
-              const displayTitle = lang === "hi" && r.titleHi ? r.titleHi : r.title;
-              const displayLocation = lang === "hi" && r.locationHi ? r.locationHi : r.location;
+              const displayTitle = lang === "hi" ? (r.titleHi || translateSafetyText(r.title, "hi")) : r.title;
+              const displayLocation = lang === "hi" ? (r.locationHi || translateLocation(r.location, "hi")) : r.location;
 
               return (
                 <Link href={`/worker/reports/${r._id}`} key={r._id} className="apple-card" style={styles.reportCard}>

@@ -17,6 +17,7 @@ import {
   Calendar,
   Check,
 } from "lucide-react";
+import { translateSafetyText, translateLocation } from "@/app/lib/hindiTranslator";
 
 export default function ReportDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -80,10 +81,12 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  const displayTitle = lang === "hi" && report.titleHi ? report.titleHi : report.title;
-  const displayDesc = lang === "hi" && report.descriptionHi ? report.descriptionHi : report.description;
-  const displayLocation = lang === "hi" && report.locationHi ? report.locationHi : report.location;
-  const suggestions = lang === "hi" && report.suggestionsHi ? report.suggestionsHi : (report.suggestions || []);
+  const displayTitle = lang === "hi" ? (report.titleHi || translateSafetyText(report.title, "hi")) : report.title;
+  const displayDesc = lang === "hi" ? (report.descriptionHi || translateSafetyText(report.description, "hi")) : report.description;
+  const displayLocation = lang === "hi" ? (report.locationHi || translateLocation(report.location, "hi")) : report.location;
+  const suggestions = lang === "hi"
+    ? (report.suggestionsHi || (report.suggestions || []).map((s: string) => translateSafetyText(s, "hi")))
+    : (report.suggestions || []);
   const risk = report.riskAssessment;
 
   // Text that will be read aloud by the Voice button
